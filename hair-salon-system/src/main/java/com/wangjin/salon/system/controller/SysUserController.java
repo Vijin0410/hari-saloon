@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,6 +38,7 @@ public class SysUserController {
     @Operation(summary = "用户分页")
     @GetMapping("/page")
     @QueryDict
+    @PreAuthorize("hasAuthority('system:user:list')")
     public PageResult<UserPageVO> getUserPage(UserPageQuery queryParams) {
         var page = userService.getUserPage(queryParams);
         return PageResult.success(page.getRecords(), page.getTotal());
@@ -45,42 +47,49 @@ public class SysUserController {
     @Operation(summary = "新增用户")
     @PostMapping
     @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('system:user:add')")
     public Result<Void> saveUser(@RequestBody @Valid UserForm userForm) {
         return Result.judge(userService.saveUser(userForm));
     }
 
     @Operation(summary = "用户表单")
     @GetMapping("/{userId}/form")
+    @PreAuthorize("hasAuthority('system:user:list')")
     public Result<UserForm> getUserForm(@PathVariable Long userId) {
         return Result.success(userService.getUserFormData(userId));
     }
 
     @Operation(summary = "修改用户")
     @PutMapping("/{userId}")
+    @PreAuthorize("hasAuthority('system:user:edit')")
     public Result<Void> updateUser(@PathVariable Long userId, @RequestBody @Valid UserForm userForm) {
         return Result.judge(userService.updateUser(userId, userForm));
     }
 
     @Operation(summary = "删除用户")
     @DeleteMapping
+    @PreAuthorize("hasAuthority('system:user:delete')")
     public Result<Void> deleteUsers(@RequestParam String ids) {
         return Result.judge(userService.deleteUsers(ids));
     }
 
     @Operation(summary = "重置密码")
     @PatchMapping("/{userId}/password")
+    @PreAuthorize("hasAuthority('system:user:edit')")
     public Result<Void> updatePassword(@PathVariable Long userId, @RequestParam String password) {
         return Result.judge(userService.updatePassword(userId, password));
     }
 
     @Operation(summary = "修改状态")
     @PatchMapping("/{userId}/status")
+    @PreAuthorize("hasAuthority('system:user:edit')")
     public Result<Void> updateUserStatus(@PathVariable Long userId, @RequestParam Integer status) {
         return Result.judge(userService.updateUserStatus(userId, status));
     }
 
     @Operation(summary = "当前登录用户")
     @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
     public Result<UserInfoVO> getUserLoginInfo() {
         return Result.success(userService.getUserLoginInfo());
     }

@@ -11,6 +11,7 @@ import com.wangjin.salon.system.service.SysMenuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,24 +35,28 @@ public class SysMenuController {
 
     @Operation(summary = "菜单树")
     @GetMapping
+    @PreAuthorize("hasAuthority('system:menu:list')")
     public Result<List<MenuVO>> listMenus(MenuQuery queryParams) {
         return Result.success(menuService.listMenus(queryParams));
     }
 
     @Operation(summary = "菜单下拉")
     @GetMapping("/options")
+    @PreAuthorize("hasAuthority('system:menu:list')")
     public Result<List<Option<Long>>> listMenuOptions(@RequestParam(required = false) String menuType) {
         return Result.success(menuService.listMenuOptions(menuType));
     }
 
     @Operation(summary = "路由列表")
     @GetMapping("/routes")
+    @PreAuthorize("isAuthenticated()")
     public Result<List<RouteVO>> listRoutes() {
         return Result.success(menuService.listRoutes());
     }
 
     @Operation(summary = "菜单表单")
     @GetMapping("/{id}/form")
+    @PreAuthorize("hasAuthority('system:menu:list')")
     public Result<MenuForm> getMenuForm(@PathVariable Long id) {
         return Result.success(menuService.getMenuForm(id));
     }
@@ -59,12 +64,14 @@ public class SysMenuController {
     @Operation(summary = "新增菜单")
     @PostMapping
     @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('system:menu:add')")
     public Result<Void> addMenu(@RequestBody MenuForm menuForm) {
         return Result.judge(menuService.saveMenu(menuForm));
     }
 
     @Operation(summary = "修改菜单")
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('system:menu:edit')")
     public Result<Void> updateMenu(@PathVariable Long id, @RequestBody MenuForm menuForm) {
         menuForm.setId(id);
         return Result.judge(menuService.saveMenu(menuForm));
@@ -72,6 +79,7 @@ public class SysMenuController {
 
     @Operation(summary = "删除菜单")
     @DeleteMapping
+    @PreAuthorize("hasAuthority('system:menu:delete')")
     public Result<Void> deleteMenu(@RequestParam String ids) {
         menuService.deleteMenu(Arrays.stream(ids.split(",")).map(Long::parseLong).toList());
         return Result.success();

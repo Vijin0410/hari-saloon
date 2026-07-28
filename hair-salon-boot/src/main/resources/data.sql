@@ -63,6 +63,7 @@ SELECT 7, 1, 'systemTenant', 1, 'tenant', 'system/tenant/index', '0,1',
        'system:tenant:list', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 7);
 
+-- 用户按钮
 INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
 SELECT 21, 2, 'userAdd', 4, '0,1,2', '{"title":"新增用户"}', 'system:user:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 21);
@@ -73,6 +74,32 @@ INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_i
 SELECT 23, 2, 'userDelete', 4, '0,1,2', '{"title":"删除用户"}', 'system:user:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 23);
 
+-- 角色按钮
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 31, 3, 'roleAdd', 4, '0,1,3', '{"title":"新增角色"}', 'system:role:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 31);
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 32, 3, 'roleEdit', 4, '0,1,3', '{"title":"编辑角色"}', 'system:role:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 32);
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 33, 3, 'roleDelete', 4, '0,1,3', '{"title":"删除角色"}', 'system:role:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 33);
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 34, 3, 'roleAssign', 4, '0,1,3', '{"title":"分配菜单"}', 'system:role:assign', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 34);
+
+-- 菜单按钮
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 41, 4, 'menuAdd', 4, '0,1,4', '{"title":"新增菜单"}', 'system:menu:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 41);
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 42, 4, 'menuEdit', 4, '0,1,4', '{"title":"编辑菜单"}', 'system:menu:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 42);
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 43, 4, 'menuDelete', 4, '0,1,4', '{"title":"删除菜单"}', 'system:menu:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 43);
+
+-- ROOT 挂全部菜单（含新增按钮；幂等）
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 1, m.id, 1 FROM sys_menu m
 WHERE NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 1 AND rm.menu_id = m.id AND rm.type = 1);

@@ -7,16 +7,16 @@
 ```text
 hair-salon/
 ├── hair-salon-boot      # 启动模块（唯一 main）
-├── hair-salon-system    # 用户 / 角色 / 菜单 / 部门
+├── hair-salon-system    # 用户 / 角色 / 菜单 / 部门 / 字典
 ├── hair-salon-auth      # 登录 / 当前用户
 └── hair-salon-service   # 业务（会员、门店、充值消费等）
 ```
 
 | 模块 | 职责 |
 |------|------|
-| **boot** | 启动、yml、打包 |
-| **system** | 系统管理数据与服务 |
-| **auth** | 认证接口 |
+| **boot** | 启动、yml、打包、schema/data |
+| **system** | 系统管理：用户/角色/菜单/部门/字典 + Redis 缓存 |
+| **auth** | 认证接口（登录灌入 roles/perms） |
 | **service** | 业务功能（不是微服务，只是业务模块名） |
 
 命名说明：业务模块用 `service`，避免 `biz`；也不同于整个「管理端应用」常叫的 admin。
@@ -65,16 +65,58 @@ java -jar hair-salon-boot/target/hair-salon-boot-1.0.0-SNAPSHOT.jar
 |--------|------|
 | admin | admin123 |
 
+## 系统管理 API（P0）
+
+| 模块 | 前缀 | 说明 |
+|------|------|------|
+| 租户 | `/api/v1/tenants` | 租户主数据 CRUD/下拉（全局表，无行级租户过滤） |
+| 用户 | `/api/v1/users` | 分页/CRUD/改密/启停/`/me`；分页支持 `@QueryDict` |
+| 角色 | `/api/v1/roles` | 分页/CRUD/分配菜单 `/{roleId}/{type}/menus` |
+| 菜单 | `/api/v1/menus` | 树/下拉/路由 `/routes`/CRUD |
+| 部门 | `/api/v1/dept` | 树/下拉/CRUD |
+| 字典 | `/api/v1/dict` | 字典项 + 类型 CRUD；`/options?typeCode=` |
+
+字典翻译：VO 字段标 `@Dict(dictCode="gender")`，Controller 方法标 `@QueryDict`，返回附加 `xxx_text` / `xxx_name`（实现在 `wj-framework` common-web）。
+
+## 多租户与数据权限
+
+| 能力 | 实现 |
+|------|------|
+| 租户主数据 | 表 `sys_tenant`，接口 `/api/v1/tenants`；默认租户 id=1 / code=`default` |
+| 租户隔离 | MP `TenantLine` 自动拼 `tenant_id`；`sys_tenant` 在 ignore-tables |
+| 数据权限 | Mapper 方法标 `@DataPermission`；按角色 `data_scope` 拼 WHERE |
+| **管理员全量** | 角色编码 `ROOT` **或** `data_scope=1(ALL)` → **不加数据权限条件**（仍受租户隔离，即本店全量） |
+| JWT | 写入 `tenantId` / `roles` / `dataScope` / `dataScopeDeptIds` |
+
+配置：`wj.mybatis.tenant-enabled` / `data-permission-enabled` / `ignore-tables`。
+
+示例（用户分页已标注）：
+
+```java
+@DataPermission(deptColumn = "dept_id", userColumn = "create_by", tableAlias = "u")
+Page<UserBO> getUserPage(...);
+```
+
+业务表需继承 `BaseTenantEntity` 并有 `tenant_id` 列；列表要按部门/本人过滤时再加 `@DataPermission`。
+
 ## 接口示例
 
 ```bash
-# 登录
+# 登录（JWT 含 roles / permissions）
 curl -s -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
   -d "{\"username\":\"admin\",\"password\":\"admin123\"}"
 
-# 当前用户（Header 带 Bearer token）
+# 当前用户
 curl -s http://localhost:8080/auth/me \
+  -H "Authorization: Bearer <token>"
+
+# 用户分页（带字典翻译）
+curl -s "http://localhost:8080/api/v1/users/page?pageNum=1&pageSize=10" \
+  -H "Authorization: Bearer <token>"
+
+# 字典下拉
+curl -s "http://localhost:8080/api/v1/dict/options?typeCode=gender" \
   -H "Authorization: Bearer <token>"
 
 # 业务 ping
@@ -84,9 +126,16 @@ curl -s http://localhost:8080/api/ping \
 
 ## SQL
 
-- 启动时默认 `spring.sql.init.mode=always` 执行 `schema.sql` / `data.sql`
-- 也可手工：`sql/init-pgsql.sql`
-- 表稳定后可将 `mode` 改为 `never`
+- 表结构：`hair-salon-boot/src/main/resources/schema.sql`
+- 种子数据：`data.sql`（admin/ROOT 角色/系统菜单/gender·status 字典）
+- 当前 yml 默认 `spring.sql.init.mode=never`；**首次建表**可临时改为 `always`，或手工：
+
+```bash
+psql -U postgres -d hair_salon -f hair-salon-boot/src/main/resources/schema.sql
+psql -U postgres -d hair_salon -f hair-salon-boot/src/main/resources/data.sql
+```
+
+- 已有仅 `sys_user` 的库需执行完整 schema 增量建其余表
 
 ## 依赖关系
 

@@ -1,0 +1,71 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: hair-salon
+  datasource:
+    url: jdbc:postgresql://localhost:5432/hair_salon
+    username: postgres
+    password: "030410"
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: "123456"
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+  sql:
+    init:
+      # 首次启动建表；表已存在后可改为 never
+      mode: never
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+      continue-on-error: true
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      id-type: assign_id
+
+wj:
+  security:
+    jwt:
+      secret: hair-salon-dev-secret-key-32bytes!!
+      expire-seconds: 86400
+      ignore-urls:
+        - /auth/login
+        - /auth/register
+        - /doc.html
+        - /webjars/**
+        - /v3/api-docs/**
+        - /swagger-ui/**
+        - /swagger-resources/**
+        - /favicon.ico
+        - /error
+  mybatis:
+    db-type: POSTGRE_SQL
+  apidoc:
+    title: 理发店管理系统 API
+    version: 1.0.0
+
+logging:
+  level:
+    com.wangjin: debug
+    org.springframework.data.redis: info

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wangjin.salon</groupId>
+        <artifactId>hair-salon</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>hair-salon-boot</artifactId>
+    <name>hair-salon-boot</name>
+    <description>启动模块（唯一 main）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.wangjin.salon</groupId>
+            <artifactId>hair-salon-auth</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.wangjin.salon</groupId>
+            <artifactId>hair-salon-service</artifactId>
+        </dependency>
+
+        <!-- PostgreSQL -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>com.wangjin.salon.HairSalonApplication</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

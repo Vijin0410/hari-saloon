@@ -1,0 +1,28 @@
+# Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+pom-xml-flattened
+.flattened-pom.xml
+.mvn/
+
+# IDE - 整目录忽略，不提交 misc.xml / vcs.xml / workspace 等
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+out/
+
+# OS / logs
+.DS_Store
+Thumbs.db
+logs/
+*.log
+*.class
+
+# Kotlin
+.kotlin
+
+# 本地环境（若有）
+*.local.yml
+application-local.yml

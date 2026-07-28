@@ -7,27 +7,8 @@ spring:
   application:
     name: hair-salon
     description: hair-salon管理系统
-  datasource:
-    url: jdbc:postgresql://localhost:5432/hair_salon
-    username: postgres
-    password: "030410"
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 3000
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: "123456"
-      database: 0
-      timeout: 3000ms
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
+  profiles:
+    active: company
   sql:
     init:
       # 首次启动建表；表已存在后可改为 never

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.wangjin.salon</groupId>
+        <artifactId>hair-salon</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>hair-salon-service</artifactId>
+    <name>hair-salon-service</name>
+    <description>业务：会员 / 门店 / 员工 / 充值消费等</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.wangjin.salon</groupId>
+            <artifactId>hair-salon-system</artifactId>
+        </dependency>
+    </dependencies>
+</project>

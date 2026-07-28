@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wangjin.salon.system.mapper.SysUserMapper">
+
+    <select id="getUserPage" resultType="com.wangjin.salon.system.model.bo.UserBO">
+        SELECT
+            u.id,
+            u.username,
+            u.nickname,
+            u.phone,
+            u.gender,
+            u.avatar,
+            u.status,
+            u.email,
+            u.dept_id,
+            d.name AS dept_name,
+            string_agg(DISTINCT r.name, ',') AS roleNames,
+            u.create_time
+        FROM sys_user u
+        LEFT JOIN sys_dept d ON u.dept_id = d.id AND d.deleted = 0
+        LEFT JOIN sys_user_role sur ON u.id = sur.user_id
+        LEFT JOIN sys_role r ON sur.role_id = r.id AND r.deleted = 0
+        <where>
+            u.deleted = 0
+            <if test="q.keywords != null and q.keywords != ''">
+                AND (
+                    u.username LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR u.nickname LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR u.phone LIKE CONCAT('%', #{q.keywords}, '%')
+                )
+            </if>
+            <if test="q.status != null">
+                AND u.status = #{q.status}
+            </if>
+            <if test="q.deptId != null">
+                AND u.dept_id = #{q.deptId}
+            </if>
+        </where>
+        GROUP BY u.id, u.username, u.nickname, u.phone, u.gender, u.avatar,
+                 u.status, u.email, u.dept_id, d.name, u.create_time
+        ORDER BY u.create_time DESC
+    </select>
+
+    <resultMap id="UserFormMap" type="com.wangjin.salon.system.model.form.UserForm">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="nickname" column="nickname"/>
+        <result property="phone" column="phone"/>
+        <result property="gender" column="gender"/>
+        <result property="avatar" column="avatar"/>
+        <result property="email" column="email"/>
+        <result property="status" column="status"/>
+        <result property="deptId" column="dept_id"/>
+        <collection property="roleIds" column="id"
+                    select="com.wangjin.salon.system.mapper.SysUserRoleMapper.listRoleIdsByUserId"/>
+    </resultMap>
+
+    <select id="getUserDetail" resultMap="UserFormMap">
+        SELECT id, username, nickname, phone, gender, avatar, email, status, dept_id
+        FROM sys_user
+        WHERE id = #{userId} AND deleted = 0
+    </select>
+
+    <resultMap id="UserAuthMap" type="com.wangjin.salon.system.model.dto.UserAuthInfo">
+        <id property="userId" column="user_id"/>
+        <result property="username" column="username"/>
+        <result property="nickname" column="nickname"/>
+        <result property="password" column="password"/>
+        <result property="status" column="status"/>
+        <result property="deptId" column="dept_id"/>
+        <result property="tenantId" column="tenant_id"/>
+        <collection property="roles" ofType="string" javaType="java.util.Set">
+            <result column="role_code"/>
+        </collection>
+    </resultMap>
+
+    <!-- 登录查询：TenantLine 对未登录用户使用默认租户 1 -->
+    <select id="getUserAuthInfo" resultMap="UserAuthMap">
+        SELECT
+            u.id AS user_id,
+            u.username,
+            u.nickname,
+            u.password,
+            u.status,
+            u.dept_id,
+            u.tenant_id,
+            r.code AS role_code
+        FROM sys_user u
+        LEFT JOIN sys_user_role sur ON u.id = sur.user_id
+        LEFT JOIN sys_role r ON sur.role_id = r.id AND r.deleted = 0 AND r.status = 1
+        WHERE u.username = #{username} AND u.deleted = 0
+    </select>
+</mapper>

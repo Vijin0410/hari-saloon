@@ -1,7 +1,7 @@
 package com.wangjin.salon.system.model.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.wangjin.common.base.BaseEntity;
+import com.wangjin.common.base.BaseTenantEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -11,18 +11,16 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @TableName("sys_user")
-public class SysUser extends BaseEntity<Long> {
+public class SysUser extends BaseTenantEntity<Long> {
 
-    /** 登录名 */
     private String username;
-    /** 密码（加密存储） */
     private String password;
-    /** 昵称 */
     private String nickname;
-    /** 手机号 */
+    private Integer gender;
+    private String avatar;
+    /** 手机号（兼容原 phone 字段语义） */
     private String phone;
-    /** 状态：1 启用 / 0 禁用 */
+    private String email;
     private Integer status;
-    /** 部门 ID */
     private Long deptId;
 }

@@ -1,11 +1,15 @@
 package com.wangjin.salon.system.model.vo;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.util.Set;
+
 /**
- * 用户信息出参。
+ * 当前登录用户信息。
  */
 @Data
+@Schema(description = "当前用户信息")
 public class UserInfoVO {
 
     private Long id;
@@ -13,4 +17,6 @@ public class UserInfoVO {
     private String nickname;
     private String phone;
     private Long deptId;
+    private Set<String> roles;
+    private Set<String> perms;
 }

@@ -1,30 +1,245 @@
 package com.wangjin.salon.system.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.lang.Assert;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.wangjin.common.constant.GlobalConstants;
+import com.wangjin.common.constant.SystemConstants;
+import com.wangjin.common.enums.DataScopeEnum;
+import com.wangjin.common.exception.BizException;
+import com.wangjin.common.result.ResultCode;
+import com.wangjin.common.security.context.UserContext;
+import com.wangjin.common.security.util.SecurityUtils;
+import com.wangjin.salon.system.cache.SystemCacheService;
+import com.wangjin.salon.system.converter.UserConverter;
 import com.wangjin.salon.system.mapper.SysUserMapper;
+import com.wangjin.salon.system.model.bo.UserBO;
+import com.wangjin.salon.system.model.dto.UserAuthInfo;
+import com.wangjin.salon.system.model.entity.SysRole;
 import com.wangjin.salon.system.model.entity.SysUser;
+import com.wangjin.salon.system.model.entity.SysUserRole;
+import com.wangjin.salon.system.model.form.UserForm;
+import com.wangjin.salon.system.model.query.UserPageQuery;
+import com.wangjin.salon.system.model.vo.UserInfoVO;
+import com.wangjin.salon.system.model.vo.UserPageVO;
+import com.wangjin.salon.system.service.SysDeptService;
+import com.wangjin.salon.system.service.SysMenuService;
+import com.wangjin.salon.system.service.SysRoleService;
+import com.wangjin.salon.system.service.SysUserRoleService;
 import com.wangjin.salon.system.service.SysUserService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 系统用户服务实现。
- */
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 @Service
-@RequiredArgsConstructor
-public class SysUserServiceImpl implements SysUserService {
+public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> implements SysUserService {
 
-    private final SysUserMapper sysUserMapper;
+    private final PasswordEncoder passwordEncoder;
+    private final SysUserRoleService userRoleService;
+    private final SysMenuService menuService;
+    private final SysRoleService roleService;
+    private final SysDeptService deptService;
+    private final SystemCacheService systemCacheService;
+    private final UserConverter userConverter;
+
+    public SysUserServiceImpl(PasswordEncoder passwordEncoder,
+                              SysUserRoleService userRoleService,
+                              SysMenuService menuService,
+                              SysRoleService roleService,
+                              SysDeptService deptService,
+                              @Lazy SystemCacheService systemCacheService,
+                              UserConverter userConverter) {
+        this.passwordEncoder = passwordEncoder;
+        this.userRoleService = userRoleService;
+        this.menuService = menuService;
+        this.roleService = roleService;
+        this.deptService = deptService;
+        this.systemCacheService = systemCacheService;
+        this.userConverter = userConverter;
+    }
 
     @Override
     public SysUser getByUsername(String username) {
-        return sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+        return this.getOne(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getUsername, username)
                 .last("LIMIT 1"));
     }
 
     @Override
-    public SysUser getById(Long id) {
-        return sysUserMapper.selectById(id);
+    public IPage<UserPageVO> getUserPage(UserPageQuery queryParams) {
+        Page<UserBO> page = this.baseMapper.getUserPage(
+                new Page<>(queryParams.getPageNum(), queryParams.getPageSize()), queryParams);
+        return userConverter.bo2Vo(page);
+    }
+
+    @Override
+    public UserForm getUserFormData(Long userId) {
+        UserForm form = this.baseMapper.getUserDetail(userId);
+        Assert.notNull(form, "用户不存在");
+        return form;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean saveUser(UserForm form) {
+        long count = this.count(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, form.getUsername()));
+        Assert.isTrue(count == 0, "用户名已存在");
+        SysUser entity = userConverter.form2Entity(form);
+        entity.setPassword(passwordEncoder.encode(SystemConstants.DEFAULT_PASSWORD));
+        if (entity.getStatus() == null) {
+            entity.setStatus(1);
+        }
+        boolean ok = this.save(entity);
+        if (ok) {
+            userRoleService.saveUserRoles(entity.getId(), form.getRoleIds());
+            systemCacheService.refreshUserCache();
+        }
+        return ok;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean updateUser(Long userId, UserForm form) {
+        SysUser exist = this.getById(userId);
+        Assert.notNull(exist, "用户不存在");
+        if (!exist.getUsername().equals(form.getUsername())) {
+            long count = this.count(new LambdaQueryWrapper<SysUser>()
+                    .eq(SysUser::getUsername, form.getUsername())
+                    .ne(SysUser::getId, userId));
+            Assert.isTrue(count == 0, "用户名已存在");
+        }
+        SysUser entity = userConverter.form2Entity(form);
+        entity.setId(userId);
+        entity.setPassword(null);
+        boolean ok = this.updateById(entity);
+        if (ok) {
+            userRoleService.saveUserRoles(userId, form.getRoleIds());
+            systemCacheService.refreshUserCache();
+        }
+        return ok;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deleteUsers(String ids) {
+        Assert.isTrue(StrUtil.isNotBlank(ids), "删除数据为空");
+        List<Long> idList = Arrays.stream(ids.split(",")).map(Long::parseLong).toList();
+        Long current = SecurityUtils.getUserId();
+        if (current != null && idList.contains(current)) {
+            throw new BizException(ResultCode.PARAM_ERROR, "不能删除当前登录用户");
+        }
+        boolean ok = this.removeByIds(idList);
+        if (ok) {
+            userRoleService.remove(new LambdaQueryWrapper<SysUserRole>().in(SysUserRole::getUserId, idList));
+            systemCacheService.refreshUserCache();
+        }
+        return ok;
+    }
+
+    @Override
+    public boolean updatePassword(Long userId, String password) {
+        Assert.isTrue(StrUtil.isNotBlank(password), "密码不能为空");
+        return this.update(new LambdaUpdateWrapper<SysUser>()
+                .eq(SysUser::getId, userId)
+                .set(SysUser::getPassword, passwordEncoder.encode(password)));
+    }
+
+    @Override
+    public boolean updateUserStatus(Long userId, Integer status) {
+        return this.update(new LambdaUpdateWrapper<SysUser>()
+                .eq(SysUser::getId, userId)
+                .set(SysUser::getStatus, status));
+    }
+
+    @Override
+    public UserAuthInfo getUserAuthInfo(String username) {
+        UserAuthInfo info = this.baseMapper.getUserAuthInfo(username);
+        if (info == null) {
+            return null;
+        }
+        if (info.getTenantId() == null) {
+            info.setTenantId(SystemConstants.DEFAULT_TENANT_ID);
+        }
+        Set<String> roles = info.getRoles() == null ? Collections.emptySet() : new HashSet<>(info.getRoles());
+        info.setRoles(roles);
+        if (CollUtil.isNotEmpty(roles)) {
+            info.setPerms(menuService.listRolePerms(roles));
+            Integer maxScope = roleService.getMaxDataRangeDataScope(roles);
+            // ROOT 角色强制 ALL
+            if (roles.stream().anyMatch(r -> GlobalConstants.ROOT_ROLE_CODE.equalsIgnoreCase(r))) {
+                maxScope = DataScopeEnum.ALL.getValue();
+            }
+            info.setMaxDataScope(maxScope == null ? DataScopeEnum.SELF.getValue() : maxScope);
+            info.setDataScopeDeptIds(resolveDataScopeDeptIds(info.getMaxDataScope(), info.getDeptId(), roles));
+        } else {
+            info.setPerms(Collections.emptySet());
+            info.setMaxDataScope(DataScopeEnum.SELF.getValue());
+            info.setDataScopeDeptIds(Collections.emptySet());
+        }
+        return info;
+    }
+
+    /**
+     * 按数据范围解析可见部门集合（写入 JWT，拦截器只读不查库）。
+     */
+    private Set<Long> resolveDataScopeDeptIds(Integer scope, Long deptId, Set<String> roles) {
+        if (scope == null || DataScopeEnum.ALL.getValue().equals(scope) || DataScopeEnum.SELF.getValue().equals(scope)) {
+            return Collections.emptySet();
+        }
+        if (DataScopeEnum.DEPT.getValue().equals(scope)) {
+            return deptId == null ? Collections.emptySet() : Set.of(deptId);
+        }
+        if (DataScopeEnum.DEPT_AND_SUB.getValue().equals(scope)) {
+            return deptService.listDeptAndChildIds(deptId);
+        }
+        if (DataScopeEnum.CUSTOM.getValue().equals(scope)) {
+            Set<Long> ids = new HashSet<>();
+            List<SysRole> roleList = roleService.list(new LambdaQueryWrapper<SysRole>()
+                    .in(SysRole::getCode, roles)
+                    .eq(SysRole::getStatus, 1));
+            for (SysRole role : roleList) {
+                if (StrUtil.isBlank(role.getDeptIds())) {
+                    continue;
+                }
+                for (String part : role.getDeptIds().split(",")) {
+                    if (StrUtil.isNotBlank(part)) {
+                        ids.add(Long.parseLong(part.trim()));
+                    }
+                }
+            }
+            return ids;
+        }
+        return Collections.emptySet();
+    }
+
+    @Override
+    public UserInfoVO getUserLoginInfo() {
+        Long userId = UserContext.getUserId();
+        if (userId == null || userId == 0L) {
+            throw new BizException(ResultCode.INVALID_TOKEN);
+        }
+        SysUser user = this.getById(userId);
+        if (user == null) {
+            throw new BizException(ResultCode.USER_NOT_EXIST);
+        }
+        UserInfoVO vo = userConverter.entity2UserInfoVo(user);
+        UserAuthInfo auth = getUserAuthInfo(user.getUsername());
+        if (auth != null) {
+            vo.setRoles(auth.getRoles());
+            vo.setPerms(auth.getPerms());
+        }
+        return vo;
     }
 }

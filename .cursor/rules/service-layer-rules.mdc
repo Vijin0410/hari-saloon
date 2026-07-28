@@ -1,0 +1,81 @@
+---
+description: "Service 层：MyBatis-Plus、事务、Converter、统一结果、字典（sys_dict）、与 Mapper/横切注解配合"
+globs: ["**/service/**/*.java"]
+alwaysApply: true
+---
+
+## Service 层规范
+
+### 结构与命名
+
+- **`XxxService`**：接口定义对外业务能力；是否继承 **`IService<Entity>`** 按是否需要 MP 通用 CRUD 决定；方法须有 JavaDoc。
+- **`XxxServiceImpl`**：`service.impl`，`@Service`，实现接口并 **`extends ServiceImpl<XxxMapper, XxxEntity>`**（若用 MP）。
+- 依赖注入：优先 **`@RequiredArgsConstructor` + `private final`**；新类避免 `@Resource` 字段注入与 `ApplicationContext.getBean`。
+
+### 职责与数据访问
+
+- **业务编排、事务、领域校验**在 Service；**SQL** 在 **Mapper + XML**（或注解），经 `getBaseMapper()` / 注入的 Mapper 访问。
+- **Entity / VO / Form 互转**一律 **MapStruct `converter`**；禁止在 Service 里手写大段 getter/setter。
+- **Entity** 仅持久化链路使用；**不得**作为 Controller 出入参。
+- 返回给上层（Controller）的查询结果应为 **VO**（或领域标量 / `boolean`，由 Controller 包 `Result`）；**不要**把 Form 当出参模型从 Service 返回给 Controller 再直接响应前端。
+- 不要在 Service 重复实现与 `@Dict` / `@QueryDict` 等价的字典拼装；HTTP 出口由 Controller `@QueryDict` 处理。
+
+### 业务字典（`sys_dict_type` / `sys_dict`）
+
+- 业务表存字典项时只存 **`value`**，不要另建与 `sys_dict` 双轨的 Java enum 作为字典源（代码内封闭状态机除外）。
+- 新建能力涉及字典：在 **`sql/`** 或 boot 的 schema/data 中提供种子；**先 `sys_dict_type`，再 `sys_dict`**；`type_code` = 类型 `code`。已存在的 `code` 勿重复插类型行。
+- 字典 `value` 优先**可读稳定**编码（如 `NORMAL`、`DISABLED`），避免无语义的纯 `1/2/3`（除非存量已约定）。
+- 列表展示：VO 字段 `@Dict(dictCode = "…")`，由框架翻译。
+- 审计与租户：INSERT 时 `create_by` / `update_by` / `tenant_id` / `deleted` 与约定一致。
+- 示例（PostgreSQL，占位，执行前改 code/文案/id/tenant_id）：
+
+```sql
+-- 1) 字典类型
+INSERT INTO sys_dict_type (id, name, code, status, remark, create_time, update_time, create_by, update_by, deleted, tenant_id)
+VALUES (9001000000000000100, '示例类型', 'salon_example_status', 1, '示例', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 0, 0, 1)
+ON CONFLICT DO NOTHING; -- 按实际唯一约束调整
+
+-- 2) 字典项
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, remark, create_time, update_time, create_by, update_by, deleted, tenant_id)
+VALUES
+(9001000000000000101, 'salon_example_status', '正常', 'NORMAL', 10, 1, '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 0, 0, 1),
+(9001000000000000102, 'salon_example_status', '停用', 'DISABLED', 20, 1, '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 0, 0, 1);
+```
+
+### 统一返回与异常
+
+- 可与 Controller 约定：Service 返回 **领域类型**（`Page`、`Long`、`boolean`、`void`、VO），由 Controller 包 `Result`/`PageResult`；**同一模块内保持一种主风格**（当前 system 多为 Service 返回数据，Controller 包装）。
+- 业务失败：抛 **`BizException`**（或 `ResultCode` 配套），勿吞异常。
+- 断言可用 Hutool **`Assert`** 等，错误提示可读。
+
+### 事务（`@Transactional`）
+
+- 多表写、先查后改、与缓存强一致：public 方法 **`@Transactional(rollbackFor = Exception.class)`**。只读勿随意加事务。
+- **自调用** `this.xxx()` 不走代理，事务可能失效；拆 Bean 或走代理。
+- 跨 Service：避免把本应同一事务的步骤拆成多个独立事务 public 链（除非刻意隔离）。
+
+### 校验分层
+
+- 格式/必填/长度：Controller `@Valid`；Service：存在性、状态机、租户与业务规则。
+- 集合入参先判空；同一模块内统一空集合工具（如 Hutool `CollUtil`）。
+
+### 日志
+
+- `@Slf4j`；`log.error("业务语义, key={}", key, e)` 带堆栈。禁止 `System.out`、禁止打密钥/Token。
+- 批量中单条失败：明确跳过继续还是整体失败，避免静默丢数据。
+
+### 性能与复杂度
+
+- 单方法建议 ≤ 100 行；复杂流程拆 private 或专用组件。
+- 列表：**无数据返回空列表/空分页，避免 null 列表**。
+- 关注 N+1（见 `database-sql-rules.mdc`）。
+
+### 关于 `JdbcTemplate`（例外）
+
+- 常规 CRUD 走 Mapper。
+- 极少数动态表名/元数据：须 **参数绑定**、**标识符白名单**、方言注释。
+
+### 缓存与其它
+
+- 本地缓存 / Redis：更新删除路径须失效或刷新，与 `SystemCacheService` 等既有策略一致。
+- 多租户实体用 **`BaseTenantEntity`**；需数据权限的查询在 **Mapper 方法**上 `@DataPermission`。

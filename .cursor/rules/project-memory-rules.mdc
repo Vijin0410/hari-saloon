@@ -1,0 +1,91 @@
+---
+description: "写业务代码前先读 .cursor/project_context.md；改完后把关键接口与可复用能力精简写入，减少重复实现"
+alwaysApply: true
+---
+
+# 项目记忆维护规则
+
+## 目的
+
+用一份常驻、精简的项目快照（`.cursor/project_context.md`），开发前快速建立「已有能力」心智模型，**优先复用**已有接口、Service、工具，避免重复造轮子。
+
+## 记忆文件路径
+
+- 固定：**`.cursor/project_context.md`**
+- 若不存在：先按本文格式创建模板再填充；不要跳过「写代码前读取」。
+
+## 推荐执行顺序
+
+1. **写/改代码前**：读取 `.cursor/project_context.md`（无则建空模板）。
+2. **对照复用**：是否已有同类接口、Service、校验、工具。
+3. **实现需求**：按项目既有风格改动。
+4. **任务结束后**：把本次新增或可复用信息精简合并进对应章节，更新「最后更新」与「最近更新」。
+
+## 强制流程
+
+### 1. 写业务代码前 — 先读记忆
+
+以下工作开始前必须读取 `.cursor/project_context.md`：
+
+- 新增或修改 API / Controller / Service / Mapper 等业务后端；
+- 重构或扩展已有业务能力。
+
+**可豁免**：纯答疑、只读排查且确认不改仓库。
+
+### 2. 生成或改完代码后 — 更新记忆
+
+可交付的代码生成/修改完成后：
+
+- 再读当前 `project_context.md`；
+- 只写摘要；修正已过时条目；
+- 更新「最后更新」；在「最近更新」顶部追加一行。
+
+**不必更新**：纯 Bug 修且无可复用点、仅格式化/重命名/注释/默认值。
+
+## 提取原则
+
+- 一条一事；禁止大段源码。
+- 可检索：HTTP 方法 + 路径、`Controller#method`、`Service` 方法要点。
+- 去重合并；只记别人会再用的能力。
+
+## 建议覆盖（按需）
+
+- 关键接口：`METHOD /path`、功能、`Controller#method`
+- 关键业务方法、可复用工具/校验/Mapper
+- 权限标识 `perm` 与菜单关系（若本次新增）
+- 枚举/常量、关键配置项
+
+## 记忆文件格式
+
+```markdown
+# 项目上下文记忆
+
+> 最后更新: YYYY-MM-DD HH:MM:SS
+
+## 模块与包
+
+- 根包 `com.wangjin.salon`；boot / system / auth / service 四模块（单体）
+
+## 后端接口清单
+
+- `POST /auth/login` - 登录 (AuthController#login)
+- `GET /api/v1/users/page` - 用户分页 (SysUserController#getUserPage)
+
+## 可复用的后端方法/组件
+
+- **SysUserService#getUserAuthInfo** - 登录用鉴权信息（含 roles/perms/dataScope）
+
+## 权限与菜单
+
+- `system:user:list|add|edit|delete` - 用户模块（完善按钮菜单见 data.sql / 管理端）
+
+## 关键工具类 / 公共方法
+
+- **SecurityUtils** - 当前用户/租户/权限/数据范围（wj-framework）
+
+## 最近更新
+
+- YYYY-MM-DD: 一句话摘要
+```
+
+**自检**：若读了记忆又写了业务代码，但文件未反映新增可复用点，确认是否属「不必更新」例外；否则补记一行。

@@ -1,0 +1,60 @@
+---
+description: "并发与性能：线程池、异步、线程安全、缓存、可观测"
+globs:
+  - "**/config/**/*Thread*.java"
+  - "**/config/**/*Pool*.java"
+  - "**/listener/**/*.java"
+  - "**/service/impl/**/*.java"
+alwaysApply: true
+---
+
+## 并发与性能规范
+
+### 与其它规则的分工
+
+- SQL、N+1、分页、批量查库：`database-sql-rules.mdc`
+- Service 事务、批量编排、JdbcTemplate 例外：`service-layer-rules.mdc`
+- HTTP 约定：`controller-layer-rules.mdc`
+
+本节只写 **并发模型、线程池、缓存与热点路径**。
+
+---
+
+### 线程池与异步
+
+- **禁止**业务代码 `new Thread()` 常驻跑任务。
+- 长期异步优先 **Spring 托管 `ThreadPoolTaskExecutor`**：配置类集中声明核心/最大线程、队列、名前缀、拒绝策略，用配置文件调参；禁止业务类为同类任务再硬编码一套池。
+- 典型：通用异步池 + 按域命名 Bean，`@Qualifier` 注入。
+- **禁止**无参 `CompletableFuture.runAsync(Runnable)` 承载重业务（默认 ForkJoinPool，易丢请求上下文）；应 `runAsync(..., executor)` 或 `executor.execute(...)`。
+- `@Async` 须指定 Executor Bean 名。
+- `Executors.newFixedThreadPool` / `newCachedThreadPool` 仅短生命周期一次性场景，且须 `shutdown()`；禁止作应用级默认业务池。
+- 定时任务用 `@Scheduled` 或托管 `ScheduledExecutorService`；**禁止 `java.util.Timer`**。
+
+### 非阻塞与 IO
+
+- 若使用消息客户端等框架，遵守其线程模型：禁止在不可阻塞线程上跑同步 JDBC、阻塞 IO、`sleep`、大计算。
+- 新增监听/回调与项目已有执行器对齐，避免同一链路多套无界异步。
+
+### 线程安全
+
+- 多线程可见集合：`ConcurrentHashMap`、`newKeySet()`、`ConcurrentLinkedQueue` 等；禁止多线程写 `HashMap`/`ArrayList`。
+- 标志与计数：`Atomic*` / 高竞争累加 `LongAdder`；`volatile` 仅单次读写可见性。
+- 锁：小粒度 `synchronized` / `ReentrantLock`；持锁不做慢 IO；多锁统一顺序。
+- **多实例**：跨节点互斥用 Redis 等分布式锁，设过期/续期，避免死锁与误删。
+
+### 缓存
+
+- 引入前明确：键规范、TTL、一致性（旁路、先更库再删缓存等）及可接受的短暂不一致。
+- 防穿透（空值/占位）、击穿（互斥/逻辑过期）、雪崩（TTL 抖动、限流）；禁止无界本地缓存超大结果。
+- 与 `hair-salon-system` 的 cache 实现策略对齐。
+
+### 业务层性能
+
+- 禁止循环内逐条远程调用/查库；改为批量、JOIN、IN（见 `database-sql-rules.mdc`）。
+- 大列表/导出：分页、流式、异步任务。
+- 循环内字符串用 `StringBuilder`；热点路径避免多余大对象与重复反射/序列化。
+
+### 可观测与降级
+
+- 线程池积压、拒绝策略应有可定位日志或指标。
+- 外部依赖关键路径设超时；避免拖垮线程池。

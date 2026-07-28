@@ -1,0 +1,101 @@
+---
+description: Java 后端分层与协作规范（单体多模块、包结构、注释、安全、构建）
+alwaysApply: true
+---
+
+### 项目与模块边界
+
+本仓库是**单体多模块**应用（非微服务），根包 **`com.wangjin.salon`**，依赖底层 **`wj-framework`**（`com.wangjin.*`）。
+
+| 模块 | 根包 / 职责 |
+|------|-------------|
+| `hair-salon-boot` | `com.wangjin.salon`：唯一启动入口、yml、schema/data |
+| `hair-salon-system` | `com.wangjin.salon.system`：用户/角色/菜单/部门/字典/租户 |
+| `hair-salon-auth` | `com.wangjin.salon.auth`：登录、当前用户 |
+| `hair-salon-service` | `com.wangjin.salon.service`：业务（会员、门店、充值等；**不是**微服务） |
+
+- **禁止**引入 Nacos / 网关 / Feign 等微服务链路约定。
+- 组件扫描：`@SpringBootApplication(scanBasePackages = "com.wangjin")`；`@MapperScan("com.wangjin.salon.**.mapper")`。
+- 业务模块间可直接依赖（如 `auth` → `system`），**不要**为跨模块调用再拆 Feign 契约模块。
+
+### 标准分层包名及职责
+
+各业务模块在自身根包下按分层组织（**禁止**在根包与分层包之间再插一层「功能名」包，反例：`…system.user.controller`）。
+
+| 包名 | 职责 | 禁止 |
+|------|------|------|
+| `controller` | HTTP API 接入，参数校验，响应封装 | 写业务逻辑、直接操作数据库 |
+| `service` | 接口定义 | 直接把 Entity 返回给 Controller |
+| `service.impl` | 业务逻辑、事务、事件 | 直接把 Entity 返回给 Controller |
+| `mapper` | 数据访问，MyBatis 接口 | 写业务逻辑、使用 MapStruct |
+| `model.entity` | 表映射实体 | 业务逻辑、DTO/VO/Form/Query |
+| `model.vo` | **返回给前端**的视图对象 | 业务逻辑、持久化注解 |
+| `model.form` | 写请求入参（POST/PUT body） | 业务逻辑、Entity 注解；**禁止作为 HTTP 出参** |
+| `model.query` | 查询/分页入参 | 业务逻辑、继承 Entity |
+| `model.bo` / `model.dto` | 内部组装、跨层传输（非对外契约） | 直接作为 Controller 出参（除非明确约定） |
+| `model.excel` | Excel 导入/导出模板 | 业务逻辑、直接当 HTTP 出参 |
+| `converter` | MapStruct：Entity↔VO↔Form | 写业务逻辑 |
+| `event` / `listener` / `scheduling` | 事件与定时 | 复杂业务应调 Service |
+| `config` / `handler` / `cache` | 配置、TypeHandler、缓存 | 写业务逻辑 |
+| `util` / `constants` / `enums` | 工具、常量、枚举 | 业务状态、复杂逻辑 |
+
+### 跨层调用禁止
+
+- Controller **禁止**直接调用 Mapper。
+- Controller **禁止**直接操作 `model.entity`。
+- **返回给前端的类型必须是 `model.vo`（或 `Result`/`PageResult` 包装的 VO）**；**禁止**把 `model.form`、Entity 作为对外 HTTP 出参。
+- Form 仅用于**写请求入参**；详情/编辑回显若需「可编辑结构」，应提供 **DetailVO / XxxVO**（可与 Form 字段相似，但是 VO），再由前端填回 Form 提交。
+- Service 禁止把 Entity 直接返回给 Controller；用 MapStruct `converter` 转换。
+- Listener / Scheduling 禁止直接 Mapper；必须经 Service。
+
+### 命名规范
+
+- 类名：PascalCase（如 `SysUserService`）
+- 方法/变量：camelCase
+- 常量：SCREAMING_SNAKE_CASE
+- 包名：全小写，点分隔；根包与扫描配置一致（`com.wangjin.salon.*`）
+
+### 主应用包结构
+
+- 同一模块内代码挂在模块根包下，按标准分层包名组织。
+- **禁止**功能名 × 分层套娃（`…system.user.controller`）；用类名区分能力（`SysUserController`）。
+- MyBatis：`@MapperScan("com.wangjin.salon.**.mapper")`；新增 Mapper 放在所属模块的 `mapper` 包，不要为每个功能再建 `…feature.mapper`。
+
+### 注释规范
+
+**通用**
+
+- 对外可见类型使用 `/** … */` JavaDoc，首句中文业务说明。
+- 注释写「做什么、关键规则、非显而易见约束」；避免复述方法名。
+- Override：可用 `{@inheritDoc}` 或补充差异；禁止留空又不继承文档。
+
+**Controller**
+
+- 类级 `@RequestMapping` 只写业务资源路径（如 `/api/v1/users`）；认证类可用 `/auth`。
+- 类上 `@Tag(name = "…")`；每个对外方法 `@Operation(summary = "…")`。
+- 方法级 JavaDoc：标题 + `@param` + `@return`（说明业务含义）。
+
+**Service**
+
+- 接口每个公开方法必须有 JavaDoc；实现类可用 `{@inheritDoc}`；复杂私有方法注释意图与前置条件。
+
+**Entity / VO / Form / Query**
+
+- Entity：类与持久化字段 JavaDoc；状态/字典取值写清含义。
+- VO / Form / Query：类与字段 `@Schema(description = "…")`；字典字段注明 `字典项：xxx`。
+
+### 数据字典翻译（wj-framework common-web）
+
+- 列表/详情需编码转标签：在 **`model.vo`** 字段上 `@Dict(dictCode = "…")`（与 `sys_dict_type.code` 一致）；部门名等可用 `queryDeptName = true`。
+- 经 HTTP 返回时（含 `Result` / `PageResult` 内 VO），Controller 方法加 **`@QueryDict`**。
+- Excel 导出在 Service 入口用 **`@QueryExcelDict`**（若项目启用）。
+- **不要**在业务里手写按 type 查字典再拼装。
+
+### 必须遵守
+
+1. **分层**：业务在 `*ServiceImpl`；持久化在 `mapper` + `resources/mapper/*.xml`；转换用 MapStruct `converter`。对外 HTTP 统一 **`com.wangjin.common.result.Result` / `PageResult`**。
+2. **配置**：环境差异用 yml / 本地 profile；**不提交生产密钥**。免认证路径放在 `wj.security.jwt.ignore-urls`（见 `application.yml`）。
+3. **构建**：Lombok/MapStruct 后 `mvn compile` 确认生成类；JDK 17+；版本由父 BOM / `wj-base-dependencies` 管理。
+4. **安全与权限**：已启用 `@EnableMethodSecurity`。除登录/注册等**公开或三方回调**接口外，Controller 对外方法须加 **`@PreAuthorize`**（细则见 `controller-layer-rules.mdc`）。权限标识与 `sys_menu.perm` 对齐，**system 模块需持续完善按钮级菜单与 perm 配置**。
+5. **公共组件**：优先用 wj-framework 已有能力——`@Log`、`@Dict`/`@QueryDict`、`@PreventDuplicateResubmit`、`@DataPermission`、`SecurityUtils`、`BizException` 等，勿重复造轮子。
+6. **多租户 / 数据权限**：业务表继承 `BaseTenantEntity` 并含 `tenant_id`；需行级过滤时在 Mapper 方法加 `@DataPermission`。`sys_tenant` 等在 `wj.mybatis.ignore-tables`。

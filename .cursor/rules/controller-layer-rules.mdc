@@ -1,0 +1,142 @@
+---
+description: "Controller 层：路由、OpenAPI、校验、统一响应、出参 VO、@PreAuthorize 鉴权"
+alwaysApply: true
+---
+
+## Controller 层规范
+
+### 职责边界
+
+- **只做**：解析入参（含基础校验）→ 调用 **Service** → 返回 **`Result` / `PageResult`**（`com.wangjin.common.result`）；文件导入导出时组装 `MultipartFile` / `HttpServletResponse` 后也委托 Service。
+- **不做**：业务规则、事务、直接访问 **Mapper**、在 Controller 内拼复杂查询或 SQL。
+- **异常**：交给全局异常处理；避免 `try-catch` 吞异常后返回「假成功」。
+- **依赖注入**：优先只注入 `XxxService`；`@RequiredArgsConstructor` + `private final`。
+
+### 类级别约定
+
+- `@RestController` + `@RequestMapping`：业务资源常见 **`/api/v1/...`**；认证模块可用 **`/auth`**。同一模块内 URL 风格与存量一致。
+- `@Tag(name = "…")`（可带编号，如 `01.用户接口`）。
+- 需要操作日志时使用 wj-framework 的 **`@Log`**。
+- 类上可加 `@Validated`（与存量一致）。
+
+### HTTP 与路由
+
+- **分页列表**：`@GetMapping("/page")` + Query 对象，或复杂筛选用 `@PostMapping("/page")` + `@RequestBody`；返回 **`PageResult<XxxVO>`**。
+- **非分页列表**：`@GetMapping` / `@PostMapping("/list")` 等，视参数复杂度。
+- **写操作**：新增 `@PostMapping`；更新 `@PutMapping("/{id}")`；删除 `@DeleteMapping`；局部改 `@PatchMapping`。与同模块已有接口保持一致。
+- **详情**：路径常见 `/{id}`、`/{id}/detail`；**返回 VO，不返回 Form**。
+- 不强制纯 REST 复数名；**模块内一致性**优先。
+
+### 入参与出参（强制）
+
+| 方向 | 类型 | 说明 |
+|------|------|------|
+| 写请求体 | `model.form` + `@Valid` | 仅入参 |
+| 分页/复杂查询 | `model.query` | 有校验约束时配合 `@Valid` |
+| 路径/简单查询 | `@PathVariable` / `@RequestParam` | 必要时 `@Parameter` |
+| **HTTP 出参** | **`model.vo`** | 经 `Result` / `PageResult` 包装 |
+
+- **禁止**用 `model.entity` 接前端入参。
+- **禁止** Controller 直接返回 Entity。
+- **禁止**把 **`model.form` 作为返回给前端的类型**（含「表单回显 / 详情」）。回显、详情、列表一律使用 **`XxxVO` / `XxxDetailVO` / `XxxPageVO`**；前端拿到 VO 后再组装提交用的 Form。
+- 存量若仍有 `Result<XxxForm>` 的「表单接口」，**新代码不得沿用**；改造时改为 VO，并同步前端契约。
+
+### 统一响应与文档
+
+- 非分页：`Result<T>`；分页：`PageResult<T>`（`import com.wangjin.common.result.*`）。
+- 常用：`Result.success(...)`、`Result.judge(boolean)`、`PageResult.success(records, total)`。
+- 每个对外方法 **`@Operation(summary = "…")`**；类上 **`@Tag`**。
+- 方法级 JavaDoc：标题 + `@param` + `@return`（见 `core-java-standards-rules.mdc`）。
+- 字典翻译：VO 字段 `@Dict`，Controller 方法 **`@QueryDict`**。
+- 防重复提交：写接口按需 **`@PreventDuplicateResubmit`**。
+
+### 方法级权限（`@PreAuthorize`）— 强制
+
+框架已 `@EnableMethodSecurity`；JWT 将菜单 **`perm`** 写入 `GrantedAuthority`。
+
+- **默认**：Controller 每个对外 HTTP 方法必须加 **`@PreAuthorize`**。
+- **表达式**（与当前 Security 实现一致）：
+  - 权限标识：`@PreAuthorize("hasAuthority('system:user:add')")`
+  - 多权限任一：`hasAnyAuthority('a','b')`
+  - 仅登录即可（无独立 perm、但仍非匿名）：`@PreAuthorize("isAuthenticated()")`
+- **可豁免（不写 @PreAuthorize，且须在 `wj.security.jwt.ignore-urls` 或 Security 白名单中）**：
+  1. **公开匿名**：登录、注册、验证码、健康检查、Swagger/OpenAPI 等；
+  2. **三方回调**：支付/短信/OAuth 等外部系统回调（仍应做签名或 IP 校验，在 Service 内完成）。
+- **不要豁免**：系统管理、业务 CRUD、当前用户信息、导出导入等**已登录业务接口**——至少 `isAuthenticated()`，有菜单 perm 的必须用 `hasAuthority('…')`。
+- **权限串**与 `sys_menu.perm` 保持一致，推荐：`模块:资源:动作`，如 `system:user:list` / `system:user:add` / `system:user:edit` / `system:user:delete`。
+- **后续**：在 **system** 中为各接口完善对应**菜单/按钮**及 `perm` 配置（种子 SQL / 管理端），角色授权后 JWT 才能带上对应 authority；规则先行，配置跟进。
+
+### 文件导入导出
+
+- 导入：`MultipartFile`，解析与校验在 Service。
+- 导出：`HttpServletResponse` 设文件名等，数据由 Service 提供。
+
+### 示例
+
+```java
+import com.wangjin.common.result.PageResult;
+import com.wangjin.common.result.Result;
+import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
+
+@Tag(name = "01.用户接口")
+@RestController
+@RequestMapping("/api/v1/users")
+@RequiredArgsConstructor
+@Validated
+public class SysUserController {
+
+    private final SysUserService userService;
+
+    /**
+     * 用户分页
+     *
+     * @param queryParams 筛选条件
+     * @return 分页 VO
+     */
+    @Operation(summary = "用户分页")
+    @GetMapping("/page")
+    @QueryDict
+    @PreAuthorize("hasAuthority('system:user:list')")
+    public PageResult<UserPageVO> getUserPage(UserPageQuery queryParams) {
+        var page = userService.getUserPage(queryParams);
+        return PageResult.success(page.getRecords(), page.getTotal());
+    }
+
+    @Operation(summary = "新增用户")
+    @PostMapping
+    @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('system:user:add')")
+    public Result<Void> saveUser(@RequestBody @Valid UserForm userForm) {
+        return Result.judge(userService.saveUser(userForm));
+    }
+
+    /**
+     * 用户详情（出参必须是 VO，禁止返回 UserForm）
+     */
+    @Operation(summary = "用户详情")
+    @GetMapping("/{userId}")
+    @QueryDict
+    @PreAuthorize("hasAuthority('system:user:list')")
+    public Result<UserDetailVO> getUserDetail(
+            @Parameter(description = "用户ID") @PathVariable Long userId) {
+        return Result.success(userService.getUserDetail(userId));
+    }
+
+    @Operation(summary = "当前登录用户")
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public Result<UserInfoVO> getUserLoginInfo() {
+        return Result.success(userService.getUserLoginInfo());
+    }
+}
+```
+
+公开接口示例（auth，白名单 + 无 `@PreAuthorize`）：
+
+```java
+@PostMapping("/login")
+public Result<LoginVO> login(@Valid @RequestBody LoginForm form) {
+    return Result.success(authService.login(form));
+}
+```

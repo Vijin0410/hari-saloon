@@ -1,0 +1,72 @@
+---
+description: "数据库与 SQL：MyBatis XML、防注入、性能、PostgreSQL 方言与 DDL 交付"
+globs:
+  - "**/mapper/**/*.xml"
+  - "**/mapper/**/*.java"
+  - "**/resources/**/*.sql"
+  - "sql/**/*.sql"
+alwaysApply: true
+---
+
+## 数据库与 SQL 规范
+
+### 适用范围
+
+- 持久化以 **MyBatis / MyBatis-Plus** 为主：`mapper` 接口 + `src/main/resources/mapper/**/*.xml`（`mybatis-plus.mapper-locations: classpath*:/mapper/**/*.xml`）。
+- 业务 CRUD 优先 Mapper；`JdbcTemplate` 拼业务 SQL 默认禁止（例外见 `service-layer-rules.mdc`）。
+- **运行库默认 PostgreSQL**（`hair_salon`）；方言以 PG 为准。
+
+### Mapper 接口与 XML
+
+- `namespace` = Mapper 全限定名；`id` = 方法名；参数用 `@Param`，XML 中与 `query.xxx` 等一致。
+- 复杂 SQL、动态条件、多表、统计放 XML；简单单表可用 MP `LambdaQueryWrapper`，避免在 Java 里拼 SQL 字符串。
+- 特殊字符按 MyBatis 转义（`<` → `&lt;`）。
+- 动态条件用 `<if>` / `<where>` / `<foreach>`；注意 collection 为 null 时避免非法 `IN ()`。
+
+### SQL 编写习惯
+
+- **避免 `SELECT *`**：按 resultType/resultMap/VO 列所需字段。
+- **更新**：只更新变更字段（`LambdaUpdateWrapper` 或显式 SET）。
+- **批量**：批量 SQL 或 MP 批量；禁止业务 for 循环逐条远程 SQL（小批量须注释理由）。
+- **排序**：用户输入的 ORDER BY 须**白名单**列名。
+
+### 防 SQL 注入
+
+- 入参一律 `#{}`；禁止把用户输入拼进 SQL。
+- 仅表名/列名等标识符必要时用 `${}`，且 Java 侧白名单校验。
+
+### 性能与 N+1
+
+- 关联优先 JOIN、IN 批量或 Service 组批。
+- 分页：MP `Page`；`pageSize` 有上限（与 `BasePageQuery` / 全局配置一致）。
+- 大数据导出/统计：异步、限流或游标；避免一次拉全表。
+
+### 方言（PostgreSQL）
+
+- 可使用 PG 函数（如 `EXTRACT(EPOCH FROM …)`），须在 XML/SQL 头注释标明「仅 PostgreSQL」及意图。
+- 一般**不要求**再交付 MySQL 双版本；若将来双跑，再用 `databaseId` 或双脚本。
+- 时间可用 `CURRENT_TIMESTAMP`；注释可用 `COMMENT ON`（按团队 DDL 风格）。
+
+### 实体与字段类型
+
+- 业务租户表继承 **`com.wangjin.common.base.BaseTenantEntity`**（含 `tenant_id` + `BaseEntity` 审计/逻辑删除）；全局表（如 `sys_tenant`）按实际继承 `BaseEntity` 等，并加入 `wj.mybatis.ignore-tables` 如需。
+- 手写 **INSERT/UPDATE** 或初始化 SQL 时，对照基类字段（`id/create_by/create_time/update_by/update_time/deleted`，租户表另加 `tenant_id`）**勿无故缺列**；与 `@TableField(fill=…)`、逻辑删除配置一致。
+- 类型建议：时间 **`LocalDateTime`**；金额 **`BigDecimal`**；ID **`Long`**。
+- `@TableName`、`@TableLogic`、`@TableField(fill=…)` 与项目一致。
+- 敏感字段不落日志；对外 VO 脱敏 / `@JsonIgnore`。
+
+### 数据权限
+
+- 列表需按部门/本人过滤：Mapper 方法加
+  `@DataPermission(deptColumn = "dept_id", userColumn = "create_by", tableAlias = "…")`
+  ROOT 或 `data_scope=ALL` 时框架不加额外条件（仍受租户隔离）。
+
+### DDL 与脚本交付
+
+- 新建表、字段、索引：提交到仓库 **`sql/`** 和/或 **`hair-salon-boot/src/main/resources/schema.sql` / `data.sql`**。
+- 文件头注释：**目的、依赖、执行顺序、是否幂等**（`IF NOT EXISTS` / `WHERE NOT EXISTS` 等）。
+- 种子数据（菜单 `perm`、字典、角色菜单）与 **`@PreAuthorize` 权限标识**同步维护。
+
+### 与其它规则
+
+- 字典、分层见 `service-layer-rules.mdc` / `core-java-standards-rules.mdc`；SQL 与 Entity/VO 变更需同步，避免结构漂移。

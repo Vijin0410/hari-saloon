@@ -34,6 +34,8 @@ spring:
       continue-on-error: true
 
 mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-handlers-package: com.wangjin.salon.system.handler
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
@@ -61,6 +63,13 @@ wj:
         - /error
   mybatis:
     db-type: POSTGRE_SQL
+    tenant-enabled: true
+    tenant-column: tenant_id
+    data-permission-enabled: true
+    ignore-tables:
+      - sys_tenant
+      - sys_user_role
+      - sys_role_menu
   apidoc:
     title: 理发店管理系统 API
     version: 1.0.0

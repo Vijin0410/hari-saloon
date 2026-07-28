@@ -46,7 +46,7 @@ wj:
         - /favicon.ico
         - /error
   mybatis:
-    db-type: POSTGRE_SQL
+    db-type: postgresql
     tenant-enabled: true
     tenant-column: tenant_id
     data-permission-enabled: true

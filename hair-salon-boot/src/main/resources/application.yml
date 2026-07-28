@@ -1,9 +1,12 @@
 server:
   port: 8080
+#  servlet:
+#    context-path: /salon
 
 spring:
   application:
     name: hair-salon
+    description: hair-salon管理系统
   datasource:
     url: jdbc:postgresql://localhost:5432/hair_salon
     username: postgres

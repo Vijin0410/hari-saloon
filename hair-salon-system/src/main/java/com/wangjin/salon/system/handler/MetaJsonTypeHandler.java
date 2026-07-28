@@ -16,4 +16,9 @@ public class MetaJsonTypeHandler extends JacksonTypeHandler {
     public MetaJsonTypeHandler() {
         super(Meta.class);
     }
+
+    /** MyBatis 解析 XML/resultMap 时按属性类型调用此构造 */
+    public MetaJsonTypeHandler(Class<?> type) {
+        super(type);
+    }
 }

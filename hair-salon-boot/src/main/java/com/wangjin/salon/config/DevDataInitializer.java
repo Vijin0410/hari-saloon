@@ -25,17 +25,17 @@ public class DevDataInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        SysUser admin = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
-                .eq(SysUser::getUsername, "admin")
-                .last("LIMIT 1"));
-        if (admin != null) {
-            String pwd = admin.getPassword();
-            if (pwd == null || pwd.startsWith("{noop}") || !pwd.startsWith("$2")) {
-                admin.setPassword(passwordEncoder.encode("admin123"));
-                sysUserMapper.updateById(admin);
-                log.info("已将 admin 密码初始化为 BCrypt(admin123)");
-            }
-        }
+//        SysUser admin = sysUserMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+//                .eq(SysUser::getUsername, "admin")
+//                .last("LIMIT 1"));
+//        if (admin != null) {
+//            String pwd = admin.getPassword();
+//            if (pwd == null || pwd.startsWith("{noop}") || !pwd.startsWith("$2")) {
+//                admin.setPassword(passwordEncoder.encode("admin123"));
+//                sysUserMapper.updateById(admin);
+//                log.info("已将 admin 密码初始化为 BCrypt(admin123)");
+//            }
+//        }
         try {
             systemCacheService.refreshAll();
         } catch (Exception e) {

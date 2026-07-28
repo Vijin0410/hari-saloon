@@ -18,7 +18,25 @@ out/
 Thumbs.db
 logs/
 *.log
+*.err
 *.class
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/coverage/
+frontend/.vite/
+frontend/.cache/
+frontend/.eslintcache
+frontend/*.log
+frontend/*.err
+frontend/**/*.tsbuildinfo
+frontend/playwright-report/
+frontend/test-results/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
 # Kotlin
 .kotlin

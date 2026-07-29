@@ -113,3 +113,174 @@ export const menuApi = {
     return deleteRequest<void>('/v1/menus', { params: { ids: ids.join(',') } });
   },
 };
+
+export interface TenantPageQuery {
+  pageNum: number;
+  pageSize: number;
+  keywords?: string;
+  status?: number;
+}
+
+export interface TenantPageVO {
+  id: EntityId;
+  name: string;
+  code: string;
+  status?: number;
+  contact?: string;
+  phone?: string;
+  expireTime?: string;
+  remark?: string;
+  createTime?: string;
+}
+
+export interface TenantFormPayload {
+  id?: EntityId;
+  name: string;
+  code: string;
+  status?: number;
+  contact?: string;
+  phone?: string;
+  expireTime?: string;
+  remark?: string;
+  adminUsername?: string;
+  adminNickname?: string;
+  adminPassword?: string;
+}
+
+export const tenantApi = {
+  list(params: TenantPageQuery): Promise<PageData<TenantPageVO>> {
+    return get<PageData<TenantPageVO>>('/v1/tenants/page', { params });
+  },
+  getForm(id: EntityId): Promise<TenantFormPayload> {
+    return get<TenantFormPayload>(`/v1/tenants/${id}/form`);
+  },
+  create(payload: TenantFormPayload): Promise<void> {
+    return post<void, TenantFormPayload>('/v1/tenants', payload);
+  },
+  update(id: EntityId, payload: TenantFormPayload): Promise<void> {
+    return put<void, TenantFormPayload>(`/v1/tenants/${id}`, payload);
+  },
+  remove(ids: EntityId[]): Promise<void> {
+    return deleteRequest<void>('/v1/tenants', { params: { ids: ids.join(',') } });
+  },
+  updateStatus(id: EntityId, status: number): Promise<void> {
+    return patch<void>(`/v1/tenants/${id}/status`, undefined, { params: { status } });
+  },
+};
+
+export interface StorePageQuery {
+  pageNum: number;
+  pageSize: number;
+  keywords?: string;
+  status?: number;
+  deptId?: EntityId;
+}
+
+export interface StorePageVO {
+  id: EntityId;
+  name: string;
+  code?: string;
+  deptId?: EntityId;
+  phone?: string;
+  address?: string;
+  businessHours?: string;
+  openTime?: string;
+  closeTime?: string;
+  restDays?: string;
+  status?: number;
+  sort?: number;
+  remark?: string;
+  createTime?: string;
+}
+
+export interface StoreFormPayload {
+  id?: EntityId;
+  name: string;
+  code?: string;
+  deptId?: EntityId;
+  parentDeptId?: EntityId;
+  phone?: string;
+  address?: string;
+  province?: string;
+  city?: string;
+  district?: string;
+  businessHours?: string;
+  openTime?: string;
+  closeTime?: string;
+  restDays?: string;
+  status?: number;
+  sort?: number;
+  remark?: string;
+}
+
+export const storeApi = {
+  list(params: StorePageQuery): Promise<PageData<StorePageVO>> {
+    return get<PageData<StorePageVO>>('/v1/stores/page', { params });
+  },
+  detail(id: EntityId): Promise<StoreFormPayload> {
+    return get<StoreFormPayload>(`/v1/stores/${id}`);
+  },
+  create(payload: StoreFormPayload): Promise<EntityId> {
+    return post<EntityId, StoreFormPayload>('/v1/stores', payload);
+  },
+  update(id: EntityId, payload: StoreFormPayload): Promise<void> {
+    return put<void, StoreFormPayload>(`/v1/stores/${id}`, payload);
+  },
+  remove(ids: EntityId[]): Promise<void> {
+    return deleteRequest<void>('/v1/stores', { params: { ids: ids.join(',') } });
+  },
+};
+
+export interface MemberPageQuery {
+  pageNum: number;
+  pageSize: number;
+  keywords?: string;
+  status?: number;
+  deptId?: EntityId;
+}
+
+export interface MemberPageVO {
+  id: EntityId;
+  name: string;
+  phone?: string;
+  gender?: number;
+  level?: number;
+  balance?: number;
+  points?: number;
+  status?: number;
+  deptId?: EntityId;
+  createTime?: string;
+}
+
+export interface MemberFormPayload {
+  id?: EntityId;
+  name: string;
+  phone?: string;
+  gender?: number;
+  birthday?: string;
+  level?: number;
+  balance?: number;
+  points?: number;
+  source?: string;
+  status?: number;
+  remark?: string;
+  deptId: EntityId;
+}
+
+export const memberApi = {
+  list(params: MemberPageQuery): Promise<PageData<MemberPageVO>> {
+    return get<PageData<MemberPageVO>>('/v1/members/page', { params });
+  },
+  detail(id: EntityId): Promise<MemberFormPayload> {
+    return get<MemberFormPayload>(`/v1/members/${id}`);
+  },
+  create(payload: MemberFormPayload): Promise<EntityId> {
+    return post<EntityId, MemberFormPayload>('/v1/members', payload);
+  },
+  update(id: EntityId, payload: MemberFormPayload): Promise<void> {
+    return put<void, MemberFormPayload>(`/v1/members/${id}`, payload);
+  },
+  remove(ids: EntityId[]): Promise<void> {
+    return deleteRequest<void>('/v1/members', { params: { ids: ids.join(',') } });
+  },
+};

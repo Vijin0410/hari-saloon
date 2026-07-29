@@ -85,7 +85,7 @@ function toUserPayload(values: UserFormValues): UserFormPayload {
     avatar: values.avatar?.trim() || undefined,
     email: values.email?.trim() || undefined,
     status: values.status,
-    deptId: values.deptId?.trim() || undefined,
+    deptId: values.deptId.trim(),
     roleIds: values.roleIds,
   };
 }
@@ -226,8 +226,8 @@ function UserFormDialog({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Field error={errors.deptId?.message} label="部门ID">
-              <Input invalid={Boolean(errors.deptId)} placeholder="可选" {...register('deptId')} />
+            <Field error={errors.deptId?.message} label="部门ID" required>
+              <Input invalid={Boolean(errors.deptId)} placeholder="必填，店长挂店部门" {...register('deptId')} />
             </Field>
             <Field error={errors.avatar?.message} label="头像地址">
               <Input invalid={Boolean(errors.avatar)} placeholder="头像 URL" {...register('avatar')} />

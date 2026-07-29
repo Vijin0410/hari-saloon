@@ -1,14 +1,17 @@
 import { Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
+  Building2,
   LayoutDashboard,
   LogOut,
   MenuSquare,
   Moon,
   Scissors,
   ShieldCheck,
+  Store,
   Sun,
   Users,
+  UserRound,
 } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { PageLoading } from '@/shared/ui/PageLoading';
@@ -31,6 +34,9 @@ const navItems: NavItem[] = [
   { label: '用户管理', path: '/system/users', icon: Users, permission: 'system:user:list' },
   { label: '角色管理', path: '/system/roles', icon: ShieldCheck, permission: 'system:role:list' },
   { label: '菜单管理', path: '/system/menus', icon: MenuSquare, permission: 'system:menu:list' },
+  { label: '租户管理', path: '/system/tenants', icon: Building2, permission: 'system:tenant:list' },
+  { label: '门店管理', path: '/biz/stores', icon: Store, permission: 'biz:store:list' },
+  { label: '会员管理', path: '/biz/members', icon: UserRound, permission: 'biz:member:list' },
 ];
 
 function SidebarNav({ compact = false }: { compact?: boolean }) {

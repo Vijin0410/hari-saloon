@@ -20,7 +20,7 @@ export const userFormSchema = z.object({
   avatar: z.string().trim().optional(),
   email: z.union([z.literal(''), z.string().email('邮箱格式不正确')]).optional(),
   status: statusSchema,
-  deptId: z.string().trim().optional(),
+  deptId: z.string().trim().min(1, '所属部门不能为空'),
   roleIds: z.array(z.string()).min(1, '请至少选择一个角色'),
 });
 

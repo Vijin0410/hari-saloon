@@ -12,6 +12,9 @@ const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ def
 const UserPage = lazy(() => import('@/pages/UserPage').then((module) => ({ default: module.UserPage })));
 const RolePage = lazy(() => import('@/pages/RolePage').then((module) => ({ default: module.RolePage })));
 const MenuPage = lazy(() => import('@/pages/MenuPage').then((module) => ({ default: module.MenuPage })));
+const TenantPage = lazy(() => import('@/pages/TenantPage').then((module) => ({ default: module.TenantPage })));
+const StorePage = lazy(() => import('@/pages/StorePage').then((module) => ({ default: module.StorePage })));
+const MemberPage = lazy(() => import('@/pages/MemberPage').then((module) => ({ default: module.MemberPage })));
 const ForbiddenPage = lazy(() =>
   import('@/pages/ForbiddenPage').then((module) => ({ default: module.ForbiddenPage })),
 );
@@ -53,6 +56,30 @@ export const router = createBrowserRouter([
             element: (
               <PermissionRoute permission="system:menu:list">
                 <MenuPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'system/tenants',
+            element: (
+              <PermissionRoute permission="system:tenant:list">
+                <TenantPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/stores',
+            element: (
+              <PermissionRoute permission="biz:store:list">
+                <StorePage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/members',
+            element: (
+              <PermissionRoute permission="biz:member:list">
+                <MemberPage />
               </PermissionRoute>
             ),
           },

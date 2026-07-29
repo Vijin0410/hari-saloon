@@ -79,6 +79,7 @@
 - 运行库 **PostgreSQL**；方言须注释。
 - 租户业务表继承 `BaseTenantEntity`；行级过滤 Mapper 加 `@DataPermission`。
 - DDL/种子：`sql/` 与/或 boot 的 `schema.sql` / `data.sql`。
+- **建表/字段必须写注释**：PG 用 `COMMENT ON TABLE` / `COMMENT ON COLUMN`（不支持 `CREATE TABLE` 内联注释）；新表与新字段无 comment 视为不合规。`schema.sql` 建表即带注释，存量库用 `sql/migrate-*.sql` 补。
 
 ### 6. 并发与性能（摘要）
 

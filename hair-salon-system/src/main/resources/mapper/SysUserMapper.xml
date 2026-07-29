@@ -70,7 +70,7 @@
         <result property="status" column="status"/>
         <result property="deptId" column="dept_id"/>
         <result property="tenantId" column="tenant_id"/>
-        <result property="pwdResetRequired" column="pwd_reset_required"/>
+        <result property="lastPasswordChangeTime" column="last_password_change_time"/>
         <collection property="roles" ofType="string" javaType="java.util.Set">
             <result column="role_code"/>
         </collection>
@@ -86,7 +86,7 @@
             u.status,
             u.dept_id,
             u.tenant_id,
-            u.pwd_reset_required,
+            u.last_password_change_time,
             r.code AS role_code
         FROM sys_user u
         LEFT JOIN sys_user_role sur ON u.id = sur.user_id

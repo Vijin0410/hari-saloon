@@ -2,6 +2,7 @@ package com.wangjin.salon.system.model.dto;
 
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 
 /**
@@ -17,8 +18,8 @@ public class UserAuthInfo {
     private Integer status;
     private Long deptId;
     private Long tenantId;
-    /** 1=须改密 */
-    private Integer pwdResetRequired;
+    /** 最近一次自行改密时间；null 表示从未改过 */
+    private LocalDateTime lastPasswordChangeTime;
     private Set<String> roles;
     private Set<String> perms;
     /** 角色中最小 data_scope（权限最大） */

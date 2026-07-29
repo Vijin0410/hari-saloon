@@ -18,7 +18,7 @@ public class UserInfoVO {
     private String phone;
     private Long deptId;
     private Long tenantId;
-    /** true=须强制改密 */
+    /** true=须强制改密（首次 NULL 或已过期） */
     private Boolean pwdResetRequired;
     private Set<String> roles;
     private Set<String> perms;

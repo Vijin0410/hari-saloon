@@ -40,6 +40,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -108,7 +109,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         Assert.isTrue(count == 0, "用户名已存在");
         SysUser entity = userConverter.form2Entity(form);
         entity.setPassword(passwordEncoder.encode(salonProperties.getDefaultPassword()));
-        entity.setPwdResetRequired(1);
+        // lastPasswordChangeTime 保持 null → 首次登录强制改密
         if (entity.getStatus() == null) {
             entity.setStatus(1);
         }
@@ -136,7 +137,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         SysUser entity = userConverter.form2Entity(form);
         entity.setId(userId);
         entity.setPassword(null);
-        entity.setPwdResetRequired(null);
+        entity.setLastPasswordChangeTime(null);
         boolean ok = this.updateById(entity);
         if (ok) {
             userRoleService.saveUserRoles(userId, form.getRoleIds());
@@ -204,11 +205,11 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     public boolean updatePassword(Long userId, String password) {
         Assert.isTrue(StrUtil.isNotBlank(password), "密码不能为空");
-        // 管理员重置 → 仍须对方下次改密
+        // 管理员重置 → 清空改密时间，对方下次登录须强制改密
         return this.update(new LambdaUpdateWrapper<SysUser>()
                 .eq(SysUser::getId, userId)
                 .set(SysUser::getPassword, passwordEncoder.encode(password))
-                .set(SysUser::getPwdResetRequired, 1));
+                .set(SysUser::getLastPasswordChangeTime, null));
     }
 
     @Override
@@ -226,7 +227,21 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         return this.update(new LambdaUpdateWrapper<SysUser>()
                 .eq(SysUser::getId, userId)
                 .set(SysUser::getPassword, passwordEncoder.encode(newPassword))
-                .set(SysUser::getPwdResetRequired, 0));
+                .set(SysUser::getLastPasswordChangeTime, LocalDateTime.now()));
+    }
+
+    @Override
+    public boolean isPasswordResetRequired(LocalDateTime lastPasswordChangeTime) {
+        // 首次 / 管理员重置后：从未自行改密（始终生效）
+        if (lastPasswordChangeTime == null) {
+            return true;
+        }
+        // 过期策略：默认 password-expire-days<=0 不启用；配置 >0 后生效
+        int expireDays = salonProperties.getPasswordExpireDays();
+        if (expireDays <= 0) {
+            return false;
+        }
+        return lastPasswordChangeTime.isBefore(LocalDateTime.now().minusDays(expireDays));
     }
 
     private boolean matchesPassword(String raw, String encoded) {
@@ -328,7 +343,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new BizException(ResultCode.USER_NOT_EXIST);
         }
         UserInfoVO vo = userConverter.entity2UserInfoVo(user);
-        vo.setPwdResetRequired(Objects.equals(user.getPwdResetRequired(), 1));
+        vo.setPwdResetRequired(isPasswordResetRequired(user.getLastPasswordChangeTime()));
         UserAuthInfo auth = getUserAuthInfo(user.getUsername(), user.getTenantId());
         if (auth != null) {
             vo.setRoles(auth.getRoles());

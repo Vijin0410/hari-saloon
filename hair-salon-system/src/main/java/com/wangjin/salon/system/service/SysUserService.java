@@ -9,6 +9,8 @@ import com.wangjin.salon.system.model.query.UserPageQuery;
 import com.wangjin.salon.system.model.vo.UserInfoVO;
 import com.wangjin.salon.system.model.vo.UserPageVO;
 
+import java.time.LocalDateTime;
+
 public interface SysUserService extends IService<SysUser> {
 
     SysUser getByUsername(String username);
@@ -39,4 +41,9 @@ public interface SysUserService extends IService<SysUser> {
     UserAuthInfo getUserAuthInfo(String username, Long tenantId);
 
     UserInfoVO getUserLoginInfo();
+
+    /**
+     * 是否须强制改密：last 为 null（首次/重置后）或已超过 password-expire-days。
+     */
+    boolean isPasswordResetRequired(LocalDateTime lastPasswordChangeTime);
 }

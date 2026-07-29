@@ -168,7 +168,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         admin.setPassword(passwordEncoder.encode(rawPassword));
         admin.setStatus(StatusEnum.ENABLE.getValue());
         admin.setDeptId(hq.getId());
-        admin.setPwdResetRequired(1);
+        // lastPasswordChangeTime 默认 null → 首次登录强制改密
         admin.setTenantId(tenantId);
         userService.save(admin);
         userRoleService.saveUserRoles(admin.getId(), List.of(root.getId()));

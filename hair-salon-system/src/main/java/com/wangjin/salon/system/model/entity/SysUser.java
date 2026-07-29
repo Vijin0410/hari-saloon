@@ -5,6 +5,8 @@ import com.wangjin.common.base.BaseTenantEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
+
 /**
  * 系统用户。
  */
@@ -24,7 +26,9 @@ public class SysUser extends BaseTenantEntity<Long> {
     private Integer status;
     private Long deptId;
     /**
-     * 是否须首次/重置后改密：1 是 / 0 否。
+     * 最近一次用户自行改密时间。
+     * null = 从未改过（新建/管理员重置后）→ 首次登录强制改密；
+     * 非 null 且距今超过 password-expire-days → 强制改密。
      */
-    private Integer pwdResetRequired;
+    private LocalDateTime lastPasswordChangeTime;
 }

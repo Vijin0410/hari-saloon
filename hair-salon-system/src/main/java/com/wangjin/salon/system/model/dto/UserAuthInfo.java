@@ -17,6 +17,8 @@ public class UserAuthInfo {
     private Integer status;
     private Long deptId;
     private Long tenantId;
+    /** 1=须改密 */
+    private Integer pwdResetRequired;
     private Set<String> roles;
     private Set<String> perms;
     /** 角色中最小 data_scope（权限最大） */

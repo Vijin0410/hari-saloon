@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,18 +34,21 @@ public class SysDeptController {
 
     @Operation(summary = "部门树列表")
     @GetMapping
+    @PreAuthorize("hasAuthority('system:dept:list')")
     public Result<List<DeptVO>> listDepartments(DeptQuery queryParams) {
         return Result.success(deptService.listDepartments(queryParams));
     }
 
     @Operation(summary = "部门下拉")
     @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
     public Result<List<Option<Long>>> listDeptOptions() {
         return Result.success(deptService.listDeptOptions());
     }
 
     @Operation(summary = "部门表单")
     @GetMapping("/{deptId}/form")
+    @PreAuthorize("hasAuthority('system:dept:list')")
     public Result<DeptForm> getDeptForm(@PathVariable Long deptId) {
         return Result.success(deptService.getDeptForm(deptId));
     }
@@ -52,18 +56,21 @@ public class SysDeptController {
     @Operation(summary = "新增部门")
     @PostMapping
     @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('system:dept:add')")
     public Result<Long> saveDept(@Valid @RequestBody DeptForm form) {
         return Result.success(deptService.saveDept(form));
     }
 
     @Operation(summary = "修改部门")
     @PutMapping("/{deptId}")
+    @PreAuthorize("hasAuthority('system:dept:edit')")
     public Result<Long> updateDept(@PathVariable Long deptId, @Valid @RequestBody DeptForm form) {
         return Result.success(deptService.updateDept(deptId, form));
     }
 
     @Operation(summary = "删除部门")
     @DeleteMapping
+    @PreAuthorize("hasAuthority('system:dept:delete')")
     public Result<Void> deleteDepartments(@RequestParam String ids) {
         return Result.judge(deptService.deleteByIds(ids));
     }

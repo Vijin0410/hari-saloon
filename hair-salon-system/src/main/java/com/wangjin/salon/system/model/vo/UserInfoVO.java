@@ -17,6 +17,9 @@ public class UserInfoVO {
     private String nickname;
     private String phone;
     private Long deptId;
+    private Long tenantId;
+    /** true=须强制改密 */
+    private Boolean pwdResetRequired;
     private Set<String> roles;
     private Set<String> perms;
 }

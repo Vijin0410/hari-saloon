@@ -22,7 +22,11 @@ public interface UserConverter {
     UserForm entity2Form(SysUser entity);
 
     @Mapping(target = "password", ignore = true)
+    @Mapping(target = "pwdResetRequired", ignore = true)
     SysUser form2Entity(UserForm form);
 
+    @Mapping(target = "roles", ignore = true)
+    @Mapping(target = "perms", ignore = true)
+    @Mapping(target = "pwdResetRequired", ignore = true)
     UserInfoVO entity2UserInfoVo(SysUser entity);
 }

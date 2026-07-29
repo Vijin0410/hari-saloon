@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -35,6 +36,7 @@ public class SysTenantController {
 
     @Operation(summary = "租户分页")
     @GetMapping("/page")
+    @PreAuthorize("hasAuthority('system:tenant:list')")
     public PageResult<TenantPageVO> page(TenantPageQuery query) {
         var page = tenantService.getTenantPage(query);
         return PageResult.success(page.getRecords(), page.getTotal());
@@ -42,37 +44,43 @@ public class SysTenantController {
 
     @Operation(summary = "租户下拉")
     @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
     public Result<List<Option<Long>>> options() {
         return Result.success(tenantService.listOptions());
     }
 
     @Operation(summary = "租户表单")
     @GetMapping("/{id}/form")
+    @PreAuthorize("hasAuthority('system:tenant:list')")
     public Result<TenantForm> form(@PathVariable Long id) {
         return Result.success(tenantService.getTenantForm(id));
     }
 
-    @Operation(summary = "新增租户")
+    @Operation(summary = "新增租户（开通：总部部门+预置角色+管理员）")
     @PostMapping
     @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('system:tenant:add')")
     public Result<Void> save(@Valid @RequestBody TenantForm form) {
         return Result.judge(tenantService.saveTenant(form));
     }
 
     @Operation(summary = "修改租户")
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('system:tenant:edit')")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody TenantForm form) {
         return Result.judge(tenantService.updateTenant(id, form));
     }
 
     @Operation(summary = "删除租户")
     @DeleteMapping
+    @PreAuthorize("hasAuthority('system:tenant:delete')")
     public Result<Void> delete(@RequestParam String ids) {
         return Result.judge(tenantService.deleteTenants(ids));
     }
 
     @Operation(summary = "修改状态")
     @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('system:tenant:edit')")
     public Result<Void> status(@PathVariable Long id, @RequestParam Integer status) {
         return Result.judge(tenantService.updateStatus(id, status));
     }

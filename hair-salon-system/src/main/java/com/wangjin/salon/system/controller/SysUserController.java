@@ -73,11 +73,18 @@ public class SysUserController {
         return Result.judge(userService.deleteUsers(ids));
     }
 
-    @Operation(summary = "重置密码")
+    @Operation(summary = "重置密码（管理员）")
     @PatchMapping("/{userId}/password")
     @PreAuthorize("hasAuthority('system:user:edit')")
     public Result<Void> updatePassword(@PathVariable Long userId, @RequestParam String password) {
         return Result.judge(userService.updatePassword(userId, password));
+    }
+
+    @Operation(summary = "修改自己的密码")
+    @PatchMapping("/me/password")
+    @PreAuthorize("isAuthenticated()")
+    public Result<Void> changeOwnPassword(@RequestParam String oldPassword, @RequestParam String newPassword) {
+        return Result.judge(userService.changeOwnPassword(oldPassword, newPassword));
     }
 
     @Operation(summary = "修改状态")

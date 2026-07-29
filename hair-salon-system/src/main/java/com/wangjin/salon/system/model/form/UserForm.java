@@ -3,6 +3,7 @@ package com.wangjin.salon.system.model.form;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.List;
@@ -24,6 +25,8 @@ public class UserForm {
     private String avatar;
     private String email;
     private Integer status;
+
+    @NotNull(message = "所属部门不能为空")
     private Long deptId;
 
     @NotEmpty(message = "用户角色不能为空")

@@ -23,4 +23,8 @@ public class SysUser extends BaseTenantEntity<Long> {
     private String email;
     private Integer status;
     private Long deptId;
+    /**
+     * 是否须首次/重置后改密：1 是 / 0 否。
+     */
+    private Integer pwdResetRequired;
 }

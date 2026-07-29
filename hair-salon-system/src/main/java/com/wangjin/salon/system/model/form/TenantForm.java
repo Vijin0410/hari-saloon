@@ -27,4 +27,16 @@ public class TenantForm {
     private LocalDateTime expireTime;
 
     private String remark;
+
+    /** 开通时管理员登录名；空则默认 admin */
+    @Schema(description = "管理员用户名（仅新增）")
+    private String adminUsername;
+
+    /** 开通时管理员昵称；空则用联系人或租户名 */
+    @Schema(description = "管理员昵称（仅新增）")
+    private String adminNickname;
+
+    /** 开通时管理员初始密码；空则用系统默认密码 */
+    @Schema(description = "管理员初始密码（仅新增，不回显）")
+    private String adminPassword;
 }

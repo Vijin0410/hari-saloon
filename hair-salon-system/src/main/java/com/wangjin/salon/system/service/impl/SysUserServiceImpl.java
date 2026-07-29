@@ -16,10 +16,12 @@ import com.wangjin.common.result.ResultCode;
 import com.wangjin.common.security.context.UserContext;
 import com.wangjin.common.security.util.SecurityUtils;
 import com.wangjin.salon.system.cache.SystemCacheService;
+import com.wangjin.salon.system.config.SalonProperties;
 import com.wangjin.salon.system.converter.UserConverter;
 import com.wangjin.salon.system.mapper.SysUserMapper;
 import com.wangjin.salon.system.model.bo.UserBO;
 import com.wangjin.salon.system.model.dto.UserAuthInfo;
+import com.wangjin.salon.system.model.entity.SysDept;
 import com.wangjin.salon.system.model.entity.SysRole;
 import com.wangjin.salon.system.model.entity.SysUser;
 import com.wangjin.salon.system.model.entity.SysUserRole;
@@ -32,6 +34,7 @@ import com.wangjin.salon.system.service.SysMenuService;
 import com.wangjin.salon.system.service.SysRoleService;
 import com.wangjin.salon.system.service.SysUserRoleService;
 import com.wangjin.salon.system.service.SysUserService;
+import com.wangjin.salon.system.util.TenantContextRunner;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -41,7 +44,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> implements SysUserService {
@@ -53,6 +58,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     private final SysDeptService deptService;
     private final SystemCacheService systemCacheService;
     private final UserConverter userConverter;
+    private final SalonProperties salonProperties;
 
     public SysUserServiceImpl(PasswordEncoder passwordEncoder,
                               SysUserRoleService userRoleService,
@@ -60,7 +66,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
                               SysRoleService roleService,
                               SysDeptService deptService,
                               @Lazy SystemCacheService systemCacheService,
-                              UserConverter userConverter) {
+                              UserConverter userConverter,
+                              SalonProperties salonProperties) {
         this.passwordEncoder = passwordEncoder;
         this.userRoleService = userRoleService;
         this.menuService = menuService;
@@ -68,6 +75,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         this.deptService = deptService;
         this.systemCacheService = systemCacheService;
         this.userConverter = userConverter;
+        this.salonProperties = salonProperties;
     }
 
     @Override
@@ -94,10 +102,13 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean saveUser(UserForm form) {
+        assertDeptAndRolesAssignable(form.getDeptId(), form.getRoleIds());
+
         long count = this.count(new LambdaQueryWrapper<SysUser>().eq(SysUser::getUsername, form.getUsername()));
         Assert.isTrue(count == 0, "用户名已存在");
         SysUser entity = userConverter.form2Entity(form);
-        entity.setPassword(passwordEncoder.encode(SystemConstants.DEFAULT_PASSWORD));
+        entity.setPassword(passwordEncoder.encode(salonProperties.getDefaultPassword()));
+        entity.setPwdResetRequired(1);
         if (entity.getStatus() == null) {
             entity.setStatus(1);
         }
@@ -114,6 +125,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     public boolean updateUser(Long userId, UserForm form) {
         SysUser exist = this.getById(userId);
         Assert.notNull(exist, "用户不存在");
+        assertDeptAndRolesAssignable(form.getDeptId(), form.getRoleIds());
+
         if (!exist.getUsername().equals(form.getUsername())) {
             long count = this.count(new LambdaQueryWrapper<SysUser>()
                     .eq(SysUser::getUsername, form.getUsername())
@@ -123,12 +136,52 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         SysUser entity = userConverter.form2Entity(form);
         entity.setId(userId);
         entity.setPassword(null);
+        entity.setPwdResetRequired(null);
         boolean ok = this.updateById(entity);
         if (ok) {
             userRoleService.saveUserRoles(userId, form.getRoleIds());
             systemCacheService.refreshUserCache();
         }
         return ok;
+    }
+
+    /**
+     * 部门必须存在；非全量数据权限时只能挂到可见部门；
+     * 非 ROOT 不能赋 ROOT 角色，也不能赋 data_scope 比自己更宽的角色。
+     */
+    private void assertDeptAndRolesAssignable(Long deptId, List<Long> roleIds) {
+        Assert.notNull(deptId, "所属部门不能为空");
+        SysDept dept = deptService.getById(deptId);
+        Assert.notNull(dept, "所属部门不存在");
+
+        if (!SecurityUtils.isAllDataScope()) {
+            Set<Long> visible = SecurityUtils.getDataScopeDeptIds();
+            Assert.isTrue(CollUtil.isNotEmpty(visible) && visible.contains(deptId),
+                    "无权在该部门下创建/修改用户");
+        }
+
+        Assert.isTrue(CollUtil.isNotEmpty(roleIds), "用户角色不能为空");
+        List<SysRole> roles = roleService.listByIds(roleIds);
+        Assert.isTrue(roles.size() == roleIds.stream().filter(Objects::nonNull).collect(Collectors.toSet()).size(),
+                "角色不存在或不可用");
+
+        boolean assignRoot = roles.stream().anyMatch(r ->
+                GlobalConstants.ROOT_ROLE_CODE.equalsIgnoreCase(r.getCode()));
+        if (assignRoot && !SecurityUtils.isRoot()) {
+            throw new BizException(ResultCode.ACCESS_UNAUTHORIZED, "无权分配超级管理员角色");
+        }
+
+        Integer myScope = SecurityUtils.getDataScope();
+        if (myScope == null) {
+            myScope = DataScopeEnum.SELF.getValue();
+        }
+        if (!SecurityUtils.isRoot() && !DataScopeEnum.ALL.getValue().equals(myScope)) {
+            for (SysRole role : roles) {
+                Integer scope = role.getDataScope() == null ? DataScopeEnum.SELF.getValue() : role.getDataScope();
+                // 数值越小权限越大
+                Assert.isTrue(scope >= myScope, "不能分配数据范围更宽的角色：" + role.getName());
+            }
+        }
     }
 
     @Override
@@ -151,9 +204,39 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     public boolean updatePassword(Long userId, String password) {
         Assert.isTrue(StrUtil.isNotBlank(password), "密码不能为空");
+        // 管理员重置 → 仍须对方下次改密
         return this.update(new LambdaUpdateWrapper<SysUser>()
                 .eq(SysUser::getId, userId)
-                .set(SysUser::getPassword, passwordEncoder.encode(password)));
+                .set(SysUser::getPassword, passwordEncoder.encode(password))
+                .set(SysUser::getPwdResetRequired, 1));
+    }
+
+    @Override
+    public boolean changeOwnPassword(String oldPassword, String newPassword) {
+        Assert.isTrue(StrUtil.isNotBlank(oldPassword), "原密码不能为空");
+        Assert.isTrue(StrUtil.isNotBlank(newPassword), "新密码不能为空");
+        Assert.isTrue(newPassword.length() >= 6, "新密码至少 6 位");
+        Long userId = SecurityUtils.getUserId();
+        Assert.notNull(userId, "未登录");
+        SysUser user = this.getById(userId);
+        Assert.notNull(user, "用户不存在");
+        if (!matchesPassword(oldPassword, user.getPassword())) {
+            throw new BizException(ResultCode.USERNAME_OR_PASSWORD_ERROR, "原密码不正确");
+        }
+        return this.update(new LambdaUpdateWrapper<SysUser>()
+                .eq(SysUser::getId, userId)
+                .set(SysUser::getPassword, passwordEncoder.encode(newPassword))
+                .set(SysUser::getPwdResetRequired, 0));
+    }
+
+    private boolean matchesPassword(String raw, String encoded) {
+        if (StrUtil.isBlank(encoded)) {
+            return false;
+        }
+        if (encoded.startsWith("{noop}")) {
+            return raw.equals(encoded.substring(6));
+        }
+        return passwordEncoder.matches(raw, encoded);
     }
 
     @Override
@@ -165,6 +248,17 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     @Override
     public UserAuthInfo getUserAuthInfo(String username) {
+        return getUserAuthInfo(username, null);
+    }
+
+    @Override
+    public UserAuthInfo getUserAuthInfo(String username, Long tenantId) {
+        Long effectiveTenant = tenantId == null ? SystemConstants.DEFAULT_TENANT_ID : tenantId;
+        // 登录未鉴权：TenantLine 默认 tenant=1，显式切到目标租户再查
+        return TenantContextRunner.run(effectiveTenant, () -> loadAuthInfo(username));
+    }
+
+    private UserAuthInfo loadAuthInfo(String username) {
         UserAuthInfo info = this.baseMapper.getUserAuthInfo(username);
         if (info == null) {
             return null;
@@ -177,7 +271,6 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (CollUtil.isNotEmpty(roles)) {
             info.setPerms(menuService.listRolePerms(roles));
             Integer maxScope = roleService.getMaxDataRangeDataScope(roles);
-            // ROOT 角色强制 ALL
             if (roles.stream().anyMatch(r -> GlobalConstants.ROOT_ROLE_CODE.equalsIgnoreCase(r))) {
                 maxScope = DataScopeEnum.ALL.getValue();
             }
@@ -235,7 +328,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new BizException(ResultCode.USER_NOT_EXIST);
         }
         UserInfoVO vo = userConverter.entity2UserInfoVo(user);
-        UserAuthInfo auth = getUserAuthInfo(user.getUsername());
+        vo.setPwdResetRequired(Objects.equals(user.getPwdResetRequired(), 1));
+        UserAuthInfo auth = getUserAuthInfo(user.getUsername(), user.getTenantId());
         if (auth != null) {
             vo.setRoles(auth.getRoles());
             vo.setPerms(auth.getPerms());

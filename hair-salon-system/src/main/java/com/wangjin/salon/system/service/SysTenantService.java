@@ -25,4 +25,9 @@ public interface SysTenantService extends IService<SysTenant> {
     boolean updateStatus(Long id, Integer status);
 
     List<Option<Long>> listOptions();
+
+    /**
+     * 按编码查启用中的租户（登录用）。
+     */
+    SysTenant getByCode(String code);
 }

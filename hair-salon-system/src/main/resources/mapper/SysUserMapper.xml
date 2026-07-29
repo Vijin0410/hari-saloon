@@ -70,12 +70,13 @@
         <result property="status" column="status"/>
         <result property="deptId" column="dept_id"/>
         <result property="tenantId" column="tenant_id"/>
+        <result property="pwdResetRequired" column="pwd_reset_required"/>
         <collection property="roles" ofType="string" javaType="java.util.Set">
             <result column="role_code"/>
         </collection>
     </resultMap>
 
-    <!-- 登录查询：TenantLine 对未登录用户使用默认租户 1 -->
+    <!-- 登录查询：调用方通过 TenantContextRunner 切到目标租户 -->
     <select id="getUserAuthInfo" resultMap="UserAuthMap">
         SELECT
             u.id AS user_id,
@@ -85,6 +86,7 @@
             u.status,
             u.dept_id,
             u.tenant_id,
+            u.pwd_reset_required,
             r.code AS role_code
         FROM sys_user u
         LEFT JOIN sys_user_role sur ON u.id = sur.user_id

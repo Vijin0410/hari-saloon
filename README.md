@@ -38,7 +38,8 @@ mvn clean install -DskipTests
 | JDK 17+ | 编译运行 |
 | PostgreSQL | 库名 `hair_salon`（需先创建） |
 | Redis | localhost:6379，密码见 yml |
-| wj-framework | 本地 `mvn install` |
+| MinIO | 对象存储；本地 Docker 见 `../wj-framework/docs/minio-deploy.md`（API 9000 / 控制台 9001） |
+| wj-framework | 本地 `mvn install`（含 `common-minio`） |
 
 ## 启动
 
@@ -71,6 +72,7 @@ java -jar hair-salon-boot/target/hair-salon-boot-1.0.0-SNAPSHOT.jar
 
 | 模块 | 前缀 | 说明 |
 |------|------|------|
+| 文件 | `/api/v1/files` | MinIO 上传/删除/公有 URL/预签名；需登录；表存 `objectKey` |
 | 租户 | `/api/v1/tenants` | 租户主数据 CRUD/下拉（全局表，无行级租户过滤） |
 | 用户 | `/api/v1/users` | 分页/CRUD/改密/启停/`/me`；分页支持 `@QueryDict` |
 | 角色 | `/api/v1/roles` | 分页/CRUD/分配菜单 `/{roleId}/{type}/menus` |

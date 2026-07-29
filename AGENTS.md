@@ -130,13 +130,13 @@ java -jar hair-salon-boot/target/hair-salon-boot-1.0.0-SNAPSHOT.jar
 
 ### 要不要单独搞一套 skill？
 
-| 问题 | 建议 |
-|------|------|
-| Codex 是否必须有类似 `.claude/skills` 的目录？ | **一般不需要**再造平行 skill 树。Codex 默认靠仓库根 **`AGENTS.md`（本文）** 注入约定。 |
+| 问题 | 建议                                                                                            |
+|------|-----------------------------------------------------------------------------------------------|
+| Codex 是否必须有类似 `.claude/skills` 的目录？ | **一般不需要**再造平行 skill 树。Codex 默认靠仓库根 **`AGENTS.md`（本文）** 注入约定。                                  |
 | 流程型能力怎么办？ | **复用** `.claude/skills/**/SKILL.md`：任务匹配时 **Read 并按其步骤做**（无 Claude Skill 运行时，Markdown 流程仍可执行）。 |
-| 用户级 `~/.claude/skills`？ | 本机有则按需 Read；没有则跳过，勿臆造。 |
-| 稳定规范放哪？ | **内嵌本文 / `CLAUDE.md`**，不要依赖每次打开 6 个 mdc。 |
-| `.cursor/rules`？ | **留给 Cursor**；Claude/Codex 仅可选深挖，**非每回合必读**。 |
+| 用户级 `~/.claude/skills`？ | 本机有则按需 Read；没有则跳过，勿臆造。                                                                        |
+| 稳定规范放哪？ | **内嵌本文 / `CLAUDE.md`**，不要依赖每次打开 6 个 mdc。                                                      |
+| `.cursor/rules`？ | **留给 Cursor**；Claude/Codex 仅可选深挖，**非每回合必读**。                                                  |
 
 仅当流程很长、再塞进本文会浪费每会话上下文，且希望与 Claude **共用同一份**流程时，再新增 skill 文件并在下表加一行——**不必**维护 `.codex/skills` 副本。
 

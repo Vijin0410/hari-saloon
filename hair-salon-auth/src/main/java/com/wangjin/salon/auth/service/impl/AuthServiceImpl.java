@@ -21,7 +21,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
-import java.util.Objects;
 
 /**
  * 认证服务：登录写入 tenantId / roles / dataScope，供租户行与数据权限拦截使用。
@@ -64,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         String token = JwtUtils.createToken(loginUser, jwtProperties.getSecret(), jwtProperties.getExpireSeconds());
-        boolean needReset = Objects.equals(auth.getPwdResetRequired(), 1);
+        boolean needReset = sysUserService.isPasswordResetRequired(auth.getLastPasswordChangeTime());
         return new LoginVO(token, auth.getUserId(), auth.getUsername(), auth.getNickname(), needReset);
     }
 

@@ -284,3 +284,31 @@ export const memberApi = {
     return deleteRequest<void>('/v1/members', { params: { ids: ids.join(',') } });
   },
 };
+
+export interface FileVO {
+  id: EntityId;
+  objectKey: string;
+  originalName?: string;
+  contentType?: string;
+  extension?: string;
+  size?: number;
+  biz?: string;
+  bizId?: EntityId;
+  isPublic?: number;
+  /** 访问 URL：私有桶统一预签名，上传后即时可用 */
+  url?: string;
+}
+
+export const fileApi = {
+  /** 上传文件；biz 为业务目录（头像用 avatar）。objectKey 存业务表，url 为预签名展示链接。 */
+  upload(file: File, biz = 'common'): Promise<FileVO> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('biz', biz);
+    return post<FileVO, FormData>('/v1/files/upload', form);
+  },
+  /** 按 objectKey 取可访问 URL（私有桶统一预签名，后端按归属校验）。 */
+  urlByKey(objectKey: string): Promise<string> {
+    return get<string>('/v1/files/url', { params: { objectKey } });
+  },
+};

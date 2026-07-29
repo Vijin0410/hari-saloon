@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Pencil,
@@ -9,7 +9,7 @@ import {
   ToggleRight,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { userApi, roleApi } from '@/shared/api/modules/systemApi';
+import { fileApi, roleApi, userApi } from '@/shared/api/modules/systemApi';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
@@ -107,6 +107,10 @@ function UserFormDialog({
 }) {
   const [loadingForm, setLoadingForm] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarUploadError, setAvatarUploadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     formState: { errors },
     handleSubmit,
@@ -137,9 +141,22 @@ function UserFormDialog({
     setLoadingForm(true);
     userApi
       .getForm(userId)
-      .then((payload) => {
-        if (active) {
-          reset(toUserFormValues(payload));
+      .then(async (payload) => {
+        if (!active) {
+          return;
+        }
+        reset(toUserFormValues(payload));
+        setAvatarPreview('');
+        setAvatarUploadError('');
+        if (payload.avatar) {
+          try {
+            const url = await fileApi.urlByKey(payload.avatar);
+            if (active) {
+              setAvatarPreview(url);
+            }
+          } catch {
+            // 无权访问或对象已删：预览留空，不影响编辑提交
+          }
         }
       })
       .finally(() => {
@@ -170,6 +187,28 @@ function UserFormDialog({
   }
 
   const selectedRoleIds = watch('roleIds');
+  const avatarObjectKey = watch('avatar');
+
+  async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    setAvatarUploading(true);
+    setAvatarUploadError('');
+    try {
+      const vo = await fileApi.upload(file, 'avatar');
+      setValue('avatar', vo.objectKey, { shouldValidate: true, shouldDirty: true });
+      setAvatarPreview(vo.url ?? '');
+    } catch (error) {
+      setAvatarUploadError(error instanceof Error ? error.message : '头像上传失败');
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
 
   return (
     <Modal
@@ -229,8 +268,50 @@ function UserFormDialog({
             <Field error={errors.deptId?.message} label="部门ID" required>
               <Input invalid={Boolean(errors.deptId)} placeholder="必填，店长挂店部门" {...register('deptId')} />
             </Field>
-            <Field error={errors.avatar?.message} label="头像地址">
-              <Input invalid={Boolean(errors.avatar)} placeholder="头像 URL" {...register('avatar')} />
+            <Field error={errors.avatar?.message || avatarUploadError} label="头像">
+              <div className="flex items-center gap-3">
+                {avatarPreview ? (
+                  <img
+                    alt="头像预览"
+                    src={avatarPreview}
+                    className="size-16 shrink-0 rounded-full border border-salon-line object-cover"
+                  />
+                ) : (
+                  <div className="flex size-16 shrink-0 items-center justify-center rounded-full border border-dashed border-salon-line text-xs text-zinc-400">
+                    无头像
+                  </div>
+                )}
+                <div className="flex flex-col gap-1.5">
+                  <input
+                    ref={fileInputRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => void handleAvatarChange(event)}
+                    type="file"
+                  />
+                  <Button
+                    disabled={avatarUploading}
+                    loading={avatarUploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    选择图片
+                  </Button>
+                  {avatarObjectKey ? (
+                    <button
+                      className="text-left text-xs text-zinc-500 hover:text-rose-600"
+                      onClick={() => {
+                        setValue('avatar', '', { shouldDirty: true });
+                        setAvatarPreview('');
+                      }}
+                      type="button"
+                    >
+                      移除
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </Field>
           </div>
 

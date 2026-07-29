@@ -9,6 +9,11 @@ spring:
     description: hair-salon管理系统
   profiles:
     active: company
+  servlet:
+    multipart:
+      # 单文件上限与 common-minio maxSize（默认 10MB）对齐，避免 Spring 默认 1MB 先拦截
+      max-file-size: 10MB
+      max-request-size: 50MB
   sql:
     init:
       # 首次启动建表；表已存在后可改为 never
@@ -58,6 +63,21 @@ wj:
   apidoc:
     title: 理发店管理系统 API
     version: 1.0.0
+  # MinIO（common-minio）；本地 Docker 见 ../wj-framework/docs/minio-deploy.md
+  minio:
+    enabled: true
+    endpoint: http://127.0.0.1:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: hair-salon
+    public-url: http://127.0.0.1:9000
+    create-bucket-if-missing: true
+    public-read: false
+    # 预签名 URL 默认有效期（秒），与 JWT expire-seconds 对齐：会话内有效，登录失效即失效
+    default-expiry-seconds: 86400
+    tenant-path: true
+    # 业务侧 SysFileController 已提供上传；框架内置 HTTP 关闭，避免双路径
+    endpoint-enabled: false
   # 后台建人/开通租户初始密码与密码策略；生产请覆盖
   salon:
     default-password: admin123

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wangjin.salon.system.mapper.SysFileMapper">
+
+    <select id="getFilePage" resultType="com.wangjin.salon.system.model.vo.SysFilePageVO">
+        SELECT
+            f.id, f.object_key, f.original_name, f.extension, f.size,
+            f.biz, f.biz_id, f.is_public, f.dept_id, f.create_by, f.create_time
+        FROM sys_file f
+        <where>
+            f.deleted = 0
+            <if test="q.keywords != null and q.keywords != ''">
+                AND f.original_name LIKE CONCAT('%', #{q.keywords}, '%')
+            </if>
+            <if test="q.biz != null and q.biz != ''">
+                AND f.biz = #{q.biz}
+            </if>
+            <if test="q.bizId != null">
+                AND f.biz_id = #{q.bizId}
+            </if>
+            <if test="q.isPublic != null">
+                AND f.is_public = #{q.isPublic}
+            </if>
+        </where>
+        ORDER BY f.create_time DESC
+    </select>
+</mapper>

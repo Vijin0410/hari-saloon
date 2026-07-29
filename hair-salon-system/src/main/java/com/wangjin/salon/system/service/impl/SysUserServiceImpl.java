@@ -12,6 +12,7 @@ import com.wangjin.common.constant.GlobalConstants;
 import com.wangjin.common.constant.SystemConstants;
 import com.wangjin.common.enums.DataScopeEnum;
 import com.wangjin.common.exception.BizException;
+import com.wangjin.common.minio.service.MinioService;
 import com.wangjin.common.result.ResultCode;
 import com.wangjin.common.security.context.UserContext;
 import com.wangjin.common.security.util.SecurityUtils;
@@ -60,6 +61,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     private final SystemCacheService systemCacheService;
     private final UserConverter userConverter;
     private final SalonProperties salonProperties;
+    private final MinioService minioService;
 
     public SysUserServiceImpl(PasswordEncoder passwordEncoder,
                               SysUserRoleService userRoleService,
@@ -68,7 +70,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
                               SysDeptService deptService,
                               @Lazy SystemCacheService systemCacheService,
                               UserConverter userConverter,
-                              SalonProperties salonProperties) {
+                              SalonProperties salonProperties,
+                              MinioService minioService) {
         this.passwordEncoder = passwordEncoder;
         this.userRoleService = userRoleService;
         this.menuService = menuService;
@@ -77,6 +80,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         this.systemCacheService = systemCacheService;
         this.userConverter = userConverter;
         this.salonProperties = salonProperties;
+        this.minioService = minioService;
     }
 
     @Override
@@ -90,7 +94,24 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     public IPage<UserPageVO> getUserPage(UserPageQuery queryParams) {
         Page<UserBO> page = this.baseMapper.getUserPage(
                 new Page<>(queryParams.getPageNum(), queryParams.getPageSize()), queryParams);
-        return userConverter.bo2Vo(page);
+        Page<UserPageVO> voPage = userConverter.bo2Vo(page);
+        // avatar 存 object_key，私有桶下展示须转预签名 URL
+        for (UserPageVO vo : voPage.getRecords()) {
+            vo.setAvatar(presignUrl(vo.getAvatar()));
+        }
+        return voPage;
+    }
+
+    /** 文件字段存 object_key，转预签名 URL 供展示；空或签名失败返回 null。 */
+    private String presignUrl(String objectKey) {
+        if (StrUtil.isBlank(objectKey)) {
+            return null;
+        }
+        try {
+            return minioService.getPresignedUrl(objectKey, 0);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override

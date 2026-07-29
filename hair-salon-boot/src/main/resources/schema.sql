@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS sys_user (
     email         varchar(128),
     status        int4         DEFAULT 1,
     dept_id       int8,
-    -- 1=须改密（后台新建/重置后）；0=已自行改过
-    pwd_reset_required int4    DEFAULT 1,
+    -- 最近一次用户自行改密时间；NULL=从未改过（首次须重置）；超期见 wj.salon.password-expire-days
+    last_password_change_time timestamp,
     tenant_id     int8         NOT NULL,
     create_by     int8,
     create_time   timestamp,

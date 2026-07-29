@@ -58,9 +58,12 @@ wj:
   apidoc:
     title: 理发店管理系统 API
     version: 1.0.0
-  # 后台建人/开通租户初始密码；生产请覆盖
+  # 后台建人/开通租户初始密码与密码策略；生产请覆盖
   salon:
     default-password: admin123
+    # 密码过期天数：<=0 不启用过期强制改密（仍保留逻辑）；>0 时距上次改密超过该天数须重置
+    # 无论是否启用过期，last_password_change_time IS NULL（首次/管理员重置后）仍强制改密
+    password-expire-days: 0
 
 logging:
   level:

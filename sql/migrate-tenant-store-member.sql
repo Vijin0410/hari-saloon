@@ -1,13 +1,31 @@
--- 存量库增量：密码强制改密 + 门店 + 会员
+-- 存量库增量：密码改密时间 + 门店 + 会员
 -- 在已有 hair_salon 库手工执行（sql.init.mode=never 时不会自动跑 schema）
 
+-- 1) 新字段
 ALTER TABLE sys_user
-    ADD COLUMN IF NOT EXISTS pwd_reset_required int4 DEFAULT 1;
+    ADD COLUMN IF NOT EXISTS last_password_change_time timestamp;
 
--- 历史 admin 视为已改过密，避免启动后立刻被拦
+-- 2) 从旧布尔字段迁移（若存在）
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'sys_user' AND column_name = 'pwd_reset_required'
+    ) THEN
+        -- 已改过密(0) → 记为当前时间；须改密(1)/NULL → 保持 NULL
+        UPDATE sys_user
+        SET last_password_change_time = CURRENT_TIMESTAMP
+        WHERE pwd_reset_required = 0
+          AND last_password_change_time IS NULL;
+
+        ALTER TABLE sys_user DROP COLUMN IF EXISTS pwd_reset_required;
+    END IF;
+END $$;
+
+-- 历史 admin 若仍无改密时间，视为已改过，避免立刻被拦
 UPDATE sys_user
-SET pwd_reset_required = 0
-WHERE username = 'admin' AND tenant_id = 1 AND (pwd_reset_required IS NULL OR pwd_reset_required = 1);
+SET last_password_change_time = CURRENT_TIMESTAMP
+WHERE username = 'admin' AND tenant_id = 1 AND last_password_change_time IS NULL;
 
 CREATE TABLE IF NOT EXISTS salon_store (
     id              int8         NOT NULL PRIMARY KEY,

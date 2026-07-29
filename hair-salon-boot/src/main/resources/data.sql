@@ -22,8 +22,8 @@ INSERT INTO sys_role (id, name, code, sort, status, data_scope, tenant_id, creat
 SELECT 3, '店员', 'STORE_STAFF', 3, 1, 4, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE code = 'STORE_STAFF' AND tenant_id = 1);
 
-INSERT INTO sys_user (id, username, password, nickname, phone, status, dept_id, gender, pwd_reset_required, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 1, 'admin', '{noop}admin123', '管理员', '15061952394', 1, 100, 1, 0, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+INSERT INTO sys_user (id, username, password, nickname, phone, status, dept_id, gender, last_password_change_time, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 1, 'admin', '{noop}admin123', '管理员', '15061952394', 1, 100, 1, CURRENT_TIMESTAMP, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_user WHERE username = 'admin' AND tenant_id = 1);
 
 INSERT INTO sys_user_role (user_id, role_id)

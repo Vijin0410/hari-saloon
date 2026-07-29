@@ -7,17 +7,21 @@ import com.wangjin.common.result.ResultCode;
 import com.wangjin.common.security.config.JwtProperties;
 import com.wangjin.common.security.context.LoginUser;
 import com.wangjin.common.security.util.JwtUtils;
+import com.wangjin.salon.auth.model.form.ChangePasswordForm;
 import com.wangjin.salon.auth.model.form.LoginForm;
 import com.wangjin.salon.auth.model.vo.LoginVO;
 import com.wangjin.salon.auth.service.AuthService;
 import com.wangjin.salon.system.model.dto.UserAuthInfo;
+import com.wangjin.salon.system.model.entity.SysTenant;
 import com.wangjin.salon.system.model.vo.UserInfoVO;
+import com.wangjin.salon.system.service.SysTenantService;
 import com.wangjin.salon.system.service.SysUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
+import java.util.Objects;
 
 /**
  * 认证服务：登录写入 tenantId / roles / dataScope，供租户行与数据权限拦截使用。
@@ -27,12 +31,14 @@ import java.util.Collections;
 public class AuthServiceImpl implements AuthService {
 
     private final SysUserService sysUserService;
+    private final SysTenantService sysTenantService;
     private final PasswordEncoder passwordEncoder;
     private final JwtProperties jwtProperties;
 
     @Override
     public LoginVO login(LoginForm form) {
-        UserAuthInfo auth = sysUserService.getUserAuthInfo(form.getUsername());
+        Long tenantId = resolveTenantId(form.getTenantCode());
+        UserAuthInfo auth = sysUserService.getUserAuthInfo(form.getUsername(), tenantId);
         if (auth == null) {
             throw new BizException(ResultCode.USERNAME_OR_PASSWORD_ERROR);
         }
@@ -43,13 +49,13 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ResultCode.USERNAME_OR_PASSWORD_ERROR);
         }
 
-        Long tenantId = auth.getTenantId() == null ? SystemConstants.DEFAULT_TENANT_ID : auth.getTenantId();
+        Long resolvedTenant = auth.getTenantId() == null ? SystemConstants.DEFAULT_TENANT_ID : auth.getTenantId();
 
         LoginUser loginUser = LoginUser.builder()
                 .userId(auth.getUserId())
                 .username(auth.getUsername())
                 .nickname(auth.getNickname())
-                .tenantId(tenantId)
+                .tenantId(resolvedTenant)
                 .deptId(auth.getDeptId())
                 .dataScope(auth.getMaxDataScope())
                 .dataScopeDeptIds(auth.getDataScopeDeptIds() == null ? Collections.emptySet() : auth.getDataScopeDeptIds())
@@ -58,12 +64,29 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         String token = JwtUtils.createToken(loginUser, jwtProperties.getSecret(), jwtProperties.getExpireSeconds());
-        return new LoginVO(token, auth.getUserId(), auth.getUsername(), auth.getNickname());
+        boolean needReset = Objects.equals(auth.getPwdResetRequired(), 1);
+        return new LoginVO(token, auth.getUserId(), auth.getUsername(), auth.getNickname(), needReset);
+    }
+
+    private Long resolveTenantId(String tenantCode) {
+        if (StrUtil.isBlank(tenantCode) || "default".equalsIgnoreCase(tenantCode.trim())) {
+            return SystemConstants.DEFAULT_TENANT_ID;
+        }
+        SysTenant tenant = sysTenantService.getByCode(tenantCode.trim());
+        if (tenant == null) {
+            throw new BizException(ResultCode.PARAM_ERROR, "租户不存在或已禁用");
+        }
+        return tenant.getId();
     }
 
     @Override
     public UserInfoVO currentUser() {
         return sysUserService.getUserLoginInfo();
+    }
+
+    @Override
+    public boolean changePassword(ChangePasswordForm form) {
+        return sysUserService.changeOwnPassword(form.getOldPassword(), form.getNewPassword());
     }
 
     private boolean matchesPassword(String raw, String encoded) {

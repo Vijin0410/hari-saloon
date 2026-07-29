@@ -16,4 +16,6 @@ public class LoginVO {
     private Long userId;
     private String username;
     private String nickname;
+    /** 是否须强制改密 */
+    private Boolean pwdResetRequired;
 }

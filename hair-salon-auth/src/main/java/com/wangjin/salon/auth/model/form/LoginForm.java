@@ -14,4 +14,9 @@ public class LoginForm {
 
     @NotBlank(message = "密码不能为空")
     private String password;
+
+    /**
+     * 租户编码；空则默认租户（default / id=1）。
+     */
+    private String tenantCode;
 }

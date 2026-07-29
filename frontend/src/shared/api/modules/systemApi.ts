@@ -15,6 +15,16 @@ import type {
   UserPageQuery,
   UserPageVO,
 } from '@/features/system/model/systemTypes';
+import type {
+  DictFormPayload,
+  DictOption,
+  DictPageQuery,
+  DictPageVO,
+  DictTypeFormPayload,
+  DictTypePageQuery,
+  DictTypePageVO,
+  TenantLoginOption,
+} from '@/features/system/model/dictTypes';
 
 export const userApi = {
   list(params: UserPageQuery): Promise<PageData<UserPageVO>> {
@@ -166,6 +176,11 @@ export const tenantApi = {
   updateStatus(id: EntityId, status: number): Promise<void> {
     return patch<void>(`/v1/tenants/${id}/status`, undefined, { params: { status } });
   },
+
+  /** 登录页公开租户下拉（无需鉴权）：value=租户编码 code，label=租户名称 */
+  optionsPublic(): Promise<TenantLoginOption[]> {
+    return get<TenantLoginOption[]>('/v1/tenants/options-public');
+  },
 };
 
 export interface StorePageQuery {
@@ -310,5 +325,54 @@ export const fileApi = {
   /** 按 objectKey 取可访问 URL（私有桶统一预签名，后端按归属校验）。 */
   urlByKey(objectKey: string): Promise<string> {
     return get<string>('/v1/files/url', { params: { objectKey } });
+  },
+};
+
+export const dictTypeApi = {
+  list(params: DictTypePageQuery): Promise<PageData<DictTypePageVO>> {
+    return get<PageData<DictTypePageVO>>('/v1/dict/types/page', { params });
+  },
+
+  getForm(id: EntityId): Promise<DictTypeFormPayload> {
+    return get<DictTypeFormPayload>(`/v1/dict/types/${id}/form`);
+  },
+
+  create(payload: DictTypeFormPayload): Promise<void> {
+    return post<void, DictTypeFormPayload>('/v1/dict/types', payload);
+  },
+
+  update(id: EntityId, payload: DictTypeFormPayload): Promise<void> {
+    return put<void, DictTypeFormPayload>(`/v1/dict/types/${id}`, payload);
+  },
+
+  remove(ids: EntityId[]): Promise<void> {
+    return deleteRequest<void>('/v1/dict/types', { params: { ids: ids.join(',') } });
+  },
+};
+
+export const dictApi = {
+  list(params: DictPageQuery): Promise<PageData<DictPageVO>> {
+    return get<PageData<DictPageVO>>('/v1/dict/page', { params });
+  },
+
+  getForm(id: EntityId): Promise<DictFormPayload> {
+    return get<DictFormPayload>(`/v1/dict/${id}/form`);
+  },
+
+  create(payload: DictFormPayload): Promise<void> {
+    return post<void, DictFormPayload>('/v1/dict', payload);
+  },
+
+  update(id: EntityId, payload: DictFormPayload): Promise<void> {
+    return put<void, DictFormPayload>(`/v1/dict/${id}`, payload);
+  },
+
+  remove(ids: EntityId[]): Promise<void> {
+    return deleteRequest<void>('/v1/dict', { params: { ids: ids.join(',') } });
+  },
+
+  /** 按 typeCode 取字典项下拉（value=字典值，label=字典名称） */
+  options(typeCode: string): Promise<DictOption[]> {
+    return get<DictOption[]>('/v1/dict/options', { params: { typeCode } });
   },
 };

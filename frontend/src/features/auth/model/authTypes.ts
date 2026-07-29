@@ -4,6 +4,9 @@ export interface LoginFormValues {
   password: string;
 }
 
+/** 登录入口：admin=平台管理（默认租户），store=门店工作台（选择租户） */
+export type LoginVariant = 'admin' | 'store';
+
 export interface LoginResponse {
   token: string;
   userId: string;

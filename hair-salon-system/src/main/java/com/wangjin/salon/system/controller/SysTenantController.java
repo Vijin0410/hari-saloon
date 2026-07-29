@@ -49,6 +49,12 @@ public class SysTenantController {
         return Result.success(tenantService.listOptions());
     }
 
+    @Operation(summary = "租户登录下拉（公开，登录页选用）")
+    @GetMapping("/options-public")
+    public Result<List<Option<String>>> optionsPublic() {
+        return Result.success(tenantService.listLoginOptions());
+    }
+
     @Operation(summary = "租户表单")
     @GetMapping("/{id}/form")
     @PreAuthorize("hasAuthority('system:tenant:list')")

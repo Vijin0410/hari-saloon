@@ -27,6 +27,11 @@ public interface SysTenantService extends IService<SysTenant> {
     List<Option<Long>> listOptions();
 
     /**
+     * 登录页租户下拉（公开）：返回启用租户的 code/name，供门店登录选择租户。
+     */
+    List<Option<String>> listLoginOptions();
+
+    /**
      * 按编码查启用中的租户（登录用）。
      */
     SysTenant getByCode(String code);

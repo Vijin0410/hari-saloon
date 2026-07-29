@@ -229,6 +229,16 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
     }
 
     @Override
+    public List<Option<String>> listLoginOptions() {
+        return this.list(new LambdaQueryWrapper<SysTenant>()
+                        .eq(SysTenant::getStatus, StatusEnum.ENABLE.getValue())
+                        .orderByAsc(SysTenant::getId))
+                .stream()
+                .map(t -> new Option<>(t.getCode(), t.getName()))
+                .toList();
+    }
+
+    @Override
     public SysTenant getByCode(String code) {
         if (StrUtil.isBlank(code)) {
             return null;

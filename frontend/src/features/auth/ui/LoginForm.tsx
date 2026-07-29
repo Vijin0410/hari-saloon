@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Building2, LogIn, LockKeyhole, Scissors, User } from 'lucide-react';
+import { Building2, Eye, EyeOff, LogIn, LockKeyhole, ShieldCheck, User } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '@/shared/api/modules/authApi';
+import { tenantApi } from '@/shared/api/modules/systemApi';
 import { Button } from '@/shared/ui/Button';
 import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
+import { Select } from '@/shared/ui/Select';
 import { useAuthStore } from '@/store/useAuthStore';
 import {
   changePasswordSchema,
@@ -15,10 +17,14 @@ import {
   type ChangePasswordSchemaValues,
   type LoginSchemaValues,
 } from '@/features/auth/model/loginSchema';
-import type { CurrentUser } from '@/features/auth/model/authTypes';
+import type { CurrentUser, LoginVariant } from '@/features/auth/model/authTypes';
+import type { TenantLoginOption } from '@/features/system/model/dictTypes';
 
 /**
- * 登录业务表单：租户编码 + 账号密码；须改密时弹窗强制修改。
+ * 登录业务表单：
+ * - store（门店工作台）：选择租户 + 账号密码；
+ * - admin（平台管理）：仅账号密码，登录到默认租户。
+ * 首次登录须改密时弹窗强制修改。
  */
 type LoginLocationState = {
   from?: string;
@@ -44,7 +50,11 @@ function createInitialUser(loginUser: {
   };
 }
 
-export function LoginForm() {
+interface LoginFormProps {
+  variant: LoginVariant;
+}
+
+export function LoginForm({ variant }: LoginFormProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const setSession = useAuthStore((state) => state.setSession);
@@ -53,6 +63,9 @@ export function LoginForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [forceReset, setForceReset] = useState(false);
   const [tokenCache, setTokenCache] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [tenantOptions, setTenantOptions] = useState<TenantLoginOption[]>([]);
+  const [tenantLoading, setTenantLoading] = useState(false);
   const locationState = location.state as LoginLocationState | null;
   const redirectTo = locationState?.from && locationState.from !== '/login' ? locationState.from : '/';
 
@@ -60,10 +73,11 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
     handleSubmit,
     register,
+    setValue,
   } = useForm<LoginSchemaValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      tenantCode: 'default',
+      tenantCode: '',
       username: '',
       password: '',
     },
@@ -78,6 +92,40 @@ export function LoginForm() {
     resolver: zodResolver(changePasswordSchema),
     defaultValues: { oldPassword: '', newPassword: '' },
   });
+
+  // 门店入口：拉取公开租户下拉，默认选中第一个（通常为默认租户）
+  useEffect(() => {
+    if (variant !== 'store') {
+      return;
+    }
+    let active = true;
+    setTenantLoading(true);
+    tenantApi
+      .optionsPublic()
+      .then((options) => {
+        if (!active) {
+          return;
+        }
+        setTenantOptions(options ?? []);
+        const fallback = options?.[0]?.value ?? 'default';
+        setValue('tenantCode', fallback, { shouldValidate: true });
+      })
+      .catch(() => {
+        // 拉取失败时回退到手输默认租户编码
+        if (active) {
+          setTenantOptions([]);
+          setValue('tenantCode', 'default');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setTenantLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [setValue, variant]);
 
   async function onSubmit(values: LoginSchemaValues): Promise<void> {
     setSubmitError(null);
@@ -116,23 +164,21 @@ export function LoginForm() {
     }
   }
 
-  return (
-    <div className="w-full max-w-md rounded-lg border border-salon-line bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="mb-8 flex items-center gap-3 lg:hidden">
-        <div className="flex size-11 items-center justify-center rounded-lg bg-salon-accent text-white">
-          <Scissors className="size-5" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold">Hari Salon</p>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">门店系统管理端</p>
-        </div>
-      </div>
+  const isAdmin = variant === 'admin';
+  const headline = isAdmin ? '平台管理登录' : '门店工作台登录';
+  const subtitle = isAdmin
+    ? '平台管理员登录至默认租户，管理所有租户与全局配置。'
+    : '选择所属租户，使用分配的账号登录门店工作台。';
 
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">登录</h1>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          无公开注册；由平台开通租户、租户内建用户。默认租户编码 default。
-        </p>
+  return (
+    <div className="w-full max-w-md rounded-2xl border border-salon-line bg-white p-8 shadow-xl shadow-emerald-900/5 transition dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="mb-8">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-salon-line bg-salon-paper px-3 py-1 text-xs font-medium text-salon-accent dark:border-zinc-700 dark:bg-zinc-900">
+          <ShieldCheck className="size-3.5" />
+          {isAdmin ? 'Platform Console' : 'Store Workspace'}
+        </div>
+        <h1 className="text-2xl font-semibold">{headline}</h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p>
       </div>
 
       {submitError && !forceReset ? (
@@ -142,18 +188,32 @@ export function LoginForm() {
       ) : null}
 
       <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
-        <Field error={errors.tenantCode?.message} label="租户编码">
-          <div className="relative">
-            <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-            <Input
-              autoComplete="organization"
-              className="pl-9"
-              invalid={Boolean(errors.tenantCode)}
-              placeholder="default"
-              {...register('tenantCode')}
-            />
-          </div>
-        </Field>
+        {isAdmin ? null : (
+          <Field error={errors.tenantCode?.message} label="所属租户" required>
+            <div className="relative">
+              <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+              {tenantLoading ? (
+                <Select className="pl-9" disabled>
+                  <option>加载租户中…</option>
+                </Select>
+              ) : tenantOptions.length > 0 ? (
+                <Select className="pl-9" {...register('tenantCode')}>
+                  {tenantOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <Input
+                  className="pl-9"
+                  placeholder="default"
+                  {...register('tenantCode')}
+                />
+              )}
+            </div>
+          </Field>
+        )}
 
         <Field error={errors.username?.message} label="用户名" required>
           <div className="relative">
@@ -173,19 +233,31 @@ export function LoginForm() {
             <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
             <Input
               autoComplete="current-password"
-              className="pl-9"
+              className="px-9"
               invalid={Boolean(errors.password)}
               placeholder="请输入密码"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               {...register('password')}
             />
+            <button
+              aria-label={showPassword ? '隐藏密码' : '显示密码'}
+              className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800"
+              onClick={() => setShowPassword((current) => !current)}
+              type="button"
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
           </div>
         </Field>
 
         <Button className="w-full" icon={<LogIn className="size-4" />} loading={isSubmitting} type="submit">
-          登录系统
+          {isAdmin ? '进入平台管理' : '登录门店工作台'}
         </Button>
       </form>
+
+      <p className="mt-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+        无公开注册；由平台开通租户、租户内建用户。
+      </p>
 
       <Modal
         description="后台新建或重置的账号须先修改密码后才能继续使用。"

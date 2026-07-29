@@ -149,6 +149,17 @@ INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_i
 SELECT 73, 7, 'tenantDelete', 4, '0,1,7', '{"title":"删除租户"}', 'system:tenant:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 73);
 
+-- 字典按钮
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 61, 6, 'dictAdd', 4, '0,1,6', '{"title":"新增字典"}', 'system:dict:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 61);
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 62, 6, 'dictEdit', 4, '0,1,6', '{"title":"编辑字典"}', 'system:dict:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 62);
+INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 63, 6, 'dictDelete', 4, '0,1,6', '{"title":"删除字典"}', 'system:dict:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 63);
+
 -- 门店 / 会员按钮
 INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
 SELECT 91, 9, 'storeAdd', 4, '0,8,9', '{"title":"新增门店"}', 'biz:store:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0

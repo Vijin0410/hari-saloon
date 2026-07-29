@@ -42,6 +42,7 @@ wj:
       expire-seconds: 86400
       ignore-urls:
         - /auth/login
+        - /api/v1/tenants/options-public
         - /doc.html
         - /webjars/**
         - /v3/api-docs/**

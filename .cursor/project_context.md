@@ -18,7 +18,7 @@
 - **会员** `salon_member`：`tenant_id` + `dept_id` + `@DataPermission`
 - **菜单** `sys_menu` 全局共享（`wj.mybatis.ignore-tables` 含 `sys_menu`）
 - **无公开注册**；登录 `POST /auth/login` 带可选 `tenantCode`（空/`default` → 租户 1）
-- 初始密码：`wj.salon.default-password`（`SalonProperties`）；`pwd_reset_required` 强制改密
+- 初始密码：`wj.salon.default-password`；强制改密看 `last_password_change_time`（NULL=首次/重置后，始终生效；超 `password-expire-days` 为过期，默认 0=不启用）
 
 ## 后端接口清单
 
@@ -44,8 +44,9 @@
 - **SysTenantService#saveTenant** - 事务开通租户
 - **TenantContextRunner** - 临时切换租户写库/登录查人
 - **SysUserService#getUserAuthInfo(username, tenantId)** - 登录鉴权
-- **SysUserService#changeOwnPassword** - 清 `pwd_reset_required`
-- **SalonProperties** - 可配置默认密码
+- **SysUserService#changeOwnPassword** - 写 `last_password_change_time=now`
+- **SysUserService#isPasswordResetRequired** - NULL 或超期 → 须改密
+- **SalonProperties** - 默认密码 + passwordExpireDays
 - **@DataPermission** - Mapper 行级；**SecurityUtils** - 当前用户/租户/ROOT/数据范围
 - **RoleCodes** - ROOT / STORE_MANAGER / STORE_STAFF
 
@@ -60,9 +61,10 @@
 
 - `wj.security.jwt.ignore-urls` - 仅 `/auth/login` 等公开（已去掉 register）
 - `wj.mybatis.tenant-enabled` / `data-permission-enabled` / `ignore-tables`（含 sys_menu）
-- `wj.salon.default-password`（当前配置可为 123456）
+- `wj.salon.default-password` / `wj.salon.password-expire-days`（默认 0 关闭过期；设 90 等即启用）
 
 ## 最近更新
 
-- 2026-07-29: 租户事务开通；登录 tenantCode；deptId 必填+越权；默认密码可配+强制改密；salon_store/salon_member + 前端租户/门店/会员页
+- 2026-07-29: 强制改密改为 `last_password_change_time`（NULL 始终强制；过期天数默认 0 不启用）
+- 2026-07-29: 租户事务开通；登录 tenantCode；deptId 必填+越权；默认密码可配；salon_store/salon_member + 前端租户/门店/会员页
 - 2026-07-28: user/role/menu 按钮种子 + 三 Controller `@PreAuthorize`；perms 走 JWT authorities

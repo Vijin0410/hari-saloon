@@ -37,7 +37,6 @@ wj:
       expire-seconds: 86400
       ignore-urls:
         - /auth/login
-        - /auth/register
         - /doc.html
         - /webjars/**
         - /v3/api-docs/**
@@ -54,9 +53,14 @@ wj:
       - sys_tenant
       - sys_user_role
       - sys_role_menu
+      # 菜单全局共享：各租户角色通过 sys_role_menu 挂同一套菜单
+      - sys_menu
   apidoc:
     title: 理发店管理系统 API
     version: 1.0.0
+  # 后台建人/开通租户初始密码；生产请覆盖
+  salon:
+    default-password: admin123
 
 logging:
   level:

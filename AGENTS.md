@@ -1,11 +1,15 @@
-# hair-salon
+# hair-salon — Agent 指引（Codex / 通用）
 
-理发店管理系统：**单体多模块**（非微服务），依赖本地 `wj-framework`（`com.wangjin.*`）。
+本文件供 **OpenAI Codex** 等读取 `AGENTS.md` 的 Agent **会话自动加载**。  
+内容与 Claude Code 入口 **`CLAUDE.md` 对齐且自洽**：稳定规范已内嵌，**日常改代码无需再 Read `.cursor/rules`**。
 
-与用户交流使用 **简体中文**。下文为 Claude Code **会话自动加载**的完整稳定规范——**日常改代码无需再 Read `.cursor/rules`**。  
-`.cursor/rules/*.mdc` 仅作 Cursor 侧 / 超长细则备份；仅在做深度审计、补字典种子模板、并发专项等需要全文时再打开。
+语言：与用户交流使用 **简体中文**；代码标识符保持英文。
 
 ---
+
+## 项目一句话
+
+理发店管理系统：**单体多模块**（非微服务），依赖本地 `wj-framework`（`com.wangjin.*`）。
 
 ## 模块与包
 
@@ -22,7 +26,7 @@
 - 启动类：`com.wangjin.salon.HairSalonApplication`；文档：http://localhost:8080/doc.html
 - 相关文档：
   - **`README.md`** — 给人看的项目说明（启动、依赖、API 概览、运维）
-  - **`AGENTS.md`** — Codex / 通用 Agent 入口（与本文规范意图同步）
+  - **`CLAUDE.md`** — Claude Code 入口（与本文规范意图同步）
   - **`.cursor/project_context.md`** — 动态接口/权限/复用备忘（按需）
 
 ---
@@ -122,28 +126,41 @@ java -jar hair-salon-boot/target/hair-salon-boot-1.0.0-SNAPSHOT.jar
 
 ---
 
-## Skills
+## Codex 与 Skills
+
+### 要不要单独搞一套 skill？
+
+| 问题 | 建议 |
+|------|------|
+| Codex 是否必须有类似 `.claude/skills` 的目录？ | **一般不需要**再造平行 skill 树。Codex 默认靠仓库根 **`AGENTS.md`（本文）** 注入约定。 |
+| 流程型能力怎么办？ | **复用** `.claude/skills/**/SKILL.md`：任务匹配时 **Read 并按其步骤做**（无 Claude Skill 运行时，Markdown 流程仍可执行）。 |
+| 用户级 `~/.claude/skills`？ | 本机有则按需 Read；没有则跳过，勿臆造。 |
+| 稳定规范放哪？ | **内嵌本文 / `CLAUDE.md`**，不要依赖每次打开 6 个 mdc。 |
+| `.cursor/rules`？ | **留给 Cursor**；Claude/Codex 仅可选深挖，**非每回合必读**。 |
+
+仅当流程很长、再塞进本文会浪费每会话上下文，且希望与 Claude **共用同一份**流程时，再新增 skill 文件并在下表加一行——**不必**维护 `.codex/skills` 副本。
+
+### Skills 索引（按需 Read，勿全量预载）
 
 | Skill | 路径 | 何时使用 |
 |-------|------|----------|
 | react-solo-architect | `.claude/skills/react-solo-architect/SKILL.md` | React+Vite+TS+Tailwind v4+Zustand 管理端 |
 | controller-api-audit | 用户级 `~/.claude/skills/controller-api-audit/SKILL.md` | 审 Controller 调用与鉴权 |
-| lazy-senior-dev | 用户级 `~/.claude/skills/lazy-senior-dev/SKILL.md` | 最小改动 / 根因修复（实现类任务可参考） |
+| lazy-senior-dev | 用户级 `~/.claude/skills/lazy-senior-dev/SKILL.md` | 最小改动 / 根因修复 |
 | form-sensitive-mask | 用户级（若存在） | 仅当本仓已接 Mask/SM4；**默认未接则不用** |
 
-- 任务匹配时再加载；**不要**为普通 CRUD 全读所有 skill。
-- 与本文冲突时：**以本文件硬性约束为准**。
-- Codex 侧 skill 策略见 `AGENTS.md`（共用同一套 Markdown，不必平行维护 `.codex/skills`）。
+与本文硬性约束冲突时：**以本文为准**。
 
 ---
 
-## 给 AI 的工作方式
+## 给 Agent 的工作方式
 
-1. 稳定规范以 **本文为准**（已内嵌）；勿默认再打开全部 `.cursor/rules`。
-2. 风格对齐周边存量；最小改动（可参考 lazy-senior-dev 精神）。
+1. 稳定规范以 **本文为准**；勿默认再打开全部 `.cursor/rules`。
+2. 风格对齐周边存量；最小改动。
 3. 新接口：出参 VO、`@PreAuthorize`、OpenAPI、需要时种子 `perm`。
 4. 有可复用点再更新 `project_context.md`。
-5. 深度细则备份（可选）：`.cursor/rules/*.mdc`。
+5. 任务匹配 skill → 只 Read 那一个 `SKILL.md`。
+6. 不提交密钥与凭证。
 
 ---
 
@@ -151,8 +168,8 @@ java -jar hair-salon-boot/target/hair-salon-boot-1.0.0-SNAPSHOT.jar
 
 | 文件 | 谁用 | 放什么 |
 |------|------|--------|
-| **`CLAUDE.md`（本文件）** | Claude Code 自动加载 | 稳定规范全文 + skill 索引 |
-| **`AGENTS.md`** | Codex 等自动加载 | 与本文对齐的稳定规范 + skill/Codex 说明 |
+| **`AGENTS.md`（本文件）** | Codex 等自动加载 | 稳定规范全文 + skill / Codex 说明 |
+| **`CLAUDE.md`** | Claude Code 自动加载 | 与本文对齐的稳定规范 |
 | **`README.md`** | 人（开发者/运维） | 启动、环境、API 概览 |
 | **`.cursor/rules/*.mdc`** | Cursor 自动 / 可选深挖 | 同规范备份与加长示例 |
 | **`.cursor/project_context.md`** | 按需 | 动态接口 / perm / 复用清单 |

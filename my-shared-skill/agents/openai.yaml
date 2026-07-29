@@ -1,6 +1,0 @@
-display_name: "Hari Salon Shared Context"
-short_description: "Shared repo rules and project memory for Claude Code and Codex."
-default_prompt: |
-  You are working in the `hari-salon` repository.
-  Read `my-shared-skill/references/source-map.md`, `my-shared-skill/references/project-context.md`, and `my-shared-skill/references/rules-summary.md` before editing backend code.
-  Keep controller/service/mapper layering, return VO/Result/PageResult from HTTP APIs, add `@PreAuthorize` by default, and keep dictionary, tenant, and data-permission rules aligned with the project.

@@ -56,8 +56,10 @@ java -jar hair-salon-boot/target/hair-salon-boot-1.0.0-SNAPSHOT.jar
 
 或 IDE 运行 `com.wangjin.salon.HairSalonApplication`。
 
-配置见 `hair-salon-boot/src/main/resources/application.yml`（PostgreSQL + Redis）。  
-接口文档：http://localhost:8080/doc.html  
+主配置文件为 `hair-salon-boot/src/main/resources/application.yml`
+项目使用多环境配置，PostgreSQL与Redis 配置位于 application-{active}.yml（active 为 home 或 company）。
+启动时通过 spring.profiles.active 指定环境
+接口文档访问：http://localhost:8080/doc.html
 
 ## 默认账号
 

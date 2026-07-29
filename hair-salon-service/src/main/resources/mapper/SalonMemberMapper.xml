@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wangjin.salon.service.mapper.SalonMemberMapper">
+
+    <select id="getMemberPage" resultType="com.wangjin.salon.service.model.vo.MemberPageVO">
+        SELECT
+            id, name, phone, gender, birthday, level, balance, points,
+            source, status, dept_id, remark, create_time
+        FROM salon_member
+        <where>
+            deleted = 0
+            <if test="q.keywords != null and q.keywords != ''">
+                AND (
+                    name LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR phone LIKE CONCAT('%', #{q.keywords}, '%')
+                )
+            </if>
+            <if test="q.status != null">
+                AND status = #{q.status}
+            </if>
+            <if test="q.deptId != null">
+                AND dept_id = #{q.deptId}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+    </select>
+</mapper>

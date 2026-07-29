@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wangjin.salon.service.mapper.SalonStoreMapper">
+
+    <select id="getStorePage" resultType="com.wangjin.salon.service.model.vo.StorePageVO">
+        SELECT
+            id, name, code, dept_id, phone, address, province, city, district,
+            business_hours, open_time, close_time, rest_days, status, sort, remark, create_time
+        FROM salon_store
+        <where>
+            deleted = 0
+            <if test="q.keywords != null and q.keywords != ''">
+                AND (
+                    name LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR code LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR phone LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR address LIKE CONCAT('%', #{q.keywords}, '%')
+                )
+            </if>
+            <if test="q.status != null">
+                AND status = #{q.status}
+            </if>
+            <if test="q.deptId != null">
+                AND dept_id = #{q.deptId}
+            </if>
+        </where>
+        ORDER BY sort ASC, create_time DESC
+    </select>
+</mapper>

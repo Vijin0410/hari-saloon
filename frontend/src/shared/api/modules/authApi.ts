@@ -1,5 +1,6 @@
 import { get, post } from '@/shared/api/client';
 import { normalizeStringArray } from '@/shared/lib/format';
+import { fileApi } from '@/shared/api/modules/systemApi';
 import type {
   ChangePasswordPayload,
   CurrentUser,
@@ -12,6 +13,7 @@ interface CurrentUserResponse {
   username: string;
   nickname: string;
   phone?: string;
+  avatar?: string;
   deptId?: string;
   tenantId?: string;
   pwdResetRequired?: boolean;
@@ -25,6 +27,7 @@ function normalizeCurrentUser(payload: CurrentUserResponse): CurrentUser {
     username: payload.username,
     nickname: payload.nickname,
     phone: payload.phone,
+    avatar: payload.avatar,
     deptId: payload.deptId != null ? String(payload.deptId) : undefined,
     tenantId: payload.tenantId != null ? String(payload.tenantId) : undefined,
     pwdResetRequired: Boolean(payload.pwdResetRequired),
@@ -50,7 +53,16 @@ export const authApi = {
 
   async me(): Promise<CurrentUser> {
     const response = await get<CurrentUserResponse>('/auth/me');
-    return normalizeCurrentUser(response);
+    const user = normalizeCurrentUser(response);
+    // avatar 存 objectKey，私有桶需换预签名 URL 展示
+    if (user.avatar) {
+      try {
+        user.avatar = await fileApi.urlByKey(user.avatar);
+      } catch {
+        user.avatar = undefined;
+      }
+    }
+    return user;
   },
 
   changePassword(payload: ChangePasswordPayload): Promise<void> {

@@ -1,6 +1,6 @@
 # 项目上下文记忆
 
-> 最后更新: 2026-07-29
+> 最后更新: 2026-07-30
 
 ## 模块与包
 
@@ -25,14 +25,14 @@
 
 ### 认证
 - `POST /auth/login` - 登录（tenantCode/username/password）【公开】
-- `GET /auth/me` - 当前用户（含 pwdResetRequired）`isAuthenticated()`
+- `GET /auth/me` - 当前用户（含 pwdResetRequired、avatar=objectKey）`isAuthenticated()`
 - `POST /auth/change-password` - 改自己的密码 `isAuthenticated()`
 
 ### 系统
 - `GET|POST|PUT|DELETE /api/v1/users` - 用户；`deptId` 必填 + 越权校验；`system:user:*`
 - `PATCH /api/v1/users/{id}/password` - 管理员重置（仍须改密）
 - `PATCH /api/v1/users/me/password` - 自己改密
-- `GET|POST|PUT|DELETE /api/v1/roles|menus` - 按钮级 `@PreAuthorize`
+- `GET|POST|PUT|DELETE /api/v1/roles|menus` - 按钮级 `@PreAuthorize`；菜单列表 `GET /api/v1/menus` 支持 `keywords`/`path`/`perm` 模糊查询
 - `GET|POST|PUT|DELETE /api/v1/dept` - `system:dept:*`；options 仅登录
 - `GET|POST|PUT|DELETE|PATCH /api/v1/tenants` - 开通编排；`system:tenant:*`
 - `POST /api/v1/files/upload|upload/batch`（落库返 `SysFileVO`，入参 biz/bizId/isPublic）/ `DELETE /{id}` · `/batch?ids=`（联动 MinIO，限本人/ALL）/ `GET /{id}/url`（私有桶统一预签名：公开不校验归属，私有校验归属）/ `GET /url?objectKey=`（统一预签名，展示用）/ `GET /page`（`@DataPermission`） - `isAuthenticated()`；业务表存 `object_key` 软关联
@@ -71,6 +71,7 @@
 
 ## 最近更新
 
+- 2026-07-30: 菜单管理前端改可展开/折叠树表（`collapsedIds`，默认全展开，有子节点显示箭头）；修复根菜单上级下拉空白（`parentId=0` 归一为"顶级菜单"，id 统一 `String`）；菜单查询加 `path`/`perm`（后端 `MenuQuery`+`listMenus` like，前端三字段查询区+回车查询）；新增前端 `IconPicker` 共享组件（lucide 图标网格+搜索，动态 `import` 独立 chunk）替代菜单图标文本输入；顶栏右上角头像（后端 `UserInfoVO` 加 `avatar`=objectKey，前端 `me()` 转 `fileApi.urlByKey` 预签名 URL，`MainLayout` 显示 img/首字母）；接口调用2次=React `StrictMode` 开发模式双触发 effect，生产构建无
 - 2026-07-29: 预签名有效期 `default-expiry-seconds=86400` 与 JWT `expire-seconds` 对齐；注释/文档统一为"私有桶统一预签名"（SysFileController `/{id}/url`、SysFileService javadoc、project_context 接口/复用清单）；前端用户表单头像改为文件选择（`fileApi.upload` biz=avatar 存 objectKey、预览走 `fileApi.urlByKey` 预签名，提交仍为 object_key）
 - 2026-07-29: 私有桶（`public-read=false`，全预签名 + `getAccessibleUrl`/`getAccessibleUrlByKey` 归属校验；存量桶须 `mc anonymous set none`）；`avatar` 落 `object_key`，`UserPageVO` 返回预签名 URL
 - 2026-07-29: 文件落库 `sys_file` + 权限归属（列表 `@DataPermission` / 私有访问 `assertAccessible` / 删除 `assertManageable` 限本人+ALL）；CLAUDE.md/AGENTS.md 增"建表/字段必写 COMMENT"规范；`sql/migrate-sys-file.sql`

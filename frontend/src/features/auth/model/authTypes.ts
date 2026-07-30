@@ -20,6 +20,8 @@ export interface CurrentUser {
   username: string;
   nickname: string;
   phone?: string;
+  /** 头像预签名 URL（无头像时为 undefined） */
+  avatar?: string;
   deptId?: string;
   tenantId?: string;
   pwdResetRequired?: boolean;

@@ -32,7 +32,7 @@ const BRAND: Record<AuthLayoutProps['variant'], BrandConfig> = {
     features: ['多租户开通', '菜单与按钮权限', '全局字典维护'],
     switchLabel: '门店入口',
     switchTo: '/login',
-    switchHint: '我是门店员工，去门店工作台',
+    switchHint: '门店工作台',
   },
   store: {
     badge: 'Store Workspace',
@@ -42,7 +42,7 @@ const BRAND: Record<AuthLayoutProps['variant'], BrandConfig> = {
     features: ['会员管理', '门店运营', '营业数据'],
     switchLabel: '管理员入口',
     switchTo: '/admin/login',
-    switchHint: '我是平台管理员，去平台管理控制台',
+    switchHint: '平台管理控制台',
   },
 };
 
@@ -84,7 +84,7 @@ export function AuthLayout({ variant }: AuthLayoutProps) {
 
   return (
     <main className="relative min-h-screen bg-salon-paper text-salon-ink dark:bg-zinc-950 dark:text-zinc-100">
-      <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 lg:grid-cols-[1.1fr_460px]">
+      <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-[55%_45%]">
         {/* 左侧品牌图形区 */}
         <section className="relative hidden overflow-hidden bg-gradient-to-br from-salon-accent via-emerald-800 to-emerald-950 px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between dark:from-emerald-700 dark:via-emerald-900 dark:to-zinc-950">
           {/* 装饰光斑 */}

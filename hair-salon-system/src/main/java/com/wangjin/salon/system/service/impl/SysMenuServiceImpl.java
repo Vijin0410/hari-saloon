@@ -42,7 +42,9 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     @Override
     public List<MenuVO> listMenus(MenuQuery queryParams) {
         List<SysMenu> menus = this.list(new LambdaQueryWrapper<SysMenu>()
-                .like(StrUtil.isNotBlank(queryParams.getKeywords()), SysMenu::getName, queryParams.getKeywords()));
+                .like(StrUtil.isNotBlank(queryParams.getKeywords()), SysMenu::getName, queryParams.getKeywords())
+                .like(StrUtil.isNotBlank(queryParams.getPath()), SysMenu::getPath, queryParams.getPath())
+                .like(StrUtil.isNotBlank(queryParams.getPerm()), SysMenu::getPerm, queryParams.getPerm()));
         Set<Long> parentIds = menus.stream().map(SysMenu::getParentId).collect(Collectors.toSet());
         Set<Long> menuIds = menus.stream().map(SysMenu::getId).collect(Collectors.toSet());
         List<Long> rootIds = parentIds.stream().filter(id -> !menuIds.contains(id)).toList();

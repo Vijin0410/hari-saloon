@@ -205,6 +205,20 @@ export function MainLayout() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {user?.avatar ? (
+                <img
+                  alt={user.nickname || user.username || '头像'}
+                  className="size-9 rounded-full border border-salon-line object-cover"
+                  src={user.avatar}
+                />
+              ) : (
+                <div
+                  className="flex size-9 items-center justify-center rounded-full bg-salon-accent/10 text-sm font-medium text-salon-accent"
+                  title={user?.nickname || user?.username || ''}
+                >
+                  {(user?.nickname || user?.username || 'U').charAt(0).toUpperCase()}
+                </div>
+              )}
               <Button
                 aria-label="切换主题"
                 className="size-10 px-0"

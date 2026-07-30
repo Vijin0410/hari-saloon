@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { FolderTree, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, FolderTree, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { menuApi } from '@/shared/api/modules/systemApi';
 import { Badge } from '@/shared/ui/Badge';
@@ -8,21 +8,19 @@ import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { Field } from '@/shared/ui/Field';
+import { IconPicker } from '@/shared/ui/IconPicker';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
 import { PageLoading } from '@/shared/ui/PageLoading';
 import { Select } from '@/shared/ui/Select';
 import { Textarea } from '@/shared/ui/Textarea';
-import { useDebounce } from '@/shared/hooks/useDebounce';
 import { normalizeBoolean, normalizeNumber } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
 import {
-  flattenMenuTree,
   getMenuTitle,
   getMenuTypeLabel,
   MENU_TYPE_OPTIONS,
   type EntityId,
-  type FlatMenuNode,
   type MenuFormPayload,
   type MenuVO,
   type MenuTypeValue,
@@ -67,7 +65,7 @@ function defaultMenuValues(): MenuFormValues {
 function toMenuFormValues(payload: MenuFormPayload): MenuFormValues {
   return {
     id: payload.id,
-    parentId: payload.parentId ?? '',
+    parentId: payload.parentId ? String(payload.parentId) : '',
     name: payload.name ?? '',
     type: payload.type ?? 'MENU',
     path: payload.path ?? '',
@@ -119,7 +117,7 @@ function toMenuPayload(values: MenuFormValues): MenuFormPayload {
 function buildMenuOptions(nodes: MenuVO[], depth = 0): Array<{ value: EntityId; label: string }> {
   return nodes.flatMap((node) => [
     {
-      value: node.id,
+      value: String(node.id),
       label: `${'　'.repeat(depth)}${getMenuTitle(node)}`,
     },
     ...buildMenuOptions(node.children ?? [], depth + 1),
@@ -150,6 +148,8 @@ function MenuFormDialog({
     handleSubmit,
     register,
     reset,
+    setValue,
+    watch,
   } = useForm<MenuFormValues>({
     resolver: zodResolver(menuFormSchema),
     defaultValues: defaultMenuValues(),
@@ -162,7 +162,7 @@ function MenuFormDialog({
     }
 
     if (mode === 'create') {
-      reset({ ...defaultMenuValues(), parentId: parentId ?? '' });
+      reset({ ...defaultMenuValues(), parentId: parentId ? String(parentId) : '' });
       return;
     }
 
@@ -275,7 +275,11 @@ function MenuFormDialog({
               <Input invalid={Boolean(errors.metaTitle)} placeholder="菜单标题" {...register('metaTitle')} />
             </Field>
             <Field error={errors.metaIcon?.message} label="图标">
-              <Input invalid={Boolean(errors.metaIcon)} placeholder="lucide 图标名" {...register('metaIcon')} />
+              <IconPicker
+                onChange={(name) => setValue('metaIcon', name, { shouldDirty: true })}
+                placeholder="选择图标"
+                value={watch('metaIcon')}
+              />
             </Field>
             <Field error={errors.metaFrameSrc?.message} label="外链地址">
               <Input invalid={Boolean(errors.metaFrameSrc)} placeholder="https://..." {...register('metaFrameSrc')} />
@@ -331,10 +335,6 @@ function MenuFormDialog({
   );
 }
 
-function flattenRows(nodes: MenuVO[]): FlatMenuNode[] {
-  return flattenMenuTree(nodes);
-}
-
 export function MenuManagement() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const [rows, setRows] = useState<MenuVO[]>([]);
@@ -345,25 +345,117 @@ export function MenuManagement() {
   const [activeMenuId, setActiveMenuId] = useState<EntityId | null>(null);
   const [parentId, setParentId] = useState<EntityId | null>(null);
   const [queryKeyword, setQueryKeyword] = useState('');
-  const debouncedKeyword = useDebounce(queryKeyword, 350);
-
-  const flatRows = useMemo(() => flattenRows(rows), [rows]);
+  const [queryPath, setQueryPath] = useState('');
+  const [queryPerm, setQueryPerm] = useState('');
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
   const loadMenus = useCallback(async (): Promise<void> => {
     setLoading(true);
     try {
       const menuList = await menuApi.list({
-        keywords: debouncedKeyword.trim() || undefined,
+        keywords: queryKeyword.trim() || undefined,
+        path: queryPath.trim() || undefined,
+        perm: queryPerm.trim() || undefined,
       });
       setRows(menuList);
+      setCollapsedIds(new Set());
     } finally {
       setLoading(false);
     }
-  }, [debouncedKeyword]);
+  }, [queryKeyword, queryPath, queryPerm]);
 
+  // 首次挂载加载一次；后续由查询按钮 / 回车触发，避免输入即请求
   useEffect(() => {
     void loadMenus();
-  }, [loadMenus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function toggleCollapse(id: string): void {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function renderRows(nodes: MenuVO[], depth: number): ReactNode[] {
+    return nodes.flatMap((node) => {
+      const id = String(node.id);
+      const children = node.children ?? [];
+      const hasChildren = children.length > 0;
+      const collapsed = collapsedIds.has(id);
+      return [
+        (
+          <tr
+            className="border-t border-salon-line text-zinc-700 hover:bg-slate-50/60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900/70"
+            key={id}
+          >
+            <td className="px-4 py-3">
+              <div className="flex items-center gap-2" style={{ paddingLeft: depth * 18 }}>
+                {hasChildren ? (
+                  <button
+                    className="text-zinc-400 transition hover:text-salon-accent"
+                    onClick={() => toggleCollapse(id)}
+                    type="button"
+                  >
+                    {collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                  </button>
+                ) : (
+                  <span className="inline-block w-4" />
+                )}
+                <FolderTree className="size-4 text-zinc-400" />
+                <div className="font-medium text-salon-ink dark:text-white">{getMenuTitle(node)}</div>
+              </div>
+            </td>
+            <td className="px-4 py-3">
+              <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
+            </td>
+            <td className="px-4 py-3">{node.path || '-'}</td>
+            <td className="px-4 py-3">{node.perm || '-'}</td>
+            <td className="px-4 py-3">
+              <div className="flex justify-end gap-2">
+                {hasPermission('system:menu:add') ? (
+                  <Button
+                    icon={<Plus className="size-4" />}
+                    onClick={() => openCreate(node.id)}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    新增子项
+                  </Button>
+                ) : null}
+                {hasPermission('system:menu:edit') ? (
+                  <Button
+                    icon={<Pencil className="size-4" />}
+                    onClick={() => openEdit(node.id)}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    编辑
+                  </Button>
+                ) : null}
+                {hasPermission('system:menu:delete') ? (
+                  <Button
+                    icon={<Trash2 className="size-4" />}
+                    onClick={() => void handleRowDelete(node)}
+                    size="sm"
+                    variant="danger"
+                  >
+                    删除
+                  </Button>
+                ) : null}
+              </div>
+            </td>
+          </tr>
+        ),
+        ...(hasChildren && !collapsed ? renderRows(children, depth + 1) : []),
+      ];
+    });
+  }
 
   function openCreate(parentMenuId: EntityId | null = null): void {
     setModalMode('create');
@@ -422,16 +514,37 @@ export function MenuManagement() {
       </div>
 
       <div className="rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-            <Input
-              className="pl-9"
-              placeholder="按菜单名称搜索"
-              value={queryKeyword}
-              onChange={(event) => setQueryKeyword(event.target.value)}
-            />
-          </div>
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+          <Input
+            onChange={(event) => setQueryKeyword(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                void loadMenus();
+              }
+            }}
+            placeholder="菜单名称"
+            value={queryKeyword}
+          />
+          <Input
+            onChange={(event) => setQueryPath(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                void loadMenus();
+              }
+            }}
+            placeholder="路由路径"
+            value={queryPath}
+          />
+          <Input
+            onChange={(event) => setQueryPerm(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                void loadMenus();
+              }
+            }}
+            placeholder="权限编码"
+            value={queryPerm}
+          />
           <Button
             className="lg:w-24"
             icon={<Search className="size-4" />}
@@ -446,7 +559,7 @@ export function MenuManagement() {
       <div className="overflow-hidden rounded-lg border border-salon-line bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         {loading ? (
           <PageLoading />
-        ) : flatRows.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="p-4">
             <EmptyState description="没有找到任何菜单节点。" title="暂无菜单数据" />
           </div>
@@ -462,60 +575,7 @@ export function MenuManagement() {
                   <th className="px-4 py-3 text-right font-medium">操作</th>
                 </tr>
               </thead>
-              <tbody>
-                {flatRows.map((row) => (
-                  <tr
-                    className="border-t border-salon-line text-zinc-700 hover:bg-slate-50/60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900/70"
-                    key={row.id}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2" style={{ paddingLeft: row.depth * 18 }}>
-                        <FolderTree className="size-4 text-zinc-400" />
-                        <div className="font-medium text-salon-ink dark:text-white">{getMenuTitle(row)}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge tone="info">{getMenuTypeLabel(row.type)}</Badge>
-                    </td>
-                    <td className="px-4 py-3">{row.path || '-'}</td>
-                    <td className="px-4 py-3">{row.perm || '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {hasPermission('system:menu:add') ? (
-                          <Button
-                            icon={<Plus className="size-4" />}
-                            onClick={() => openCreate(row.id)}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            新增子项
-                          </Button>
-                        ) : null}
-                        {hasPermission('system:menu:edit') ? (
-                          <Button
-                            icon={<Pencil className="size-4" />}
-                            onClick={() => openEdit(row.id)}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            编辑
-                          </Button>
-                        ) : null}
-                        {hasPermission('system:menu:delete') ? (
-                          <Button
-                            icon={<Trash2 className="size-4" />}
-                            onClick={() => void handleRowDelete(row)}
-                            size="sm"
-                            variant="danger"
-                          >
-                            删除
-                          </Button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              <tbody>{renderRows(rows, 0)}</tbody>
             </table>
           </div>
         )}

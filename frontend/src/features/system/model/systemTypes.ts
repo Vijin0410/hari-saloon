@@ -82,6 +82,8 @@ export interface RoleFormPayload {
 
 export interface MenuQuery {
   keywords?: string;
+  path?: string;
+  perm?: string;
 }
 
 export interface MenuVO {

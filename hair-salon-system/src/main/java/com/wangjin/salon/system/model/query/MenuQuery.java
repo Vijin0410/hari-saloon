@@ -8,4 +8,10 @@ import lombok.Data;
 public class MenuQuery {
 
     private String keywords;
+
+    /** 路由路径，模糊匹配 */
+    private String path;
+
+    /** 权限标识，模糊匹配 */
+    private String perm;
 }

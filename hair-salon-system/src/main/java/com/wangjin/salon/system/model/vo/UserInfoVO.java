@@ -16,6 +16,8 @@ public class UserInfoVO {
     private String username;
     private String nickname;
     private String phone;
+    /** 头像文件 objectKey（私有桶，前端展示需换预签名 URL） */
+    private String avatar;
     private Long deptId;
     private Long tenantId;
     /** true=须强制改密（首次 NULL 或已过期） */

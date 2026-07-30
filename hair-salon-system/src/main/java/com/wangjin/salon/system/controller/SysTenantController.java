@@ -56,7 +56,7 @@ public class SysTenantController {
     }
 
     @Operation(summary = "租户表单")
-    @GetMapping("/{id}/form")
+    @GetMapping("/form/{id}")
     @PreAuthorize("hasAuthority('system:tenant:list')")
     public Result<TenantForm> form(@PathVariable Long id) {
         return Result.success(tenantService.getTenantForm(id));
@@ -71,21 +71,21 @@ public class SysTenantController {
     }
 
     @Operation(summary = "修改租户")
-    @PutMapping("/{id}")
+    @PutMapping("/update/{id}")
     @PreAuthorize("hasAuthority('system:tenant:edit')")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody TenantForm form) {
         return Result.judge(tenantService.updateTenant(id, form));
     }
 
     @Operation(summary = "删除租户")
-    @DeleteMapping
+    @DeleteMapping("/delete")
     @PreAuthorize("hasAuthority('system:tenant:delete')")
     public Result<Void> delete(@RequestParam String ids) {
         return Result.judge(tenantService.deleteTenants(ids));
     }
 
     @Operation(summary = "修改状态")
-    @PatchMapping("/{id}/status")
+    @PatchMapping("/status/{id}")
     @PreAuthorize("hasAuthority('system:tenant:edit')")
     public Result<Void> status(@PathVariable Long id, @RequestParam Integer status) {
         return Result.judge(tenantService.updateStatus(id, status));

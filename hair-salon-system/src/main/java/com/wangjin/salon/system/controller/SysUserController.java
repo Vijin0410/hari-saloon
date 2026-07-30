@@ -53,28 +53,28 @@ public class SysUserController {
     }
 
     @Operation(summary = "用户表单")
-    @GetMapping("/{userId}/form")
+    @GetMapping("/form/{userId}")
     @PreAuthorize("hasAuthority('system:user:list')")
     public Result<UserForm> getUserForm(@PathVariable Long userId) {
         return Result.success(userService.getUserFormData(userId));
     }
 
     @Operation(summary = "修改用户")
-    @PutMapping("/{userId}")
+    @PutMapping("/update/{userId}")
     @PreAuthorize("hasAuthority('system:user:edit')")
     public Result<Void> updateUser(@PathVariable Long userId, @RequestBody @Valid UserForm userForm) {
         return Result.judge(userService.updateUser(userId, userForm));
     }
 
     @Operation(summary = "删除用户")
-    @DeleteMapping
+    @DeleteMapping("/delete")
     @PreAuthorize("hasAuthority('system:user:delete')")
     public Result<Void> deleteUsers(@RequestParam String ids) {
         return Result.judge(userService.deleteUsers(ids));
     }
 
     @Operation(summary = "重置密码（管理员）")
-    @PatchMapping("/{userId}/password")
+    @PatchMapping("/password/{userId}")
     @PreAuthorize("hasAuthority('system:user:edit')")
     public Result<Void> updatePassword(@PathVariable Long userId, @RequestParam String password) {
         return Result.judge(userService.updatePassword(userId, password));
@@ -88,7 +88,7 @@ public class SysUserController {
     }
 
     @Operation(summary = "修改状态")
-    @PatchMapping("/{userId}/status")
+    @PatchMapping("/status/{userId}")
     @PreAuthorize("hasAuthority('system:user:edit')")
     public Result<Void> updateUserStatus(@PathVariable Long userId, @RequestParam Integer status) {
         return Result.judge(userService.updateUserStatus(userId, status));

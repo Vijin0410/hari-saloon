@@ -30,12 +30,12 @@
 
 ### 系统
 - `GET|POST|PUT|DELETE /api/v1/users` - 用户；`deptId` 必填 + 越权校验；`system:user:*`
-- `PATCH /api/v1/users/{id}/password` - 管理员重置（仍须改密）
+- `PATCH /api/v1/users/password/{id}` - 管理员重置（仍须改密）
 - `PATCH /api/v1/users/me/password` - 自己改密
 - `GET|POST|PUT|DELETE /api/v1/roles|menus` - 按钮级 `@PreAuthorize`；菜单列表 `GET /api/v1/menus` 支持 `keywords`/`path`/`perm` 模糊查询；菜单路由 `GET /api/v1/menus/routes` 按当前 JWT 权限过滤非按钮菜单并按 `meta.rank` 排序，返回 `perm/type`
 - `GET|POST|PUT|DELETE /api/v1/dept` - `system:dept:*`；options 仅登录
 - `GET|POST|PUT|DELETE|PATCH /api/v1/tenants` - 开通编排；`system:tenant:*`
-- `POST /api/v1/files/upload|upload/batch`（落库返 `SysFileVO`，入参 biz/bizId/isPublic）/ `DELETE /{id}` · `/batch?ids=`（联动 MinIO，限本人/ALL）/ `GET /{id}/url`（私有桶统一预签名：公开不校验归属，私有校验归属）/ `GET /url?objectKey=`（统一预签名，展示用）/ `GET /page`（`@DataPermission`） - `isAuthenticated()`；业务表存 `object_key` 软关联
+- `POST /api/v1/files/upload|upload/batch`（落库返 `SysFileVO`，入参 biz/bizId/isPublic）/ `DELETE /delete/{id}` · `/delete/batch?ids=`（联动 MinIO，限本人/ALL）/ `GET /url/{id}`（私有桶统一预签名：公开不校验归属，私有校验归属）/ `GET /url?objectKey=`（统一预签名，展示用）/ `GET /page`（`@DataPermission`） - `isAuthenticated()`；业务表存 `object_key` 软关联
 
 ### 业务
 - `GET|POST|PUT|DELETE /api/v1/stores` - 门店；`biz:store:*`；分页 `@DataPermission`
@@ -71,10 +71,11 @@
 
 ## 最近更新
 
+- 2026-07-30: 统一 Controller 路径 ID 规则：禁止 `PUT|DELETE /{id}` 这类单独 ID 路径；动作/视图前置为 `/form/{id}`、`/detail/{id}`、`/update/{id}`、`/delete/{id}`、`/status/{id}`、`/password/{id}`；同步后端 Controller 与前端 API 封装，并写入 `AGENTS.md` / `CLAUDE.md`
 - 2026-07-30: 菜单路由 `GET /api/v1/menus/routes` 改为按当前用户 JWT 权限过滤，ROOT 全量，普通用户仅返回有权限菜单及其可见父级；菜单/路由树统一按 `meta.rank` 升序、id 兜底排序；前端侧栏改读取路由树并用权限码映射到现有页面路由，菜单管理列表新增 Rank 列
 - 2026-07-30: 角色模型重构—ROOT=系统管理员（仅默认租户，跨租户：`WjTenantLineHandler.ignoreTable` 对 `SecurityUtils.isRoot()` 放行，查看所有租户数据）；新增 `TENANT_ADMIN`=租户管理员（每租户开通时创建，`data_scope=ALL`，菜单=除 `system:tenant:*` 外全部，管理员用户绑它）；`RoleCodes`/`data.sql`/`bootstrapTenant` 同步；迁移 `sql/migrate-tenant-admin-role.sql`（存量非默认租户 ROOT→TENANT_ADMIN）+ `sql/migrate-sys-admin-perms.sql`（默认租户 ROOT 挂全菜单）；菜单权限分配弹窗 `MenuPermissionDialog` 改可折叠树 + 名称/路径/权限三查询条件；主键确认=雪花（`BaseEntity @TableId(ASSIGN_ID)` + 全局 `id-type=assign_id`，int8 列，无需改）
 - 2026-07-30: 菜单管理前端改可展开/折叠树表（`collapsedIds`，默认全展开，有子节点显示箭头）；修复根菜单上级下拉空白（`parentId=0` 归一为"顶级菜单"，id 统一 `String`）；菜单查询加 `path`/`perm`（后端 `MenuQuery`+`listMenus` like，前端三字段查询区+回车查询）；新增前端 `IconPicker` 共享组件（lucide 图标网格+搜索，动态 `import` 独立 chunk）替代菜单图标文本输入；顶栏右上角头像（后端 `UserInfoVO` 加 `avatar`=objectKey，前端 `me()` 转 `fileApi.urlByKey` 预签名 URL，`MainLayout` 显示 img/首字母）；接口调用2次=React `StrictMode` 开发模式双触发 effect，生产构建无
-- 2026-07-29: 预签名有效期 `default-expiry-seconds=86400` 与 JWT `expire-seconds` 对齐；注释/文档统一为"私有桶统一预签名"（SysFileController `/{id}/url`、SysFileService javadoc、project_context 接口/复用清单）；前端用户表单头像改为文件选择（`fileApi.upload` biz=avatar 存 objectKey、预览走 `fileApi.urlByKey` 预签名，提交仍为 object_key）
+- 2026-07-29: 预签名有效期 `default-expiry-seconds=86400` 与 JWT `expire-seconds` 对齐；注释/文档统一为"私有桶统一预签名"（SysFileController `/url/{id}`、SysFileService javadoc、project_context 接口/复用清单）；前端用户表单头像改为文件选择（`fileApi.upload` biz=avatar 存 objectKey、预览走 `fileApi.urlByKey` 预签名，提交仍为 object_key）
 - 2026-07-29: 私有桶（`public-read=false`，全预签名 + `getAccessibleUrl`/`getAccessibleUrlByKey` 归属校验；存量桶须 `mc anonymous set none`）；`avatar` 落 `object_key`，`UserPageVO` 返回预签名 URL
 - 2026-07-29: 文件落库 `sys_file` + 权限归属（列表 `@DataPermission` / 私有访问 `assertAccessible` / 删除 `assertManageable` 限本人+ALL）；CLAUDE.md/AGENTS.md 增"建表/字段必写 COMMENT"规范；`sql/migrate-sys-file.sql`
 - 2026-07-29: 接入 common-minio + `SysFileController`（`/api/v1/files/**`）；依赖 MinIO Docker 本地

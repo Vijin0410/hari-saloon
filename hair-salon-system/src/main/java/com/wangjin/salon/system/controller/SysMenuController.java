@@ -55,7 +55,7 @@ public class SysMenuController {
     }
 
     @Operation(summary = "菜单表单")
-    @GetMapping("/{id}/form")
+    @GetMapping("/form/{id}")
     @PreAuthorize("hasAuthority('system:menu:list')")
     public Result<MenuForm> getMenuForm(@PathVariable Long id) {
         return Result.success(menuService.getMenuForm(id));
@@ -70,7 +70,7 @@ public class SysMenuController {
     }
 
     @Operation(summary = "修改菜单")
-    @PutMapping("/{id}")
+    @PutMapping("/update/{id}")
     @PreAuthorize("hasAuthority('system:menu:edit')")
     public Result<Void> updateMenu(@PathVariable Long id, @RequestBody MenuForm menuForm) {
         menuForm.setId(id);
@@ -78,7 +78,7 @@ public class SysMenuController {
     }
 
     @Operation(summary = "删除菜单")
-    @DeleteMapping
+    @DeleteMapping("/delete")
     @PreAuthorize("hasAuthority('system:menu:delete')")
     public Result<Void> deleteMenu(@RequestParam String ids) {
         menuService.deleteMenu(Arrays.stream(ids.split(",")).map(Long::parseLong).toList());

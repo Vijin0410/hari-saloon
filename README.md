@@ -75,7 +75,7 @@ java -jar hair-salon-boot/target/hair-salon-boot-1.0.0-SNAPSHOT.jar
 | 文件 | `/api/v1/files` | MinIO 上传/删除/公有 URL/预签名；需登录；表存 `objectKey` |
 | 租户 | `/api/v1/tenants` | 租户主数据 CRUD/下拉（全局表，无行级租户过滤） |
 | 用户 | `/api/v1/users` | 分页/CRUD/改密/启停/`/me`；分页支持 `@QueryDict` |
-| 角色 | `/api/v1/roles` | 分页/CRUD/分配菜单 `/{roleId}/{type}/menus` |
+| 角色 | `/api/v1/roles` | 分页/CRUD/分配菜单 `/menus/{roleId}/{type}` |
 | 菜单 | `/api/v1/menus` | 树/下拉/路由 `/routes`/CRUD |
 | 部门 | `/api/v1/dept` | 树/下拉/CRUD |
 | 字典 | `/api/v1/dict` | 字典项 + 类型 CRUD；`/options?typeCode=` |

@@ -32,7 +32,7 @@ export const userApi = {
   },
 
   getForm(userId: EntityId): Promise<UserFormPayload> {
-    return get<UserFormPayload>(`/v1/users/${userId}/form`);
+    return get<UserFormPayload>(`/v1/users/form/${userId}`);
   },
 
   create(payload: UserFormPayload): Promise<void> {
@@ -40,19 +40,19 @@ export const userApi = {
   },
 
   update(userId: EntityId, payload: UserFormPayload): Promise<void> {
-    return put<void, UserFormPayload>(`/v1/users/${userId}`, payload);
+    return put<void, UserFormPayload>(`/v1/users/update/${userId}`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {
-    return deleteRequest<void>('/v1/users', { params: { ids: ids.join(',') } });
+    return deleteRequest<void>('/v1/users/delete', { params: { ids: ids.join(',') } });
   },
 
   updateStatus(userId: EntityId, status: number): Promise<void> {
-    return patch<void>(`/v1/users/${userId}/status`, undefined, { params: { status } });
+    return patch<void>(`/v1/users/status/${userId}`, undefined, { params: { status } });
   },
 
   resetPassword(userId: EntityId, password: string): Promise<void> {
-    return patch<void>(`/v1/users/${userId}/password`, undefined, { params: { password } });
+    return patch<void>(`/v1/users/password/${userId}`, undefined, { params: { password } });
   },
 };
 
@@ -66,7 +66,7 @@ export const roleApi = {
   },
 
   getForm(roleId: EntityId): Promise<RoleFormPayload> {
-    return get<RoleFormPayload>(`/v1/roles/${roleId}/form`);
+    return get<RoleFormPayload>(`/v1/roles/form/${roleId}`);
   },
 
   create(payload: RoleFormPayload): Promise<void> {
@@ -74,23 +74,23 @@ export const roleApi = {
   },
 
   update(roleId: EntityId, payload: RoleFormPayload): Promise<void> {
-    return put<void, RoleFormPayload>(`/v1/roles/${roleId}`, payload);
+    return put<void, RoleFormPayload>(`/v1/roles/update/${roleId}`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {
-    return deleteRequest<void>('/v1/roles', { params: { ids: ids.join(',') } });
+    return deleteRequest<void>('/v1/roles/delete', { params: { ids: ids.join(',') } });
   },
 
   updateStatus(roleId: EntityId, status: number): Promise<void> {
-    return put<void>(`/v1/roles/${roleId}/status`, undefined, { params: { status } });
+    return put<void>(`/v1/roles/status/${roleId}`, undefined, { params: { status } });
   },
 
   menuIds(roleId: EntityId, type: number): Promise<EntityId[]> {
-    return get<EntityId[]>(`/v1/roles/${roleId}/${type}/menuIds`);
+    return get<EntityId[]>(`/v1/roles/menuIds/${roleId}/${type}`);
   },
 
   updateMenus(roleId: EntityId, type: number, menuIds: EntityId[]): Promise<void> {
-    return put<void, EntityId[]>(`/v1/roles/${roleId}/${type}/menus`, menuIds);
+    return put<void, EntityId[]>(`/v1/roles/menus/${roleId}/${type}`, menuIds);
   },
 };
 
@@ -108,7 +108,7 @@ export const menuApi = {
   },
 
   getForm(menuId: EntityId): Promise<MenuFormPayload> {
-    return get<MenuFormPayload>(`/v1/menus/${menuId}/form`);
+    return get<MenuFormPayload>(`/v1/menus/form/${menuId}`);
   },
 
   create(payload: MenuFormPayload): Promise<void> {
@@ -116,11 +116,11 @@ export const menuApi = {
   },
 
   update(menuId: EntityId, payload: MenuFormPayload): Promise<void> {
-    return put<void, MenuFormPayload>(`/v1/menus/${menuId}`, payload);
+    return put<void, MenuFormPayload>(`/v1/menus/update/${menuId}`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {
-    return deleteRequest<void>('/v1/menus', { params: { ids: ids.join(',') } });
+    return deleteRequest<void>('/v1/menus/delete', { params: { ids: ids.join(',') } });
   },
 };
 
@@ -162,19 +162,19 @@ export const tenantApi = {
     return get<PageData<TenantPageVO>>('/v1/tenants/page', { params });
   },
   getForm(id: EntityId): Promise<TenantFormPayload> {
-    return get<TenantFormPayload>(`/v1/tenants/${id}/form`);
+    return get<TenantFormPayload>(`/v1/tenants/form/${id}`);
   },
   create(payload: TenantFormPayload): Promise<void> {
     return post<void, TenantFormPayload>('/v1/tenants', payload);
   },
   update(id: EntityId, payload: TenantFormPayload): Promise<void> {
-    return put<void, TenantFormPayload>(`/v1/tenants/${id}`, payload);
+    return put<void, TenantFormPayload>(`/v1/tenants/update/${id}`, payload);
   },
   remove(ids: EntityId[]): Promise<void> {
-    return deleteRequest<void>('/v1/tenants', { params: { ids: ids.join(',') } });
+    return deleteRequest<void>('/v1/tenants/delete', { params: { ids: ids.join(',') } });
   },
   updateStatus(id: EntityId, status: number): Promise<void> {
-    return patch<void>(`/v1/tenants/${id}/status`, undefined, { params: { status } });
+    return patch<void>(`/v1/tenants/status/${id}`, undefined, { params: { status } });
   },
 
   /** 登录页公开租户下拉（无需鉴权）：value=租户编码 code，label=租户名称 */
@@ -233,16 +233,16 @@ export const storeApi = {
     return get<PageData<StorePageVO>>('/v1/stores/page', { params });
   },
   detail(id: EntityId): Promise<StoreFormPayload> {
-    return get<StoreFormPayload>(`/v1/stores/${id}`);
+    return get<StoreFormPayload>(`/v1/stores/detail/${id}`);
   },
   create(payload: StoreFormPayload): Promise<EntityId> {
     return post<EntityId, StoreFormPayload>('/v1/stores', payload);
   },
   update(id: EntityId, payload: StoreFormPayload): Promise<void> {
-    return put<void, StoreFormPayload>(`/v1/stores/${id}`, payload);
+    return put<void, StoreFormPayload>(`/v1/stores/update/${id}`, payload);
   },
   remove(ids: EntityId[]): Promise<void> {
-    return deleteRequest<void>('/v1/stores', { params: { ids: ids.join(',') } });
+    return deleteRequest<void>('/v1/stores/delete', { params: { ids: ids.join(',') } });
   },
 };
 
@@ -287,16 +287,16 @@ export const memberApi = {
     return get<PageData<MemberPageVO>>('/v1/members/page', { params });
   },
   detail(id: EntityId): Promise<MemberFormPayload> {
-    return get<MemberFormPayload>(`/v1/members/${id}`);
+    return get<MemberFormPayload>(`/v1/members/detail/${id}`);
   },
   create(payload: MemberFormPayload): Promise<EntityId> {
     return post<EntityId, MemberFormPayload>('/v1/members', payload);
   },
   update(id: EntityId, payload: MemberFormPayload): Promise<void> {
-    return put<void, MemberFormPayload>(`/v1/members/${id}`, payload);
+    return put<void, MemberFormPayload>(`/v1/members/update/${id}`, payload);
   },
   remove(ids: EntityId[]): Promise<void> {
-    return deleteRequest<void>('/v1/members', { params: { ids: ids.join(',') } });
+    return deleteRequest<void>('/v1/members/delete', { params: { ids: ids.join(',') } });
   },
 };
 
@@ -334,7 +334,7 @@ export const dictTypeApi = {
   },
 
   getForm(id: EntityId): Promise<DictTypeFormPayload> {
-    return get<DictTypeFormPayload>(`/v1/dict/types/${id}/form`);
+    return get<DictTypeFormPayload>(`/v1/dict/types/form/${id}`);
   },
 
   create(payload: DictTypeFormPayload): Promise<void> {
@@ -342,11 +342,11 @@ export const dictTypeApi = {
   },
 
   update(id: EntityId, payload: DictTypeFormPayload): Promise<void> {
-    return put<void, DictTypeFormPayload>(`/v1/dict/types/${id}`, payload);
+    return put<void, DictTypeFormPayload>(`/v1/dict/types/update/${id}`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {
-    return deleteRequest<void>('/v1/dict/types', { params: { ids: ids.join(',') } });
+    return deleteRequest<void>('/v1/dict/types/delete', { params: { ids: ids.join(',') } });
   },
 };
 
@@ -356,7 +356,7 @@ export const dictApi = {
   },
 
   getForm(id: EntityId): Promise<DictFormPayload> {
-    return get<DictFormPayload>(`/v1/dict/${id}/form`);
+    return get<DictFormPayload>(`/v1/dict/form/${id}`);
   },
 
   create(payload: DictFormPayload): Promise<void> {
@@ -364,11 +364,11 @@ export const dictApi = {
   },
 
   update(id: EntityId, payload: DictFormPayload): Promise<void> {
-    return put<void, DictFormPayload>(`/v1/dict/${id}`, payload);
+    return put<void, DictFormPayload>(`/v1/dict/update/${id}`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {
-    return deleteRequest<void>('/v1/dict', { params: { ids: ids.join(',') } });
+    return deleteRequest<void>('/v1/dict/delete', { params: { ids: ids.join(',') } });
   },
 
   /** 按 typeCode 取字典项下拉（value=字典值，label=字典名称） */

@@ -42,7 +42,7 @@ public class SalonMemberController {
     }
 
     @Operation(summary = "会员详情")
-    @GetMapping("/{id}")
+    @GetMapping("/detail/{id}")
     @PreAuthorize("hasAuthority('biz:member:list')")
     public Result<MemberDetailVO> detail(@PathVariable Long id) {
         return Result.success(memberService.getDetail(id));
@@ -57,14 +57,14 @@ public class SalonMemberController {
     }
 
     @Operation(summary = "修改会员")
-    @PutMapping("/{id}")
+    @PutMapping("/update/{id}")
     @PreAuthorize("hasAuthority('biz:member:edit')")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody MemberForm form) {
         return Result.judge(memberService.updateMember(id, form));
     }
 
     @Operation(summary = "删除会员")
-    @DeleteMapping
+    @DeleteMapping("/delete")
     @PreAuthorize("hasAuthority('biz:member:delete')")
     public Result<Void> delete(@RequestParam String ids) {
         return Result.judge(memberService.deleteMembers(ids));

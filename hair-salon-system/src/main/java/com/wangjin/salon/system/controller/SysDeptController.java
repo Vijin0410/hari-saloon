@@ -47,7 +47,7 @@ public class SysDeptController {
     }
 
     @Operation(summary = "部门表单")
-    @GetMapping("/{deptId}/form")
+    @GetMapping("/form/{deptId}")
     @PreAuthorize("hasAuthority('system:dept:list')")
     public Result<DeptForm> getDeptForm(@PathVariable Long deptId) {
         return Result.success(deptService.getDeptForm(deptId));
@@ -62,14 +62,14 @@ public class SysDeptController {
     }
 
     @Operation(summary = "修改部门")
-    @PutMapping("/{deptId}")
+    @PutMapping("/update/{deptId}")
     @PreAuthorize("hasAuthority('system:dept:edit')")
     public Result<Long> updateDept(@PathVariable Long deptId, @Valid @RequestBody DeptForm form) {
         return Result.success(deptService.updateDept(deptId, form));
     }
 
     @Operation(summary = "删除部门")
-    @DeleteMapping
+    @DeleteMapping("/delete")
     @PreAuthorize("hasAuthority('system:dept:delete')")
     public Result<Void> deleteDepartments(@RequestParam String ids) {
         return Result.judge(deptService.deleteByIds(ids));

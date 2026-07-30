@@ -48,6 +48,9 @@
 - **禁止**返回 Entity；**禁止**把 `model.form` 当出参（含详情/表单回显）。回显用 `XxxVO` / `XxxDetailVO` / `XxxPageVO`。
 - 存量 `GET .../form` → `Result<XxxForm>` **不得作为新代码范本**。
 - 路径：业务 `/api/v1/...`，认证 `/auth`；类上 `@Tag`，方法 `@Operation(summary=…)`。
+- 路径变量 ID **禁止直接单独挂在资源后**（反例：`PUT /api/v1/users/{id}`、`DELETE /api/v1/files/{id}`）。
+- 动作/视图类路径首选放在 `{id}` 前：表单 `/form/{id}`，详情 `/detail/{id}`，修改 `/update/{id}`，删除 `/delete/{id}` 或批量 `/delete?ids=`，状态 `/status/{id}`，重置密码 `/password/{id}`。
+- 仅当后半段确实是 `{id}` 所定位资源的子资源/关联资源时，才使用 `/{id}/xxx`，且新代码应优先确认是否能表达为动作前置路径。
 - 写接口按需 `@PreventDuplicateResubmit`；字典字段 VO 上 `@Dict`，Controller 方法 `@QueryDict`。
 - 常用：`Result.success` / `Result.judge` / `PageResult.success(records, total)`。
 

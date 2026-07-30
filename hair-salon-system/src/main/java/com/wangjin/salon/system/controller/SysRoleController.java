@@ -57,14 +57,14 @@ public class SysRoleController {
     }
 
     @Operation(summary = "角色表单")
-    @GetMapping("/{roleId}/form")
+    @GetMapping("/form/{roleId}")
     @PreAuthorize("hasAuthority('system:role:list')")
     public Result<RoleForm> getRoleForm(@PathVariable Long roleId) {
         return Result.success(roleService.getRoleForm(roleId));
     }
 
     @Operation(summary = "修改角色")
-    @PutMapping("/{id}")
+    @PutMapping("/update/{id}")
     @PreAuthorize("hasAuthority('system:role:edit')")
     public Result<Void> updateRole(@PathVariable Long id, @Valid @RequestBody RoleForm roleForm) {
         roleForm.setId(id);
@@ -72,28 +72,28 @@ public class SysRoleController {
     }
 
     @Operation(summary = "删除角色")
-    @DeleteMapping
+    @DeleteMapping("/delete")
     @PreAuthorize("hasAuthority('system:role:delete')")
     public Result<Void> deleteRoles(@RequestParam String ids) {
         return Result.judge(roleService.deleteRoles(ids));
     }
 
     @Operation(summary = "修改角色状态")
-    @PutMapping("/{roleId}/status")
+    @PutMapping("/status/{roleId}")
     @PreAuthorize("hasAuthority('system:role:edit')")
     public Result<Void> updateRoleStatus(@PathVariable Long roleId, @RequestParam Integer status) {
         return Result.judge(roleService.updateRoleStatus(roleId, status));
     }
 
     @Operation(summary = "角色菜单 ID 集合")
-    @GetMapping("/{roleId}/{type}/menuIds")
+    @GetMapping("/menuIds/{roleId}/{type}")
     @PreAuthorize("hasAuthority('system:role:list')")
     public Result<List<Long>> getRoleMenuIds(@PathVariable Long roleId, @PathVariable Integer type) {
         return Result.success(roleService.getRoleMenuIds(roleId, type));
     }
 
     @Operation(summary = "分配菜单权限")
-    @PutMapping("/{roleId}/{type}/menus")
+    @PutMapping("/menus/{roleId}/{type}")
     @PreAuthorize("hasAuthority('system:role:assign')")
     public Result<Void> updateRoleMenus(@PathVariable Long roleId,
                                         @PathVariable Integer type,

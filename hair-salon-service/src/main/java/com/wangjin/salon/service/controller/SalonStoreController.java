@@ -40,7 +40,7 @@ public class SalonStoreController {
     }
 
     @Operation(summary = "门店详情")
-    @GetMapping("/{id}")
+    @GetMapping("/detail/{id}")
     @PreAuthorize("hasAuthority('biz:store:list')")
     public Result<StoreDetailVO> detail(@PathVariable Long id) {
         return Result.success(storeService.getDetail(id));
@@ -55,14 +55,14 @@ public class SalonStoreController {
     }
 
     @Operation(summary = "修改门店")
-    @PutMapping("/{id}")
+    @PutMapping("/update/{id}")
     @PreAuthorize("hasAuthority('biz:store:edit')")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody StoreForm form) {
         return Result.judge(storeService.updateStore(id, form));
     }
 
     @Operation(summary = "删除门店")
-    @DeleteMapping
+    @DeleteMapping("/delete")
     @PreAuthorize("hasAuthority('biz:store:delete')")
     public Result<Void> delete(@RequestParam String ids) {
         return Result.judge(storeService.deleteStores(ids));

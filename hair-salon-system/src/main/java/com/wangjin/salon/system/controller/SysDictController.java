@@ -47,7 +47,7 @@ public class SysDictController {
     }
 
     @Operation(summary = "字典表单")
-    @GetMapping("/{id}/form")
+    @GetMapping("/form/{id}")
     @PreAuthorize("hasAuthority('system:dict:list')")
     public Result<DictForm> getDictForm(@PathVariable Long id) {
         return Result.success(dictService.getDictForm(id));
@@ -62,14 +62,14 @@ public class SysDictController {
     }
 
     @Operation(summary = "修改字典")
-    @PutMapping("/{id}")
+    @PutMapping("/update/{id}")
     @PreAuthorize("hasAuthority('system:dict:edit')")
     public Result<Void> updateDict(@PathVariable Long id, @RequestBody DictForm form) {
         return Result.judge(dictService.updateDict(id, form));
     }
 
     @Operation(summary = "删除字典")
-    @DeleteMapping
+    @DeleteMapping("/delete")
     @PreAuthorize("hasAuthority('system:dict:delete')")
     public Result<Void> deleteDict(@Parameter(description = "字典ID，逗号分隔") @RequestParam String ids) {
         return Result.judge(dictService.deleteDict(ids));
@@ -98,7 +98,7 @@ public class SysDictController {
     }
 
     @Operation(summary = "字典类型表单")
-    @GetMapping("/types/{id}/form")
+    @GetMapping("/types/form/{id}")
     @PreAuthorize("hasAuthority('system:dict:list')")
     public Result<DictTypeForm> getDictTypeForm(@PathVariable Long id) {
         return Result.success(dictTypeService.getDictTypeForm(id));
@@ -113,14 +113,14 @@ public class SysDictController {
     }
 
     @Operation(summary = "修改字典类型")
-    @PutMapping("/types/{id}")
+    @PutMapping("/types/update/{id}")
     @PreAuthorize("hasAuthority('system:dict:edit')")
     public Result<Void> updateDictType(@PathVariable Long id, @RequestBody DictTypeForm form) {
         return Result.judge(dictTypeService.updateDictType(id, form));
     }
 
     @Operation(summary = "删除字典类型")
-    @DeleteMapping("/types")
+    @DeleteMapping("/types/delete")
     @PreAuthorize("hasAuthority('system:dict:delete')")
     public Result<Void> deleteDictTypes(@RequestParam String ids) {
         return Result.judge(dictTypeService.deleteDictTypes(ids));

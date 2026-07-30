@@ -61,7 +61,7 @@ export function AppProviders({ children }: AppProvidersProps) {
   return (
     <>
       {loadingCount > 0 ? (
-        <div className="fixed inset-x-0 top-0 z-50 h-1 bg-emerald-500 shadow-[0_0_18px_rgba(20,125,111,0.45)]" />
+        <div className="fixed inset-x-0 top-0 z-50 h-1 bg-salon-accent shadow-[0_0_18px_rgba(124,106,239,0.45)]" />
       ) : null}
       {children}
     </>

@@ -11,7 +11,7 @@
 
 ## 多租户 / 组织 / 门店模型
 
-- **租户** `sys_tenant`：连锁品牌边界；开通事务：总部 dept + ROOT/STORE_MANAGER/STORE_STAFF + 管理员
+- **租户** `sys_tenant`：连锁品牌边界；开通事务：总部 dept + TENANT_ADMIN/STORE_MANAGER/STORE_STAFF + 管理员用户（绑 TENANT_ADMIN）；ROOT=系统管理员仅默认租户
 - **部门** `sys_dept`：店/组织树；用户 `dept_id` 为数据锚点
 - **角色 data_scope**：ALL=1 / DEPT_AND_SUB=2 / DEPT=3 / SELF=4 / CUSTOM=5
 - **门店** `salon_store`：与 dept 1:1，营业属性（时间/地址等）；数据权限走 `dept_id`
@@ -59,7 +59,7 @@
 - 系统：user/role/menu/dept/tenant 按钮
 - 业务：`biz:store:list|add|edit|delete`；`biz:member:list|add|edit|delete`
 - 预置角色菜单：ROOT 全量；店长用户+部门+门店+会员；店员会员读写
-- 默认 `sql.init.mode=never`：存量库跑 `sql/migrate-tenant-store-member.sql` + 按需补 data.sql 菜单/角色
+- 默认 `sql.init.mode=never`：存量库跑按需补 data.sql 菜单/角色
 
 ## 关键配置
 
@@ -71,6 +71,7 @@
 
 ## 最近更新
 
+- 2026-07-30: 角色模型重构—ROOT=系统管理员（仅默认租户，跨租户：`WjTenantLineHandler.ignoreTable` 对 `SecurityUtils.isRoot()` 放行，查看所有租户数据）；新增 `TENANT_ADMIN`=租户管理员（每租户开通时创建，`data_scope=ALL`，菜单=除 `system:tenant:*` 外全部，管理员用户绑它）；`RoleCodes`/`data.sql`/`bootstrapTenant` 同步；迁移 `sql/migrate-tenant-admin-role.sql`（存量非默认租户 ROOT→TENANT_ADMIN）+ `sql/migrate-sys-admin-perms.sql`（默认租户 ROOT 挂全菜单）；菜单权限分配弹窗 `MenuPermissionDialog` 改可折叠树 + 名称/路径/权限三查询条件；主键确认=雪花（`BaseEntity @TableId(ASSIGN_ID)` + 全局 `id-type=assign_id`，int8 列，无需改）
 - 2026-07-30: 菜单管理前端改可展开/折叠树表（`collapsedIds`，默认全展开，有子节点显示箭头）；修复根菜单上级下拉空白（`parentId=0` 归一为"顶级菜单"，id 统一 `String`）；菜单查询加 `path`/`perm`（后端 `MenuQuery`+`listMenus` like，前端三字段查询区+回车查询）；新增前端 `IconPicker` 共享组件（lucide 图标网格+搜索，动态 `import` 独立 chunk）替代菜单图标文本输入；顶栏右上角头像（后端 `UserInfoVO` 加 `avatar`=objectKey，前端 `me()` 转 `fileApi.urlByKey` 预签名 URL，`MainLayout` 显示 img/首字母）；接口调用2次=React `StrictMode` 开发模式双触发 effect，生产构建无
 - 2026-07-29: 预签名有效期 `default-expiry-seconds=86400` 与 JWT `expire-seconds` 对齐；注释/文档统一为"私有桶统一预签名"（SysFileController `/{id}/url`、SysFileService javadoc、project_context 接口/复用清单）；前端用户表单头像改为文件选择（`fileApi.upload` biz=avatar 存 objectKey、预览走 `fileApi.urlByKey` 预签名，提交仍为 object_key）
 - 2026-07-29: 私有桶（`public-read=false`，全预签名 + `getAccessibleUrl`/`getAccessibleUrlByKey` 归属校验；存量桶须 `mc anonymous set none`）；`avatar` 落 `object_key`，`UserPageVO` 返回预签名 URL

@@ -514,7 +514,7 @@ export function DictManagement() {
                         className={cn(
                           'group flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm transition',
                           active
-                            ? 'bg-salon-accent/10 text-salon-accent dark:bg-emerald-500/10'
+                            ? 'bg-salon-accent/10 text-salon-accent dark:bg-violet-500/10'
                             : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800',
                         )}
                         onClick={() => {

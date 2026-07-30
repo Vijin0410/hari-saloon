@@ -85,7 +85,7 @@ function LeafLink({ leaf }: { leaf: NavLeaf }) {
         cn(
           'inline-flex h-9 w-full items-center gap-2 rounded-md px-3 text-sm transition',
           isActive
-            ? 'bg-salon-accent/10 font-medium text-salon-accent dark:bg-emerald-500/10'
+            ? 'bg-salon-accent/10 font-medium text-salon-accent dark:bg-violet-500/10'
             : 'text-zinc-600 hover:bg-zinc-100 hover:text-salon-ink dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white',
         )
       }
@@ -123,7 +123,7 @@ function GroupItem({ group }: { group: NavGroup }) {
         className={cn(
           'inline-flex h-10 w-full items-center gap-2 rounded-md px-3 text-sm font-medium transition',
           childActive
-            ? 'text-salon-accent dark:text-emerald-400'
+            ? 'text-salon-accent dark:text-violet-300'
             : 'text-zinc-600 hover:bg-zinc-100 hover:text-salon-ink dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white',
         )}
         onClick={() => setOpen((current) => !current)}

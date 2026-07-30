@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  ChevronDown,
+  ChevronRight,
   Edit,
   Plus,
   Search,
@@ -251,6 +253,10 @@ function MenuPermissionDialog({
   const [selectedIds, setSelectedIds] = useState<EntityId[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [queryKeyword, setQueryKeyword] = useState('');
+  const [queryPath, setQueryPath] = useState('');
+  const [queryPerm, setQueryPerm] = useState('');
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!open || !roleId) {
@@ -264,6 +270,7 @@ function MenuPermissionDialog({
         if (active) {
           setMenuTree(menus);
           setSelectedIds(menuIds);
+          setCollapsedIds(new Set());
         }
       })
       .finally(() => {
@@ -277,6 +284,23 @@ function MenuPermissionDialog({
     };
   }, [open, roleId]);
 
+  function loadMenuTree(): void {
+    setLoading(true);
+    menuApi
+      .list({
+        keywords: queryKeyword.trim() || undefined,
+        path: queryPath.trim() || undefined,
+        perm: queryPerm.trim() || undefined,
+      })
+      .then((menus) => {
+        setMenuTree(menus);
+        setCollapsedIds(new Set());
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }
+
   function updateSelection(menu: MenuVO, checked: boolean): void {
     const menuIds = collectMenuIds([menu]);
     setSelectedIds((current) => {
@@ -287,33 +311,63 @@ function MenuPermissionDialog({
     });
   }
 
+  function toggleCollapse(id: string): void {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
   function renderMenuNodes(nodes: MenuVO[], depth = 0): ReactElement[] {
     return nodes.flatMap((node) => {
+      const id = String(node.id);
       const checked = selectedIds.includes(node.id);
-      const children = renderMenuNodes(node.children ?? [], depth + 1);
+      const children = node.children ?? [];
+      const hasChildren = children.length > 0;
+      const collapsed = collapsedIds.has(id);
       return [
-        <label
-          className="flex items-start gap-3 rounded-md border border-salon-line bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-950"
-          key={node.id}
-          style={{ marginLeft: depth * 14 }}
-        >
-          <input
-            checked={checked}
-            className="mt-0.5 size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
-            onChange={(event) => updateSelection(node, event.target.checked)}
-            type="checkbox"
-          />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-salon-ink dark:text-zinc-100">{getMenuTitle(node)}</span>
-              <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
+        (
+          <div
+            className="flex items-start gap-2 rounded-md border border-salon-line bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+            key={id}
+            style={{ marginLeft: depth * 14 }}
+          >
+            <div className="flex items-center gap-1">
+              {hasChildren ? (
+                <button
+                  className="text-zinc-400 transition hover:text-salon-accent"
+                  onClick={() => toggleCollapse(id)}
+                  type="button"
+                >
+                  {collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                </button>
+              ) : (
+                <span className="inline-block w-4" />
+              )}
+              <input
+                checked={checked}
+                className="mt-0.5 size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
+                onChange={(event) => updateSelection(node, event.target.checked)}
+                type="checkbox"
+              />
             </div>
-            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              {node.perm || node.path || '未配置权限标识'}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-salon-ink dark:text-zinc-100">{getMenuTitle(node)}</span>
+                <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
+              </div>
+              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {node.perm || node.path || '未配置权限标识'}
+              </div>
             </div>
           </div>
-        </label>,
-        ...children,
+        ),
+        ...(hasChildren && !collapsed ? renderMenuNodes(children, depth + 1) : []),
       ];
     });
   }
@@ -353,7 +407,44 @@ function MenuPermissionDialog({
       {loading ? (
         <PageLoading />
       ) : menuTree.length ? (
-        <div className="space-y-2">{renderMenuNodes(menuTree)}</div>
+        <div className="space-y-3">
+          <div className="grid gap-2 md:grid-cols-[1fr_1fr_1fr_auto]">
+            <Input
+              onChange={(event) => setQueryKeyword(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  loadMenuTree();
+                }
+              }}
+              placeholder="菜单名称"
+              value={queryKeyword}
+            />
+            <Input
+              onChange={(event) => setQueryPath(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  loadMenuTree();
+                }
+              }}
+              placeholder="路由路径"
+              value={queryPath}
+            />
+            <Input
+              onChange={(event) => setQueryPerm(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  loadMenuTree();
+                }
+              }}
+              placeholder="权限编码"
+              value={queryPerm}
+            />
+            <Button icon={<Search className="size-4" />} onClick={loadMenuTree} variant="secondary">
+              查询
+            </Button>
+          </div>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto">{renderMenuNodes(menuTree)}</div>
+        </div>
       ) : (
         <EmptyState description="菜单树为空。" title="暂无菜单" />
       )}

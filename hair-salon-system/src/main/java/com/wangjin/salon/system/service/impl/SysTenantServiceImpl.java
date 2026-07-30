@@ -133,7 +133,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
     }
 
     /**
-     * 开通：总部 dept + ROOT/店长/店员角色 + 管理员用户。
+     * 开通：总部 dept + 租户管理员/店长/店员角色 + 管理员用户。
      * 须在目标 tenant 的 {@link TenantContextRunner} 内调用。
      */
     private void bootstrapTenant(Long tenantId, String tenantName,
@@ -147,13 +147,17 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         hq.setTenantId(tenantId);
         deptService.save(hq);
 
-        SysRole root = savePresetRole("超级管理员", RoleCodes.ROOT, 1, DataScopeEnum.ALL.getValue(), tenantId);
+        // 租户内管理员（本租户全部数据，不含租户管理）；ROOT 是系统管理员，仅默认租户，不在开通时创建
+        SysRole tenantAdmin = savePresetRole("租户管理员", RoleCodes.TENANT_ADMIN, 1, DataScopeEnum.ALL.getValue(), tenantId);
         SysRole manager = savePresetRole("店长", RoleCodes.STORE_MANAGER, 2, DataScopeEnum.DEPT_AND_SUB.getValue(), tenantId);
         SysRole staff = savePresetRole("店员", RoleCodes.STORE_STAFF, 3, DataScopeEnum.SELF.getValue(), tenantId);
 
-        List<Long> allMenuIds = menuMapper.selectList(new LambdaQueryWrapper<SysMenu>().select(SysMenu::getId))
+        // 租户管理员菜单：除「租户管理 system:tenant:*」外的全部（租户内管理 + 业务）
+        List<Long> tenantAdminMenuIds = menuMapper.selectList(new LambdaQueryWrapper<SysMenu>()
+                        .select(SysMenu::getId)
+                        .and(w -> w.isNull(SysMenu::getPerm).or().notLike(SysMenu::getPerm, "system:tenant:")))
                 .stream().map(SysMenu::getId).toList();
-        roleMenuService.updateRoleMenus(root.getId(), 1, allMenuIds);
+        roleMenuService.updateRoleMenus(tenantAdmin.getId(), 1, tenantAdminMenuIds);
         roleMenuService.updateRoleMenus(manager.getId(), 1, STORE_MANAGER_MENU_IDS);
         roleMenuService.updateRoleMenus(staff.getId(), 1, STORE_STAFF_MENU_IDS);
 
@@ -171,7 +175,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         // lastPasswordChangeTime 默认 null → 首次登录强制改密
         admin.setTenantId(tenantId);
         userService.save(admin);
-        userRoleService.saveUserRoles(admin.getId(), List.of(root.getId()));
+        userRoleService.saveUserRoles(admin.getId(), List.of(tenantAdmin.getId()));
     }
 
     private SysRole savePresetRole(String name, String code, int sort, Integer dataScope, Long tenantId) {

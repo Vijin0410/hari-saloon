@@ -2,27 +2,31 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+  📖 解释：主题 token 对齐登录 hero 插画——蓝紫底、粉暖点缀。
+  业务组件优先用 salon-*，避免再散落 emerald 硬编码。
+*/
 @theme {
   --font-sans:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --color-salon-ink: #172126;
-  --color-salon-line: #d8dfd6;
-  --color-salon-paper: #f7f9f4;
+  --color-salon-ink: #2a2438;
+  --color-salon-line: #e4dff0;
+  --color-salon-paper: #f8f6fc;
   --color-salon-panel: #ffffff;
-  --color-salon-accent: #147d6f;
-  --color-salon-warm: #c06c3c;
+  --color-salon-accent: #7c6aef;
+  --color-salon-warm: #e891b8;
 }
 
 html {
   min-width: 320px;
-  background: #f7f9f4;
-  color: #172126;
+  background: #f8f6fc;
+  color: #2a2438;
   font-family: var(--font-sans);
 }
 
 html.dark {
-  background: #101517;
-  color: #eef4ef;
+  background: #14121c;
+  color: #f3eef8;
 }
 
 body {

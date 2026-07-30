@@ -1,11 +1,12 @@
 import { Suspense, type ReactNode } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { Moon, Scissors, Sun } from 'lucide-react';
+import heroImage from '@/assets/hari-salon-login-hero.png';
 import { PageLoading } from '@/shared/ui/PageLoading';
 import { useAppStore } from '@/store/useAppStore';
 
 /**
- * 认证页布局：左侧品牌图形区（按入口变体切换文案），右侧居中登录工作区。
+ * 认证页布局：左侧品牌 hero 图（蓝紫粉插画），右侧居中登录工作区。
  * admin=平台管理入口（默认租户），store=门店工作台入口（选择租户）。
  */
 export interface AuthLayoutProps {
@@ -14,10 +15,6 @@ export interface AuthLayoutProps {
 
 interface BrandConfig {
   badge: string;
-  title: string;
-  headline: string;
-  subtitle: string;
-  features: string[];
   switchLabel: string;
   switchTo: string;
   switchHint: string;
@@ -26,20 +23,12 @@ interface BrandConfig {
 const BRAND: Record<AuthLayoutProps['variant'], BrandConfig> = {
   admin: {
     badge: 'Platform Console',
-    title: 'Hari Salon · 平台管理',
-    headline: '平台运营中枢',
-    subtitle: '租户开通、角色权限、全局字典与菜单，一站掌控整个 SaaS。',
-    features: ['多租户开通', '菜单与按钮权限', '全局字典维护'],
     switchLabel: '门店入口',
     switchTo: '/login',
     switchHint: '门店工作台',
   },
   store: {
     badge: 'Store Workspace',
-    title: 'Hari Salon · 门店工作台',
-    headline: '门店高效协作',
-    subtitle: '选择所属租户登录，管理会员、门店与日常营业。',
-    features: ['会员管理', '门店运营', '营业数据'],
     switchLabel: '管理员入口',
     switchTo: '/admin/login',
     switchHint: '平台管理控制台',
@@ -64,16 +53,18 @@ function ThemeToggle(): ReactNode {
 function BrandMark({ variant }: { variant: AuthLayoutProps['variant'] }): ReactNode {
   return (
     <div className="flex items-center gap-3">
-      <div className="relative flex size-12 items-center justify-center rounded-2xl bg-white/15 shadow-lg ring-1 ring-white/30 backdrop-blur">
-        <Scissors className="size-6 text-white" />
+      <div className="relative flex size-12 items-center justify-center rounded-2xl bg-white/70 shadow-lg ring-1 ring-white/60 backdrop-blur">
+        <Scissors className="size-6 text-salon-accent" />
         <span className="absolute -right-1 -top-1 flex size-3">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-salon-warm opacity-70" />
           <span className="relative inline-flex size-3 rounded-full bg-salon-warm" />
         </span>
       </div>
       <div className="leading-tight">
-        <p className="text-base font-semibold text-white">Hari Salon</p>
-        <p className="text-xs text-white/70">{variant === 'admin' ? '平台管理控制台' : '门店工作台'}</p>
+        <p className="text-base font-semibold text-salon-ink">Hari Salon</p>
+        <p className="text-xs text-zinc-500">
+          {variant === 'admin' ? '平台管理控制台' : '门店工作台'}
+        </p>
       </div>
     </div>
   );
@@ -85,39 +76,37 @@ export function AuthLayout({ variant }: AuthLayoutProps) {
   return (
     <main className="relative min-h-screen bg-salon-paper text-salon-ink dark:bg-zinc-950 dark:text-zinc-100">
       <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-[55%_45%]">
-        {/* 左侧品牌图形区 */}
-        <section className="relative hidden overflow-hidden bg-gradient-to-br from-salon-accent via-emerald-800 to-emerald-950 px-10 py-12 text-white lg:flex lg:flex-col lg:justify-between dark:from-emerald-700 dark:via-emerald-900 dark:to-zinc-950">
-          {/* 装饰光斑 */}
-          <div className="pointer-events-none absolute -left-16 top-10 size-72 rounded-full bg-emerald-400/20 blur-3xl" />
-          <div className="pointer-events-none absolute bottom-0 right-0 size-80 rounded-full bg-salon-warm/20 blur-3xl" />
-          <div className="pointer-events-none absolute right-10 top-1/3 size-40 rounded-full border border-white/10" />
+        {/* 左侧品牌 hero：插画替代原文字卖点区 */}
+        <section className="relative hidden overflow-hidden bg-gradient-to-br from-[#dce8ff] via-[#ebe4ff] to-[#f9d9ea] px-10 py-12 lg:flex lg:flex-col lg:justify-between dark:from-[#2a2440] dark:via-[#322848] dark:to-[#3a2438]">
+          <div className="pointer-events-none absolute -left-16 top-10 size-72 rounded-full bg-sky-300/30 blur-3xl dark:bg-violet-500/20" />
+          <div className="pointer-events-none absolute bottom-0 right-0 size-80 rounded-full bg-salon-warm/30 blur-3xl" />
+          <div className="pointer-events-none absolute right-16 top-1/4 size-48 rounded-full border border-white/40 dark:border-white/10" />
 
           <div className="relative">
             <BrandMark variant={variant} />
+            <p className="mt-4 text-xs font-medium uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
+              {brand.badge}
+            </p>
           </div>
 
-          <div className="relative max-w-xl">
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-white/60">{brand.badge}</p>
-            <h1 className="mt-4 text-4xl font-bold leading-tight">{brand.headline}</h1>
-            <p className="mt-4 text-base leading-relaxed text-white/80">{brand.subtitle}</p>
-            <div className="mt-8 grid grid-cols-3 gap-3">
-              {brand.features.map((item) => (
-                <div
-                  className="rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-medium backdrop-blur transition hover:bg-white/20"
-                  key={item}
-                >
-                  {item}
-                </div>
-              ))}
+          <div className="relative flex flex-1 items-center justify-center py-6">
+            <div className="relative w-full max-w-[28rem]">
+              <div className="absolute inset-6 rounded-full bg-white/50 blur-2xl dark:bg-violet-400/10" />
+              <img
+                alt="Hari Salon"
+                className="relative mx-auto w-full max-w-md drop-shadow-xl select-none"
+                draggable={false}
+                src={heroImage}
+              />
             </div>
           </div>
 
           <div className="relative">
             <Link
-              className="group inline-flex items-center gap-2 text-sm text-white/80 transition hover:text-white"
+              className="group inline-flex items-center gap-2 text-sm text-zinc-600 transition hover:text-salon-accent dark:text-zinc-300 dark:hover:text-violet-300"
               to={brand.switchTo}
             >
-              <span className="inline-flex h-7 items-center rounded-full border border-white/25 bg-white/10 px-3 text-xs font-medium backdrop-blur transition group-hover:bg-white/20">
+              <span className="inline-flex h-7 items-center rounded-full border border-white/70 bg-white/60 px-3 text-xs font-medium text-salon-accent backdrop-blur transition group-hover:bg-white dark:border-white/10 dark:bg-white/10 dark:text-violet-300">
                 {brand.switchLabel}
               </span>
               <span>{brand.switchHint}</span>
@@ -132,11 +121,13 @@ export function AuthLayout({ variant }: AuthLayoutProps) {
           </div>
           {/* 移动端品牌头 */}
           <div className="absolute left-5 top-6 flex items-center gap-3 lg:hidden">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-salon-accent text-white">
-              <Scissors className="size-5" />
+            <div className="flex size-10 items-center justify-center overflow-hidden rounded-full ring-2 ring-salon-accent/20">
+              <img alt="Hari Salon" className="size-10 object-cover" src={heroImage} />
             </div>
             <div className="leading-tight">
-              <p className="text-sm font-semibold">{variant === 'admin' ? '平台管理' : '门店工作台'}</p>
+              <p className="text-sm font-semibold">
+                {variant === 'admin' ? '平台管理' : '门店工作台'}
+              </p>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">Hari Salon</p>
             </div>
           </div>

@@ -8,9 +8,9 @@ INSERT INTO sys_dept (id, name, parent_id, tree_path, sort, status, tenant_id, c
 SELECT 100, '总店', 0, '0', 1, 1, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_dept WHERE id = 100);
 
--- ROOT 角色：data_scope=1（全部），管理员本租户全量
+-- 系统管理员(ROOT)：仅默认租户，data_scope=1（全部），跨租户查看所有数据；挂全部菜单
 INSERT INTO sys_role (id, name, code, sort, status, data_scope, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 1, '超级管理员', 'ROOT', 1, 1, 1, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+SELECT 1, '系统管理员', 'ROOT', 1, 1, 1, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE code = 'ROOT' AND tenant_id = 1);
 
 -- 预置角色：店长(本部门及子) / 店员(仅本人)

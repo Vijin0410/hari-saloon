@@ -171,7 +171,7 @@ export function LoginForm({ variant }: LoginFormProps) {
     : '选择所属租户，使用分配的账号登录门店工作台。';
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-salon-line bg-white/95 p-8 shadow-xl shadow-emerald-900/5 backdrop-blur-sm transition dark:border-zinc-800 dark:bg-zinc-950/95">
+    <div className="w-full max-w-md rounded-2xl border border-salon-line bg-white/95 p-8 shadow-xl shadow-violet-900/5 backdrop-blur-sm transition dark:border-zinc-800 dark:bg-zinc-950/95">
       <div className="mb-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-salon-line bg-salon-paper px-3 py-1 text-xs font-medium text-salon-accent dark:border-zinc-700 dark:bg-zinc-900">
           <ShieldCheck className="size-3.5" />

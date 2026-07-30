@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
-@Schema(description = "会员详情")
+@Schema(description = "Member detail")
 public class MemberDetailVO {
 
     private Long id;
@@ -25,5 +25,5 @@ public class MemberDetailVO {
     private String source;
     private Integer status;
     private String remark;
-    private Long deptId;
+    private Long storeId;
 }

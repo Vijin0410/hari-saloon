@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
-@Schema(description = "会员分页")
+@Schema(description = "Member page")
 public class MemberPageVO {
 
     private Long id;
@@ -28,7 +28,8 @@ public class MemberPageVO {
     private Integer points;
     private String source;
     private Integer status;
-    private Long deptId;
+    private Long storeId;
+    private String storeName;
     private String remark;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

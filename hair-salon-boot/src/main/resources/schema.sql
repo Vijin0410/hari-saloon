@@ -247,12 +247,11 @@ COMMENT ON COLUMN sys_dict.defaulted IS '是否默认（0=否 1=是）';
 COMMENT ON COLUMN sys_dict.remark IS '备注';
 COMMENT ON COLUMN sys_dict.tenant_id IS '租户ID';
 
--- 门店（与 sys_dept 1:1；营业属性挂在业务表，组织/数据权限仍走 dept）
+-- 门店（业务独立，不再绑定 sys_dept；门店数据权限走 salon_store_user）
 CREATE TABLE IF NOT EXISTS salon_store (
     id              int8         NOT NULL PRIMARY KEY,
     name            varchar(64)  NOT NULL,
     code            varchar(64),
-    dept_id         int8         NOT NULL,
     phone           varchar(20),
     address         varchar(255),
     province        varchar(64),
@@ -274,13 +273,12 @@ CREATE TABLE IF NOT EXISTS salon_store (
     update_time     timestamp,
     deleted         int4         DEFAULT 0
 );
-CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_store_dept ON salon_store (tenant_id, dept_id) WHERE deleted = 0;
 CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_store_code ON salon_store (tenant_id, code) WHERE deleted = 0 AND code IS NOT NULL;
-COMMENT ON TABLE salon_store IS '门店营业档案（与 sys_dept 1:1，数据权限走 dept_id）';
+CREATE INDEX IF NOT EXISTS idx_salon_store_status ON salon_store (tenant_id, status);
+COMMENT ON TABLE salon_store IS '门店营业档案（独立于 sys_dept，权限范围走 salon_store_user）';
 COMMENT ON COLUMN salon_store.id IS '门店ID';
 COMMENT ON COLUMN salon_store.name IS '门店名称';
 COMMENT ON COLUMN salon_store.code IS '门店编码（租户内唯一）';
-COMMENT ON COLUMN salon_store.dept_id IS '绑定的组织部门ID';
 COMMENT ON COLUMN salon_store.phone IS '联系电话';
 COMMENT ON COLUMN salon_store.address IS '详细地址';
 COMMENT ON COLUMN salon_store.province IS '省';
@@ -302,7 +300,31 @@ COMMENT ON COLUMN salon_store.update_by IS '更新人ID';
 COMMENT ON COLUMN salon_store.update_time IS '更新时间';
 COMMENT ON COLUMN salon_store.deleted IS '逻辑删除（0=未删除 1=已删除）';
 
--- 会员（示例业务表：tenant + dept 数据权限）
+CREATE TABLE IF NOT EXISTS salon_store_user (
+    id              int8         NOT NULL PRIMARY KEY,
+    store_id        int8         NOT NULL,
+    user_id         int8         NOT NULL,
+    tenant_id       int8         NOT NULL,
+    create_by       int8,
+    create_time     timestamp,
+    update_by       int8,
+    update_time     timestamp,
+    deleted         int4         DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_store_user ON salon_store_user (tenant_id, store_id, user_id) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_store_user_user ON salon_store_user (tenant_id, user_id) WHERE deleted = 0;
+COMMENT ON TABLE salon_store_user IS '门店-用户数据权限授权';
+COMMENT ON COLUMN salon_store_user.id IS '授权ID';
+COMMENT ON COLUMN salon_store_user.store_id IS '门店ID';
+COMMENT ON COLUMN salon_store_user.user_id IS '用户ID';
+COMMENT ON COLUMN salon_store_user.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_store_user.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_store_user.create_time IS '创建时间';
+COMMENT ON COLUMN salon_store_user.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_store_user.update_time IS '更新时间';
+COMMENT ON COLUMN salon_store_user.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 会员（租户 + 门店数据权限）
 CREATE TABLE IF NOT EXISTS salon_member (
     id              int8         NOT NULL PRIMARY KEY,
     name            varchar(64)  NOT NULL,
@@ -315,7 +337,7 @@ CREATE TABLE IF NOT EXISTS salon_member (
     source          varchar(32),
     status          int4         DEFAULT 1,
     remark          varchar(255),
-    dept_id         int8         NOT NULL,
+    store_id        int8         NOT NULL,
     tenant_id       int8         NOT NULL,
     create_by       int8,
     create_time     timestamp,
@@ -324,8 +346,8 @@ CREATE TABLE IF NOT EXISTS salon_member (
     deleted         int4         DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_salon_member_phone ON salon_member (tenant_id, phone);
-CREATE INDEX IF NOT EXISTS idx_salon_member_dept ON salon_member (tenant_id, dept_id);
-COMMENT ON TABLE salon_member IS '会员（租户 + 部门数据权限）';
+CREATE INDEX IF NOT EXISTS idx_salon_member_store ON salon_member (tenant_id, store_id);
+COMMENT ON TABLE salon_member IS '会员（租户 + 门店数据权限）';
 COMMENT ON COLUMN salon_member.id IS '会员ID';
 COMMENT ON COLUMN salon_member.name IS '会员姓名';
 COMMENT ON COLUMN salon_member.phone IS '手机号';
@@ -337,7 +359,7 @@ COMMENT ON COLUMN salon_member.points IS '积分';
 COMMENT ON COLUMN salon_member.source IS '会员来源';
 COMMENT ON COLUMN salon_member.status IS '状态（1=启用 0=禁用）';
 COMMENT ON COLUMN salon_member.remark IS '备注';
-COMMENT ON COLUMN salon_member.dept_id IS '所属部门ID';
+COMMENT ON COLUMN salon_member.store_id IS '所属门店ID';
 COMMENT ON COLUMN salon_member.tenant_id IS '租户ID';
 COMMENT ON COLUMN salon_member.create_by IS '创建人ID（0=系统）';
 COMMENT ON COLUMN salon_member.create_time IS '创建时间';

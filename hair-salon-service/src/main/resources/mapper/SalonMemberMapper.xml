@@ -5,24 +5,45 @@
 
     <select id="getMemberPage" resultType="com.wangjin.salon.service.model.vo.MemberPageVO">
         SELECT
-            id, name, phone, gender, birthday, level, balance, points,
-            source, status, dept_id, remark, create_time
-        FROM salon_member
+            m.id, m.name, m.phone, m.gender, m.birthday, m.level, m.balance, m.points,
+            m.source, m.status, m.store_id, s.name AS store_name, m.remark, m.create_time
+        FROM salon_member m
+        LEFT JOIN salon_store s ON s.id = m.store_id AND s.deleted = 0
         <where>
-            deleted = 0
+            m.deleted = 0
             <if test="q.keywords != null and q.keywords != ''">
                 AND (
-                    name LIKE CONCAT('%', #{q.keywords}, '%')
-                    OR phone LIKE CONCAT('%', #{q.keywords}, '%')
+                    m.name LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR m.phone LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR s.name LIKE CONCAT('%', #{q.keywords}, '%')
                 )
             </if>
             <if test="q.status != null">
-                AND status = #{q.status}
+                AND m.status = #{q.status}
             </if>
-            <if test="q.deptId != null">
-                AND dept_id = #{q.deptId}
+            <if test="q.allStoreScope == null or q.allStoreScope == false">
+                <choose>
+                    <when test="q.deniedStoreScope == true">
+                        AND 1 = 0
+                    </when>
+                    <otherwise>
+                        AND (
+                            <trim prefixOverrides="OR">
+                                <if test="q.permittedStoreIds != null and q.permittedStoreIds.size > 0">
+                                    OR m.store_id IN
+                                    <foreach collection="q.permittedStoreIds" item="storeId" open="(" separator="," close=")">
+                                        #{storeId}
+                                    </foreach>
+                                </if>
+                                <if test="q.permissionUserId != null">
+                                    OR m.create_by = #{q.permissionUserId}
+                                </if>
+                            </trim>
+                        )
+                    </otherwise>
+                </choose>
             </if>
         </where>
-        ORDER BY create_time DESC
+        ORDER BY m.create_time DESC
     </select>
 </mapper>

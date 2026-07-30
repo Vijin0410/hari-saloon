@@ -5,26 +5,46 @@
 
     <select id="getStorePage" resultType="com.wangjin.salon.service.model.vo.StorePageVO">
         SELECT
-            id, name, code, dept_id, phone, address, province, city, district,
-            business_hours, open_time, close_time, rest_days, status, sort, remark, create_time
-        FROM salon_store
+            s.id, s.name, s.code, s.phone, s.address,
+            s.business_hours, s.open_time, s.close_time, s.rest_days,
+            s.status, s.sort, s.remark, s.create_time
+        FROM salon_store s
         <where>
-            deleted = 0
+            s.deleted = 0
             <if test="q.keywords != null and q.keywords != ''">
                 AND (
-                    name LIKE CONCAT('%', #{q.keywords}, '%')
-                    OR code LIKE CONCAT('%', #{q.keywords}, '%')
-                    OR phone LIKE CONCAT('%', #{q.keywords}, '%')
-                    OR address LIKE CONCAT('%', #{q.keywords}, '%')
+                    s.name LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR s.code LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR s.phone LIKE CONCAT('%', #{q.keywords}, '%')
+                    OR s.address LIKE CONCAT('%', #{q.keywords}, '%')
                 )
             </if>
             <if test="q.status != null">
-                AND status = #{q.status}
+                AND s.status = #{q.status}
             </if>
-            <if test="q.deptId != null">
-                AND dept_id = #{q.deptId}
+            <if test="q.allStoreScope == null or q.allStoreScope == false">
+                <choose>
+                    <when test="q.deniedStoreScope == true">
+                        AND 1 = 0
+                    </when>
+                    <otherwise>
+                        AND (
+                            <trim prefixOverrides="OR">
+                                <if test="q.permittedStoreIds != null and q.permittedStoreIds.size > 0">
+                                    OR s.id IN
+                                    <foreach collection="q.permittedStoreIds" item="storeId" open="(" separator="," close=")">
+                                        #{storeId}
+                                    </foreach>
+                                </if>
+                                <if test="q.permissionUserId != null">
+                                    OR s.create_by = #{q.permissionUserId}
+                                </if>
+                            </trim>
+                        )
+                    </otherwise>
+                </choose>
             </if>
         </where>
-        ORDER BY sort ASC, create_time DESC
+        ORDER BY s.sort ASC, s.create_time DESC
     </select>
 </mapper>

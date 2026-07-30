@@ -9,7 +9,7 @@ import {
   ToggleRight,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { fileApi, roleApi, userApi } from '@/shared/api/modules/systemApi';
+import { deptApi, fileApi, roleApi, userApi } from '@/shared/api/modules/systemApi';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
@@ -25,6 +25,7 @@ import { normalizeNumber, normalizeStringArray } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
 import { userFormSchema, type UserFormValues } from '@/features/system/model/systemSchemas';
 import type {
+  DeptOption,
   EntityId,
   GenderValue,
   RoleOption,
@@ -90,9 +91,23 @@ function toUserPayload(values: UserFormValues): UserFormPayload {
   };
 }
 
+function flattenDeptOptions(options: DeptOption[], depth = 0): Array<{ value: EntityId; label: string }> {
+  return options.flatMap((option) => {
+    const prefix = depth === 0 ? '' : `${'　'.repeat(depth)}└─ `;
+    return [
+      {
+        value: String(option.value),
+        label: `${prefix}${option.label}`,
+      },
+      ...flattenDeptOptions(option.children ?? [], depth + 1),
+    ];
+  });
+}
+
 function UserFormDialog({
   mode,
   open,
+  deptOptions,
   roleOptions,
   userId,
   onClose,
@@ -100,6 +115,7 @@ function UserFormDialog({
 }: {
   mode: UserMode;
   open: boolean;
+  deptOptions: DeptOption[];
   roleOptions: RoleOption[];
   userId: EntityId | null;
   onClose: () => void;
@@ -122,6 +138,7 @@ function UserFormDialog({
     resolver: zodResolver(userFormSchema),
     defaultValues: defaultUserValues(),
   });
+  const flatDeptOptions = flattenDeptOptions(deptOptions);
 
   useEffect(() => {
     if (!open) {
@@ -265,8 +282,15 @@ function UserFormDialog({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Field error={errors.deptId?.message} label="部门ID" required>
-              <Input invalid={Boolean(errors.deptId)} placeholder="必填，店长挂店部门" {...register('deptId')} />
+            <Field error={errors.deptId?.message} label="所属部门" required>
+              <Select invalid={Boolean(errors.deptId)} {...register('deptId')}>
+                <option value="">请选择所属部门</option>
+                {flatDeptOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field error={errors.avatar?.message || avatarUploadError} label="头像">
               <div className="flex items-center gap-3">
@@ -363,6 +387,7 @@ export function UserManagement() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const [rows, setRows] = useState<UserPageVO[]>([]);
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
+  const [deptOptions, setDeptOptions] = useState<DeptOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<EntityId[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -388,10 +413,11 @@ export function UserManagement() {
         keywords: debouncedKeyword.trim() || undefined,
         status: queryStatus === 'all' ? undefined : queryStatus,
       };
-      const [userPage, roles] = await Promise.all([userApi.list(params), roleApi.options()]);
+      const [userPage, roles, depts] = await Promise.all([userApi.list(params), roleApi.options(), deptApi.options()]);
       setRows(userPage.list);
       setTotal(userPage.total);
       setRoleOptions(roles);
+      setDeptOptions(depts);
       setSelectedIds([]);
     } finally {
       setLoading(false);
@@ -646,6 +672,7 @@ export function UserManagement() {
       {modalMode ? (
         <UserFormDialog
           mode={modalMode}
+          deptOptions={deptOptions}
           onClose={closeModal}
           onSaved={loadUsers}
           open={Boolean(modalMode)}

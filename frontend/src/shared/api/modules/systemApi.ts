@@ -2,6 +2,7 @@ import { deleteRequest, get, patch, post, put } from '@/shared/api/client';
 import type { PageData } from '@/types';
 import type {
   EntityId,
+  DeptOption,
   MenuFormPayload,
   MenuOption,
   MenuQuery,
@@ -11,6 +12,7 @@ import type {
   RolePageQuery,
   RolePageVO,
   RouteVO,
+  StoreOption,
   UserFormPayload,
   UserPageQuery,
   UserPageVO,
@@ -124,6 +126,12 @@ export const menuApi = {
   },
 };
 
+export const deptApi = {
+  options(): Promise<DeptOption[]> {
+    return get<DeptOption[]>('/v1/dept/options');
+  },
+};
+
 export interface TenantPageQuery {
   pageNum: number;
   pageSize: number;
@@ -188,14 +196,12 @@ export interface StorePageQuery {
   pageSize: number;
   keywords?: string;
   status?: number;
-  deptId?: EntityId;
 }
 
 export interface StorePageVO {
   id: EntityId;
   name: string;
   code?: string;
-  deptId?: EntityId;
   phone?: string;
   address?: string;
   businessHours?: string;
@@ -212,8 +218,6 @@ export interface StoreFormPayload {
   id?: EntityId;
   name: string;
   code?: string;
-  deptId?: EntityId;
-  parentDeptId?: EntityId;
   phone?: string;
   address?: string;
   province?: string;
@@ -226,6 +230,7 @@ export interface StoreFormPayload {
   status?: number;
   sort?: number;
   remark?: string;
+  userIds?: EntityId[];
 }
 
 export const storeApi = {
@@ -234,6 +239,9 @@ export const storeApi = {
   },
   detail(id: EntityId): Promise<StoreFormPayload> {
     return get<StoreFormPayload>(`/v1/stores/detail/${id}`);
+  },
+  options(): Promise<StoreOption[]> {
+    return get<StoreOption[]>('/v1/stores/options');
   },
   create(payload: StoreFormPayload): Promise<EntityId> {
     return post<EntityId, StoreFormPayload>('/v1/stores', payload);
@@ -251,7 +259,6 @@ export interface MemberPageQuery {
   pageSize: number;
   keywords?: string;
   status?: number;
-  deptId?: EntityId;
 }
 
 export interface MemberPageVO {
@@ -263,7 +270,8 @@ export interface MemberPageVO {
   balance?: number;
   points?: number;
   status?: number;
-  deptId?: EntityId;
+  storeId?: EntityId;
+  storeName?: string;
   createTime?: string;
 }
 
@@ -279,7 +287,7 @@ export interface MemberFormPayload {
   source?: string;
   status?: number;
   remark?: string;
-  deptId: EntityId;
+  storeId: EntityId;
 }
 
 export const memberApi = {

@@ -3,14 +3,14 @@ package com.wangjin.salon.service.model.form;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.List;
 
 @Data
-@Schema(description = "门店表单")
+@Schema(description = "Store form")
 public class StoreForm {
 
     private Long id;
@@ -19,12 +19,6 @@ public class StoreForm {
     private String name;
 
     private String code;
-
-    /**
-     * 绑定部门：空则自动在总部下新建同名部门。
-     */
-    private Long deptId;
-
     private String phone;
     private String address;
     private String province;
@@ -44,7 +38,5 @@ public class StoreForm {
     private Integer status;
     private Integer sort;
     private String remark;
-
-    /** 新建时父部门；空则挂到当前用户部门或根下 */
-    private Long parentDeptId;
+    private List<Long> userIds;
 }

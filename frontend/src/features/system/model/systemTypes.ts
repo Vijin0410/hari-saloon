@@ -133,6 +133,8 @@ export interface FlatMenuNode extends MenuVO {
 
 export type RoleOption = OptionNode<EntityId>;
 export type MenuOption = OptionNode<EntityId>;
+export type DeptOption = OptionNode<EntityId>;
+export type StoreOption = OptionNode<EntityId>;
 
 export const ROLE_MENU_TYPE_WEB = 1;
 

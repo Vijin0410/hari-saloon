@@ -6,15 +6,15 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.List;
 
 @Data
-@Schema(description = "门店详情")
+@Schema(description = "Store detail")
 public class StoreDetailVO {
 
     private Long id;
     private String name;
     private String code;
-    private Long deptId;
     private String phone;
     private String address;
     private String province;
@@ -34,4 +34,5 @@ public class StoreDetailVO {
     private Integer status;
     private Integer sort;
     private String remark;
+    private List<Long> userIds;
 }

@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Data
-@Schema(description = "会员表单")
+@Schema(description = "Member form")
 public class MemberForm {
 
     private Long id;
@@ -31,6 +31,6 @@ public class MemberForm {
     private Integer status;
     private String remark;
 
-    @NotNull(message = "所属门店/部门不能为空")
-    private Long deptId;
+    @NotNull(message = "所属门店不能为空")
+    private Long storeId;
 }

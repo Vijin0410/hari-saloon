@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Search, Trash2 } from 'lucide-react';
-import { memberApi, type MemberFormPayload, type MemberPageVO } from '@/shared/api/modules/systemApi';
+import {
+  memberApi,
+  storeApi,
+  type MemberFormPayload,
+  type MemberPageVO,
+} from '@/shared/api/modules/systemApi';
+import type { StoreOption } from '@/features/system/model/systemTypes';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
@@ -13,10 +19,19 @@ import { Select } from '@/shared/ui/Select';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuthStore } from '@/store/useAuthStore';
 
+function defaultMemberForm(storeId = ''): MemberFormPayload {
+  return {
+    name: '',
+    storeId,
+    status: 1,
+    gender: 0,
+  };
+}
+
 export function MemberPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
-  const user = useAuthStore((s) => s.user);
   const [rows, setRows] = useState<MemberPageVO[]>([]);
+  const [storeOptions, setStoreOptions] = useState<StoreOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [pageNum, setPageNum] = useState(1);
@@ -24,21 +39,20 @@ export function MemberPage() {
   const debounced = useDebounce(keyword, 300);
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<MemberFormPayload>({
-    name: '',
-    deptId: user?.deptId || '',
-    status: 1,
-    gender: 0,
-  });
+  const [form, setForm] = useState<MemberFormPayload>(() => defaultMemberForm());
   const [saving, setSaving] = useState(false);
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await memberApi.list({ pageNum, pageSize: 10, keywords: debounced || undefined });
-      setRows(data.list ?? []);
-      setTotal(data.total ?? 0);
+      const [memberPage, stores] = await Promise.all([
+        memberApi.list({ pageNum, pageSize: 10, keywords: debounced || undefined }),
+        storeApi.options().catch(() => [] as StoreOption[]),
+      ]);
+      setRows(memberPage.list ?? []);
+      setTotal(memberPage.total ?? 0);
+      setStoreOptions((stores ?? []).map((store) => ({ ...store, value: String(store.value) })));
     } finally {
       setLoading(false);
     }
@@ -60,22 +74,22 @@ export function MemberPage() {
       source: detail.source,
       status: detail.status ?? 1,
       remark: detail.remark,
-      deptId: String(detail.deptId),
+      storeId: String(detail.storeId ?? ''),
     });
     setOpen(true);
   }
 
   async function handleSave(): Promise<void> {
+    if (!form.storeId) {
+      return;
+    }
+
     setSaving(true);
     try {
-      const payload = { ...form, deptId: form.deptId || user?.deptId || '' };
-      if (!payload.deptId) {
-        throw new Error('请填写所属部门/门店 deptId');
-      }
       if (editId) {
-        await memberApi.update(editId, payload);
+        await memberApi.update(editId, form);
       } else {
-        await memberApi.create(payload);
+        await memberApi.create(form);
       }
       setOpen(false);
       setEditId(null);
@@ -85,22 +99,21 @@ export function MemberPage() {
     }
   }
 
+  function openCreate(): void {
+    setEditId(null);
+    setForm(defaultMemberForm(storeOptions[0]?.value ?? ''));
+    setOpen(true);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">会员管理</h1>
-          <p className="text-sm text-zinc-500">列表按租户 + 部门数据权限过滤，店长仅看本店会员。</p>
+          <p className="text-sm text-zinc-500">列表按租户和门店数据范围过滤。</p>
         </div>
         {hasPermission('biz:member:add') ? (
-          <Button
-            icon={<Plus className="size-4" />}
-            onClick={() => {
-              setEditId(null);
-              setForm({ name: '', deptId: user?.deptId || '', status: 1, gender: 0 });
-              setOpen(true);
-            }}
-          >
+          <Button icon={<Plus className="size-4" />} onClick={openCreate}>
             新增会员
           </Button>
         ) : null}
@@ -108,13 +121,13 @@ export function MemberPage() {
 
       <div className="relative max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-        <Input className="pl-9" onChange={(e) => setKeyword(e.target.value)} placeholder="姓名/手机号" value={keyword} />
+        <Input className="pl-9" onChange={(e) => setKeyword(e.target.value)} placeholder="姓名/手机号/门店" value={keyword} />
       </div>
 
       {loading ? (
         <PageLoading />
       ) : rows.length === 0 ? (
-        <EmptyState title="暂无会员" description="在当前数据权限范围内还没有会员。" />
+        <EmptyState title="暂无会员" description="当前门店权限范围内还没有会员。" />
       ) : (
         <div className="overflow-hidden rounded-lg border border-salon-line dark:border-zinc-800">
           <table className="min-w-full divide-y divide-salon-line text-sm dark:divide-zinc-800">
@@ -122,6 +135,7 @@ export function MemberPage() {
               <tr>
                 <th className="px-4 py-3 text-left font-medium">姓名</th>
                 <th className="px-4 py-3 text-left font-medium">手机</th>
+                <th className="px-4 py-3 text-left font-medium">门店</th>
                 <th className="px-4 py-3 text-left font-medium">等级</th>
                 <th className="px-4 py-3 text-left font-medium">余额</th>
                 <th className="px-4 py-3 text-left font-medium">状态</th>
@@ -133,6 +147,7 @@ export function MemberPage() {
                 <tr key={row.id}>
                   <td className="px-4 py-3">{row.name}</td>
                   <td className="px-4 py-3">{row.phone || '-'}</td>
+                  <td className="px-4 py-3">{row.storeName || '-'}</td>
                   <td className="px-4 py-3">{row.level ?? 0}</td>
                   <td className="px-4 py-3">{row.balance ?? 0}</td>
                   <td className="px-4 py-3">
@@ -201,12 +216,18 @@ export function MemberPage() {
               <option value={2}>女</option>
             </Select>
           </Field>
-          <Field label="所属部门/门店 ID" required>
-            <Input
-              onChange={(e) => setForm((f) => ({ ...f, deptId: e.target.value }))}
-              placeholder="默认当前用户部门"
-              value={form.deptId}
-            />
+          <Field label="所属门店" required>
+            <Select
+              onChange={(e) => setForm((f) => ({ ...f, storeId: e.target.value }))}
+              value={form.storeId}
+            >
+              <option value="">请选择所属门店</option>
+              {storeOptions.map((store) => (
+                <option key={store.value} value={store.value}>
+                  {store.label}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="来源">
             <Input onChange={(e) => setForm((f) => ({ ...f, source: e.target.value }))} value={form.source ?? ''} />

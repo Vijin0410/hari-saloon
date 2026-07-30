@@ -86,10 +86,21 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean saveMenu(MenuForm form) {
+        Long parentId = Optional.ofNullable(form.getParentId()).orElse(SystemConstants.ROOT_NODE_ID);
+        form.setParentId(parentId);
+
+        SysMenu exist = form.getId() == null ? null : this.getById(form.getId());
+        if (form.getId() != null) {
+            Assert.notNull(exist, "菜单不存在");
+            Assert.isFalse(Objects.equals(form.getId(), parentId), "上级菜单不能选择自身");
+            assertNotChildParent(form.getId(), parentId);
+        }
+
         MenuTypeEnum menuType = form.getType();
         if (menuType == MenuTypeEnum.CATALOG) {
-            Long parentId = Optional.ofNullable(form.getParentId()).orElse(0L);
-            if (parentId == 0L && StrUtil.isNotBlank(form.getPath()) && !form.getPath().startsWith("/")) {
+            if (SystemConstants.ROOT_NODE_ID.equals(parentId)
+                    && StrUtil.isNotBlank(form.getPath())
+                    && !form.getPath().startsWith("/")) {
                 form.setPath("/" + form.getPath());
             }
             form.setComponent("Layout");
@@ -97,8 +108,15 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             form.setComponent(null);
         }
         SysMenu entity = menuConverter.form2Entity(form);
-        entity.setTreePath(generateMenuTreePath(form.getParentId()));
-        return this.saveOrUpdate(entity);
+        String oldTreePath = exist == null ? null : exist.getTreePath();
+        String newTreePath = generateMenuTreePath(parentId);
+        entity.setParentId(parentId);
+        entity.setTreePath(newTreePath);
+        boolean saved = this.saveOrUpdate(entity);
+        if (saved && exist != null && !Objects.equals(oldTreePath, newTreePath)) {
+            refreshChildrenTreePath(entity.getId(), oldTreePath, newTreePath);
+        }
+        return saved;
     }
 
     @Override
@@ -130,7 +148,37 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             return String.valueOf(SystemConstants.ROOT_NODE_ID);
         }
         SysMenu parent = this.getById(parentId);
-        return parent != null ? parent.getTreePath() + "," + parent.getId() : String.valueOf(SystemConstants.ROOT_NODE_ID);
+        Assert.notNull(parent, "父菜单不存在");
+        return parent.getTreePath() + "," + parent.getId();
+    }
+
+    private void assertNotChildParent(Long menuId, Long parentId) {
+        if (parentId == null || SystemConstants.ROOT_NODE_ID.equals(parentId)) {
+            return;
+        }
+        SysMenu parent = this.getById(parentId);
+        Assert.notNull(parent, "父菜单不存在");
+        boolean child = Arrays.stream(StrUtil.nullToEmpty(parent.getTreePath()).split(","))
+                .filter(StrUtil::isNotBlank)
+                .map(Long::parseLong)
+                .anyMatch(menuId::equals);
+        Assert.isFalse(child, "上级菜单不能选择自身的下级");
+    }
+
+    private void refreshChildrenTreePath(Long menuId, String oldTreePath, String newTreePath) {
+        if (StrUtil.isBlank(oldTreePath)) {
+            return;
+        }
+        String oldPrefix = oldTreePath + "," + menuId;
+        String newPrefix = newTreePath + "," + menuId;
+        List<SysMenu> children = this.list(new LambdaQueryWrapper<SysMenu>()
+                .eq(SysMenu::getTreePath, oldPrefix)
+                .or()
+                .likeRight(SysMenu::getTreePath, oldPrefix + ","));
+        for (SysMenu child : children) {
+            child.setTreePath(newPrefix + child.getTreePath().substring(oldPrefix.length()));
+            this.updateById(child);
+        }
     }
 
     private List<MenuVO> buildMenuTree(Long parentId, List<SysMenu> menuList) {

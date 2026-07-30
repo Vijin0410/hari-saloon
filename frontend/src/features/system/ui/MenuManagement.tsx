@@ -116,14 +116,25 @@ function toMenuPayload(values: MenuFormValues): MenuFormPayload {
   };
 }
 
-function buildMenuOptions(nodes: MenuVO[], depth = 0): Array<{ value: EntityId; label: string }> {
-  return nodes.flatMap((node) => [
-    {
-      value: String(node.id),
-      label: `${'　'.repeat(depth)}${getMenuTitle(node)}`,
-    },
-    ...buildMenuOptions(node.children ?? [], depth + 1),
-  ]);
+function buildMenuOptions(
+  nodes: MenuVO[],
+  depth = 0,
+  excludedMenuId?: EntityId | null,
+): Array<{ value: EntityId; label: string }> {
+  return nodes.flatMap((node) => {
+    if (excludedMenuId && String(node.id) === String(excludedMenuId)) {
+      return [];
+    }
+
+    const prefix = depth === 0 ? '' : `${'　'.repeat(depth)}└─ `;
+    return [
+      {
+        value: String(node.id),
+        label: `${prefix}${getMenuTitle(node)}`,
+      },
+      ...buildMenuOptions(node.children ?? [], depth + 1, excludedMenuId),
+    ];
+  });
 }
 
 function getMenuRank(node: MenuVO): number {
@@ -200,7 +211,10 @@ function MenuFormDialog({
     resolver: zodResolver(menuFormSchema),
     defaultValues: defaultMenuValues(),
   });
-  const parentOptions = useMemo(() => [{ value: '', label: '顶级菜单' }, ...buildMenuOptions(menuTree)], [menuTree]);
+  const parentOptions = useMemo(
+    () => [{ value: '', label: '顶级菜单' }, ...buildMenuOptions(menuTree, 0, menuId)],
+    [menuId, menuTree],
+  );
 
   useEffect(() => {
     if (!open) {

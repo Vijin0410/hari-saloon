@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * 会员（租户 + 部门数据权限）。
+ * Salon member. Store range is controlled by storeId.
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
@@ -26,5 +26,5 @@ public class SalonMember extends BaseTenantEntity<Long> {
     private String source;
     private Integer status;
     private String remark;
-    private Long deptId;
+    private Long storeId;
 }

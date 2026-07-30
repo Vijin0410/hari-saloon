@@ -12,10 +12,10 @@
 ## 多租户 / 组织 / 门店模型
 
 - **租户** `sys_tenant`：连锁品牌边界；开通事务：总部 dept + TENANT_ADMIN/STORE_MANAGER/STORE_STAFF + 管理员用户（绑 TENANT_ADMIN）；ROOT=系统管理员仅默认租户
-- **部门** `sys_dept`：店/组织树；用户 `dept_id` 为数据锚点
+- **部门** `sys_dept`：通用组织树；用户 `dept_id` 为 system 数据权限锚点
 - **角色 data_scope**：ALL=1 / DEPT_AND_SUB=2 / DEPT=3 / SELF=4 / CUSTOM=5
-- **门店** `salon_store`：与 dept 1:1，营业属性（时间/地址等）；数据权限走 `dept_id`
-- **会员** `salon_member`：`tenant_id` + `dept_id` + `@DataPermission`
+- **门店** `salon_store`：业务门店档案，独立于 `sys_dept`；门店数据权限走 `salon_store_user`
+- **会员** `salon_member`：`tenant_id` + `store_id`；列表/写操作按授权门店范围过滤
 - **文件** `sys_file`：MinIO 元数据落库；业务表存 `object_key` 软关联；`is_public` 分公开/私有；权限走 `dept_id`+`create_by` 的 `@DataPermission`
 - **菜单** `sys_menu` 全局共享（`wj.mybatis.ignore-tables` 含 `sys_menu`）
 - **无公开注册**；登录 `POST /auth/login` 带可选 `tenantCode`（空/`default` → 租户 1）
@@ -38,8 +38,8 @@
 - `POST /api/v1/files/upload|upload/batch`（落库返 `SysFileVO`，入参 biz/bizId/isPublic）/ `DELETE /delete/{id}` · `/delete/batch?ids=`（联动 MinIO，限本人/ALL）/ `GET /url/{id}`（私有桶统一预签名：公开不校验归属，私有校验归属）/ `GET /url?objectKey=`（统一预签名，展示用）/ `GET /page`（`@DataPermission`） - `isAuthenticated()`；业务表存 `object_key` 软关联
 
 ### 业务
-- `GET|POST|PUT|DELETE /api/v1/stores` - 门店；`biz:store:*`；分页 `@DataPermission`
-- `GET|POST|PUT|DELETE /api/v1/members` - 会员；`biz:member:*`；分页 `@DataPermission` + `@QueryDict`
+- `GET|POST|PUT|DELETE /api/v1/stores` / `GET /api/v1/stores/options` - 门店；`biz:store:*`；列表/下拉按 `salon_store_user` 门店范围过滤（options 也允许会员相关权限调用）
+- `GET|POST|PUT|DELETE /api/v1/members` - 会员；`biz:member:*`；分页按 `store_id` 门店范围过滤 + `@QueryDict`
 
 ## 可复用的后端方法/组件
 
@@ -50,6 +50,7 @@
 - **SysUserService#isPasswordResetRequired** - NULL 或超期 → 须改密
 - **SalonProperties** - 默认密码 + passwordExpireDays
 - **@DataPermission** - Mapper 行级；**SecurityUtils** - 当前用户/租户/ROOT/数据范围
+- **SalonStorePermissionService** - salon 业务门店范围：ROOT/ALL 全量；其他用户按 `salon_store_user.store_id` + 本人创建兜底过滤
 - **RoleCodes** - ROOT / STORE_MANAGER / STORE_STAFF
 - **MinioService**（wj common-minio）- upload/delete/getPublicUrl/getPresignedUrl
 - **SysFileService** - `uploadAndSave`（传 MinIO + 落 sys_file，落库失败补删避免孤儿）/ `delete`（逻辑删 + 删 MinIO，限本人/ALL）/ `getAccessibleUrl`（私有桶统一预签名：公开不校验归属 / 私有校验归属）；sys_file 走 `@DataPermission`
@@ -70,7 +71,9 @@
 - 文件字段约定：业务表（如 `sys_user.avatar`）存 `object_key`；`UserPageVO` 返回时转预签名 URL；表单回显给 object_key，预览调 `GET /files/url?objectKey=`
 
 ## 最近更新
+- 2026-07-30: 门店与部门解耦：`salon_store` 去掉 `dept_id`，新增 `salon_store_user` 维护门店-用户数据范围；`salon_member.dept_id` 改为 `store_id`；门店/会员列表和写操作按授权门店过滤；前端门店表单增加授权用户，会员表单改门店下拉；新增 `sql/migrate-store-data-scope.sql`
 
+- 2026-07-30: 菜单编辑支持移动到顶级菜单（`parent_id=0`），保存时禁止选择自身/子孙作为父级，并级联刷新子孙 `tree_path`；菜单上级下拉改树形缩进展示；用户新增/编辑表单的所属部门改为部门名称下拉，提交仍用 `deptId`
 - 2026-07-30: 统一 Controller 路径 ID 规则：禁止 `PUT|DELETE /{id}` 这类单独 ID 路径；动作/视图前置为 `/form/{id}`、`/detail/{id}`、`/update/{id}`、`/delete/{id}`、`/status/{id}`、`/password/{id}`；同步后端 Controller 与前端 API 封装，并写入 `AGENTS.md` / `CLAUDE.md`
 - 2026-07-30: 菜单路由 `GET /api/v1/menus/routes` 改为按当前用户 JWT 权限过滤，ROOT 全量，普通用户仅返回有权限菜单及其可见父级；菜单/路由树统一按 `meta.rank` 升序、id 兜底排序；前端侧栏改读取路由树并用权限码映射到现有页面路由，菜单管理列表新增 Rank 列
 - 2026-07-30: 角色模型重构—ROOT=系统管理员（仅默认租户，跨租户：`WjTenantLineHandler.ignoreTable` 对 `SecurityUtils.isRoot()` 放行，查看所有租户数据）；新增 `TENANT_ADMIN`=租户管理员（每租户开通时创建，`data_scope=ALL`，菜单=除 `system:tenant:*` 外全部，管理员用户绑它）；`RoleCodes`/`data.sql`/`bootstrapTenant` 同步；迁移 `sql/migrate-tenant-admin-role.sql`（存量非默认租户 ROOT→TENANT_ADMIN）+ `sql/migrate-sys-admin-perms.sql`（默认租户 ROOT 挂全菜单）；菜单权限分配弹窗 `MenuPermissionDialog` 改可折叠树 + 名称/路径/权限三查询条件；主键确认=雪花（`BaseEntity @TableId(ASSIGN_ID)` + 全局 `id-type=assign_id`，int8 列，无需改）

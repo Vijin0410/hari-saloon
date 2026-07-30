@@ -5,12 +5,25 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.List;
+
 @Data
 @EqualsAndHashCode(callSuper = true)
-@Schema(description = "会员分页查询")
+@Schema(description = "Member page query")
 public class MemberPageQuery extends BasePageQuery {
 
     private String keywords;
     private Integer status;
-    private Long deptId;
+
+    @Schema(hidden = true)
+    private Boolean allStoreScope;
+
+    @Schema(hidden = true)
+    private Boolean deniedStoreScope;
+
+    @Schema(hidden = true)
+    private List<Long> permittedStoreIds;
+
+    @Schema(hidden = true)
+    private Long permissionUserId;
 }

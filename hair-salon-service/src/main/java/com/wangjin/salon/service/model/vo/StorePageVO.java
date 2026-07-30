@@ -8,18 +8,14 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Data
-@Schema(description = "门店分页")
+@Schema(description = "Store page")
 public class StorePageVO {
 
     private Long id;
     private String name;
     private String code;
-    private Long deptId;
     private String phone;
     private String address;
-    private String province;
-    private String city;
-    private String district;
     private String businessHours;
 
     @JsonFormat(pattern = "HH:mm")

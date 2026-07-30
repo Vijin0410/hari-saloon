@@ -199,9 +199,13 @@ WHERE m.id IN (8, 10, 101, 102)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 3 AND rm.menu_id = m.id AND rm.type = 1);
 
 -- 默认总店营业档案
-INSERT INTO salon_store (id, name, code, dept_id, phone, address, business_hours, open_time, close_time, status, sort, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 1000, '总店', 'HQ', 100, '15061952394', NULL, '09:00-21:00', '09:00', '21:00', 1, 1, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+INSERT INTO salon_store (id, name, code, phone, address, business_hours, open_time, close_time, status, sort, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 1000, '总店', 'HQ', '15061952394', NULL, '09:00-21:00', '09:00', '21:00', 1, 1, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM salon_store WHERE id = 1000);
+
+INSERT INTO salon_store_user (id, store_id, user_id, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 1000, 1000, 1, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM salon_store_user WHERE store_id = 1000 AND user_id = 1 AND tenant_id = 1 AND deleted = 0);
 
 INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
 SELECT 1, '性别', 'gender', 1, '用户性别', 'system', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0

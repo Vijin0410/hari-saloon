@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wangjin.common.constant.SystemConstants;
 import com.wangjin.common.enums.MenuTypeEnum;
+import com.wangjin.common.security.util.SecurityUtils;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.converter.MenuConverter;
 import com.wangjin.salon.system.mapper.SysMenuMapper;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -32,6 +34,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> implements SysMenuService {
+
+    private static final int DEFAULT_RANK = 999;
 
     private final MenuConverter menuConverter;
 
@@ -45,6 +49,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
                 .like(StrUtil.isNotBlank(queryParams.getKeywords()), SysMenu::getName, queryParams.getKeywords())
                 .like(StrUtil.isNotBlank(queryParams.getPath()), SysMenu::getPath, queryParams.getPath())
                 .like(StrUtil.isNotBlank(queryParams.getPerm()), SysMenu::getPerm, queryParams.getPerm()));
+        menus.sort(Comparator.comparingInt(this::getMenuRank).thenComparing(SysMenu::getId));
+
         Set<Long> parentIds = menus.stream().map(SysMenu::getParentId).collect(Collectors.toSet());
         Set<Long> menuIds = menus.stream().map(SysMenu::getId).collect(Collectors.toSet());
         List<Long> rootIds = parentIds.stream().filter(id -> !menuIds.contains(id)).toList();
@@ -59,13 +65,15 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             wrapper.in(SysMenu::getType, types);
         }
         List<SysMenu> menuList = this.list(wrapper);
+        menuList.sort(Comparator.comparingInt(this::getMenuRank).thenComparing(SysMenu::getId));
         return buildMenuOptions(SystemConstants.ROOT_NODE_ID, menuList);
     }
 
     @Override
     public List<RouteVO> listRoutes() {
         List<RouteBO> menuList = this.baseMapper.listRoutes();
-        return buildRoutes(SystemConstants.ROOT_NODE_ID, menuList);
+        menuList.sort(Comparator.comparingInt(this::getRouteRank).thenComparing(RouteBO::getId));
+        return buildRoutes(SystemConstants.ROOT_NODE_ID, menuList, SecurityUtils.getPermissions(), SecurityUtils.isRoot());
     }
 
     @Override
@@ -151,19 +159,28 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         return options;
     }
 
-    private List<RouteVO> buildRoutes(Long parentId, List<RouteBO> menuList) {
+    private List<RouteVO> buildRoutes(Long parentId, List<RouteBO> menuList, Set<String> permissions, boolean root) {
         List<RouteVO> routeList = new ArrayList<>();
         for (RouteBO menu : menuList) {
             if (Objects.equals(menu.getParentId(), parentId)) {
+                List<RouteVO> children = buildRoutes(menu.getId(), menuList, permissions, root);
+                boolean hasChildren = CollUtil.isNotEmpty(children);
+                if (!root && !hasRoutePermission(menu, permissions) && !hasChildren) {
+                    continue;
+                }
+                if (MenuTypeEnum.CATALOG == menu.getType() && !hasChildren) {
+                    continue;
+                }
                 RouteVO routeVO = new RouteVO();
                 routeVO.setName(StrUtil.toCamelCase(menu.getName()));
+                routeVO.setType(menu.getType());
                 routeVO.setPath(menu.getPath());
                 routeVO.setRedirect(menu.getRedirect());
                 routeVO.setComponent(menu.getComponent());
                 Meta meta = menu.getMeta() == null ? new Meta() : menu.getMeta();
                 meta.setRoles(menu.getRoles());
                 routeVO.setMeta(meta);
-                List<RouteVO> children = buildRoutes(menu.getId(), menuList);
+                routeVO.setPerm(menu.getPerm());
                 if (CollUtil.isNotEmpty(children)) {
                     routeVO.setChildren(children);
                 }
@@ -171,5 +188,23 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             }
         }
         return routeList;
+    }
+
+    private int getMenuRank(SysMenu menu) {
+        return Optional.ofNullable(menu)
+                .map(SysMenu::getMeta)
+                .map(Meta::getRank)
+                .orElse(DEFAULT_RANK);
+    }
+
+    private int getRouteRank(RouteBO route) {
+        return Optional.ofNullable(route)
+                .map(RouteBO::getMeta)
+                .map(Meta::getRank)
+                .orElse(DEFAULT_RANK);
+    }
+
+    private boolean hasRoutePermission(RouteBO menu, Set<String> permissions) {
+        return StrUtil.isBlank(menu.getPerm()) || permissions.contains(menu.getPerm());
     }
 }

@@ -38,6 +38,8 @@ interface ConfirmState {
   ids: EntityId[];
 }
 
+const MENU_TREE_COLLAPSED_CACHE_KEY = 'hari-salon-menu-management-collapsed-ids';
+
 function defaultMenuValues(): MenuFormValues {
   return {
     parentId: '',
@@ -122,6 +124,50 @@ function buildMenuOptions(nodes: MenuVO[], depth = 0): Array<{ value: EntityId; 
     },
     ...buildMenuOptions(node.children ?? [], depth + 1),
   ]);
+}
+
+function getMenuRank(node: MenuVO): number {
+  return normalizeNumber(node.meta?.rank, 999);
+}
+
+function collectExpandableIds(nodes: MenuVO[]): Set<string> {
+  return new Set(
+    nodes.flatMap((node) => {
+      const children = node.children ?? [];
+      if (children.length === 0) {
+        return [];
+      }
+      return [String(node.id), ...collectExpandableIds(children)];
+    }),
+  );
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function readCollapsedIdsCache(expandableIds: Set<string>): Set<string> | null {
+  try {
+    const raw = window.localStorage.getItem(MENU_TREE_COLLAPSED_CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!isStringArray(parsed)) {
+      return null;
+    }
+    return new Set(parsed.filter((id) => expandableIds.has(id)));
+  } catch {
+    return null;
+  }
+}
+
+function writeCollapsedIdsCache(collapsedIds: Set<string>): void {
+  try {
+    window.localStorage.setItem(MENU_TREE_COLLAPSED_CACHE_KEY, JSON.stringify([...collapsedIds]));
+  } catch {
+    // localStorage 不可用时只保留当前页面内的展开状态。
+  }
 }
 
 function MenuFormDialog({
@@ -358,7 +404,9 @@ export function MenuManagement() {
         perm: queryPerm.trim() || undefined,
       });
       setRows(menuList);
-      setCollapsedIds(new Set());
+      const expandableIds = collectExpandableIds(menuList);
+      const cachedCollapsedIds = readCollapsedIdsCache(expandableIds);
+      setCollapsedIds(cachedCollapsedIds ?? expandableIds);
     } finally {
       setLoading(false);
     }
@@ -378,6 +426,7 @@ export function MenuManagement() {
       } else {
         next.add(id);
       }
+      writeCollapsedIdsCache(next);
       return next;
     });
   }
@@ -395,25 +444,29 @@ export function MenuManagement() {
             key={id}
           >
             <td className="px-4 py-3">
-              <div className="flex items-center gap-2" style={{ paddingLeft: depth * 18 }}>
-                {hasChildren ? (
-                  <button
-                    className="text-zinc-400 transition hover:text-salon-accent"
-                    onClick={() => toggleCollapse(id)}
-                    type="button"
-                  >
-                    {collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
-                  </button>
-                ) : (
+              {hasChildren ? (
+                <button
+                  className="flex items-center gap-2 text-left transition hover:text-salon-accent"
+                  onClick={() => toggleCollapse(id)}
+                  style={{ paddingLeft: depth * 18 }}
+                  type="button"
+                >
+                  {collapsed ? <ChevronRight className="size-4 text-zinc-400" /> : <ChevronDown className="size-4 text-zinc-400" />}
+                  <FolderTree className="size-4 text-zinc-400" />
+                  <div className="font-medium text-salon-ink dark:text-white">{getMenuTitle(node)}</div>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2" style={{ paddingLeft: depth * 18 }}>
                   <span className="inline-block w-4" />
-                )}
-                <FolderTree className="size-4 text-zinc-400" />
-                <div className="font-medium text-salon-ink dark:text-white">{getMenuTitle(node)}</div>
-              </div>
+                  <FolderTree className="size-4 text-zinc-400" />
+                  <div className="font-medium text-salon-ink dark:text-white">{getMenuTitle(node)}</div>
+                </div>
+              )}
             </td>
             <td className="px-4 py-3">
               <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
             </td>
+            <td className="px-4 py-3 tabular-nums">{getMenuRank(node)}</td>
             <td className="px-4 py-3">{node.path || '-'}</td>
             <td className="px-4 py-3">{node.perm || '-'}</td>
             <td className="px-4 py-3">
@@ -570,6 +623,7 @@ export function MenuManagement() {
                 <tr>
                   <th className="px-4 py-3 font-medium">名称</th>
                   <th className="px-4 py-3 font-medium">类型</th>
+                  <th className="px-4 py-3 font-medium">Rank</th>
                   <th className="px-4 py-3 font-medium">路径</th>
                   <th className="px-4 py-3 font-medium">权限</th>
                   <th className="px-4 py-3 text-right font-medium">操作</th>

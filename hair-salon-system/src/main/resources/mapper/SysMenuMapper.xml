@@ -7,11 +7,13 @@
         <id property="id" column="id"/>
         <result property="parentId" column="parent_id"/>
         <result property="name" column="name"/>
+        <result property="type" column="type"/>
         <result property="path" column="path"/>
         <result property="component" column="component"/>
         <result property="redirect" column="redirect"/>
         <result property="meta" column="meta"
                 typeHandler="com.wangjin.salon.system.handler.MetaJsonTypeHandler"/>
+        <result property="perm" column="perm"/>
     </resultMap>
 
     <!-- 非按钮菜单；角色列表在 Service 层按需补充也可，一期先出路由树 -->
@@ -20,10 +22,12 @@
             m.id,
             m.parent_id,
             m.name,
+            m.type,
             m.path,
             m.component,
             m.redirect,
-            m.meta
+            m.meta,
+            m.perm
         FROM sys_menu m
         WHERE m.deleted = 0
           AND m.type != 4

@@ -1,9 +1,10 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   BookOpen,
   Building2,
   ChevronDown,
+  FolderTree,
   LayoutDashboard,
   LogOut,
   MenuSquare,
@@ -16,17 +17,21 @@ import {
   Sun,
   UserRound,
   Users,
+  type LucideIcon,
 } from 'lucide-react';
+import { menuApi } from '@/shared/api/modules/systemApi';
 import { Button } from '@/shared/ui/Button';
 import { PageLoading } from '@/shared/ui/PageLoading';
 import { cn } from '@/shared/lib/cn';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import type { MetaInfo, RouteVO } from '@/features/system/model/systemTypes';
 
 /**
- * 登录后主布局：侧边栏按「系统管理 / 业务管理」分组可折叠，顶栏承载品牌、主题与退出。
+ * 登录后的主布局：侧边栏从后端菜单路由树读取，顶部栏承载品牌、主题和退出。
  */
-type IconType = typeof LayoutDashboard;
+type IconType = LucideIcon;
+type PermissionChecker = (permission: string) => boolean;
 
 interface NavLeaf {
   kind: 'leaf';
@@ -34,6 +39,7 @@ interface NavLeaf {
   path: string;
   permission?: string;
   icon: IconType;
+  rank: number;
 }
 
 interface NavGroup {
@@ -41,40 +47,182 @@ interface NavGroup {
   label: string;
   icon: IconType;
   children: NavLeaf[];
+  rank: number;
 }
 
 type NavEntry = NavLeaf | NavGroup;
 
-const navEntries: NavEntry[] = [
-  { kind: 'leaf', label: '工作台', path: '/', icon: LayoutDashboard },
-  {
-    kind: 'group',
-    label: '系统管理',
-    icon: Settings,
-    children: [
-      { kind: 'leaf', label: '用户管理', path: '/system/users', icon: Users, permission: 'system:user:list' },
-      { kind: 'leaf', label: '角色管理', path: '/system/roles', icon: ShieldCheck, permission: 'system:role:list' },
-      { kind: 'leaf', label: '菜单管理', path: '/system/menus', icon: MenuSquare, permission: 'system:menu:list' },
-      { kind: 'leaf', label: '字典管理', path: '/system/dicts', icon: BookOpen, permission: 'system:dict:list' },
-      { kind: 'leaf', label: '租户管理', path: '/system/tenants', icon: Building2, permission: 'system:tenant:list' },
-    ],
-  },
-  {
-    kind: 'group',
-    label: '业务管理',
-    icon: ShoppingBag,
-    children: [
-      { kind: 'leaf', label: '门店管理', path: '/biz/stores', icon: Store, permission: 'biz:store:list' },
-      { kind: 'leaf', label: '会员管理', path: '/biz/members', icon: UserRound, permission: 'biz:member:list' },
-    ],
-  },
-];
+const DEFAULT_RANK = 999;
+
+const DASHBOARD_NAV: NavLeaf = {
+  kind: 'leaf',
+  label: '工作台',
+  path: '/',
+  icon: LayoutDashboard,
+  rank: -1,
+};
+
+const frontendPathByPermission: Record<string, string> = {
+  'system:user:list': '/system/users',
+  'system:role:list': '/system/roles',
+  'system:menu:list': '/system/menus',
+  'system:dict:list': '/system/dicts',
+  'system:tenant:list': '/system/tenants',
+  'biz:store:list': '/biz/stores',
+  'biz:member:list': '/biz/members',
+};
+
+const knownFrontendPaths = new Set<string>(Object.values(frontendPathByPermission));
+
+const iconByPermission: Record<string, IconType> = {
+  'system:user:list': Users,
+  'system:role:list': ShieldCheck,
+  'system:menu:list': MenuSquare,
+  'system:dict:list': BookOpen,
+  'system:tenant:list': Building2,
+  'biz:store:list': Store,
+  'biz:member:list': UserRound,
+};
+
+const iconByMetaName: Record<string, IconType> = {
+  setting: Settings,
+  settings: Settings,
+  user: Users,
+  users: Users,
+  peoples: Users,
+  'tree-table': MenuSquare,
+  tree: FolderTree,
+  dict: BookOpen,
+  'office-building': Building2,
+  shop: ShoppingBag,
+  store: Store,
+  member: UserRound,
+};
 
 function isPathActive(path: string, pathname: string): boolean {
   if (path === '/') {
     return pathname === '/';
   }
   return pathname === path || pathname.startsWith(`${path}/`);
+}
+
+function getRouteRank(meta?: MetaInfo): number {
+  return typeof meta?.rank === 'number' ? meta.rank : DEFAULT_RANK;
+}
+
+function getRouteTitle(route: RouteVO): string {
+  return route.meta?.title || route.name || route.path || '未命名菜单';
+}
+
+function normalizeIconName(name: string | undefined): string {
+  return name?.trim().toLowerCase() ?? '';
+}
+
+function resolveIcon(route: RouteVO): IconType {
+  if (route.perm && iconByPermission[route.perm]) {
+    return iconByPermission[route.perm];
+  }
+
+  const iconName = normalizeIconName(route.meta?.icon);
+  return iconByMetaName[iconName] ?? MenuSquare;
+}
+
+function sortNavEntries<T extends { label: string; rank: number }>(entries: T[]): T[] {
+  return [...entries].sort((left, right) => {
+    const rankDiff = left.rank - right.rank;
+    if (rankDiff !== 0) {
+      return rankDiff;
+    }
+    return left.label.localeCompare(right.label, 'zh-CN');
+  });
+}
+
+function trimTrailingSlash(value: string): string {
+  if (value === '/') {
+    return value;
+  }
+  return value.replace(/\/+$/, '');
+}
+
+function joinRoutePath(parentPath: string, routePath: string | undefined): string {
+  if (!routePath) {
+    return parentPath || '/';
+  }
+  if (/^https?:\/\//.test(routePath)) {
+    return routePath;
+  }
+  if (routePath.startsWith('/')) {
+    return trimTrailingSlash(routePath);
+  }
+
+  const base = parentPath && parentPath !== '/' ? trimTrailingSlash(parentPath) : '';
+  return `${base}/${routePath}`.replace(/\/+/g, '/');
+}
+
+function resolveFrontendPath(route: RouteVO, parentPath: string): string | null {
+  if (route.perm && frontendPathByPermission[route.perm]) {
+    return frontendPathByPermission[route.perm];
+  }
+
+  const routePath = joinRoutePath(parentPath, route.path);
+  return knownFrontendPaths.has(routePath) ? routePath : null;
+}
+
+function isHiddenRoute(route: RouteVO): boolean {
+  return route.meta?.hidden === true || route.meta?.showLink === false;
+}
+
+function hasRoutePermission(route: RouteVO, hasPermission: PermissionChecker): boolean {
+  return !route.perm || hasPermission(route.perm);
+}
+
+function flattenLeaves(entries: NavEntry[]): NavLeaf[] {
+  return entries.flatMap((entry) => (entry.kind === 'leaf' ? [entry] : entry.children));
+}
+
+function buildNavEntries(routes: RouteVO[], hasPermission: PermissionChecker, parentPath = ''): NavEntry[] {
+  const entries = routes.flatMap<NavEntry>((route) => {
+    const currentPath = joinRoutePath(parentPath, route.path);
+    const children = buildNavEntries(route.children ?? [], hasPermission, currentPath);
+
+    if (isHiddenRoute(route)) {
+      return children;
+    }
+
+    const label = getRouteTitle(route);
+    const icon = resolveIcon(route);
+    const rank = getRouteRank(route.meta);
+
+    if (children.length > 0) {
+      return [
+        {
+          kind: 'group',
+          label,
+          icon,
+          rank,
+          children: sortNavEntries(flattenLeaves(children)),
+        },
+      ];
+    }
+
+    const path = resolveFrontendPath(route, parentPath);
+    if (!path || !hasRoutePermission(route, hasPermission)) {
+      return [];
+    }
+
+    return [
+      {
+        kind: 'leaf',
+        label,
+        path,
+        icon,
+        rank,
+        permission: route.perm,
+      },
+    ];
+  });
+
+  return sortNavEntries(entries);
 }
 
 function LeafLink({ leaf }: { leaf: NavLeaf }) {
@@ -144,8 +292,19 @@ function GroupItem({ group }: { group: NavGroup }) {
   );
 }
 
-function SidebarNav() {
+interface SidebarNavProps {
+  routes: RouteVO[];
+  loadingRoutes: boolean;
+  routeError: boolean;
+}
+
+function SidebarNav({ loadingRoutes, routeError, routes }: SidebarNavProps) {
   const hasPermission = useAuthStore((state) => state.hasPermission);
+  const navEntries = useMemo(
+    () => [DASHBOARD_NAV, ...buildNavEntries(routes, hasPermission)],
+    [hasPermission, routes],
+  );
+
   return (
     <nav className="flex flex-col gap-1 px-3">
       {navEntries.map((entry) => {
@@ -157,6 +316,8 @@ function SidebarNav() {
         }
         return <GroupItem group={entry} key={entry.label} />;
       })}
+      {loadingRoutes ? <div className="px-3 py-2 text-xs text-zinc-400">菜单加载中...</div> : null}
+      {routeError ? <div className="px-3 py-2 text-xs text-rose-500">菜单加载失败</div> : null}
     </nav>
   );
 }
@@ -167,6 +328,46 @@ export function MainLayout() {
   const toggleTheme = useAppStore((state) => state.toggleTheme);
   const user = useAuthStore((state) => state.user);
   const clearSession = useAuthStore((state) => state.clearSession);
+  const [routes, setRoutes] = useState<RouteVO[]>([]);
+  const [loadingRoutes, setLoadingRoutes] = useState(false);
+  const [routeError, setRouteError] = useState(false);
+  const roleKey = user?.roles.join('|') ?? '';
+  const permissionKey = user?.perms.join('|') ?? '';
+
+  useEffect(() => {
+    if (!user) {
+      setRoutes([]);
+      setLoadingRoutes(false);
+      setRouteError(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingRoutes(true);
+    setRouteError(false);
+    menuApi
+      .routes()
+      .then((items) => {
+        if (active) {
+          setRoutes(items ?? []);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setRoutes([]);
+          setRouteError(true);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingRoutes(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [permissionKey, roleKey, user]);
 
   function handleLogout(): void {
     clearSession();
@@ -186,7 +387,7 @@ export function MainLayout() {
           </div>
         </div>
         <div className="py-4">
-          <SidebarNav />
+          <SidebarNav loadingRoutes={loadingRoutes} routeError={routeError} routes={routes} />
         </div>
       </aside>
 
@@ -226,17 +427,13 @@ export function MainLayout() {
                 onClick={toggleTheme}
                 variant="secondary"
               />
-              <Button
-                icon={<LogOut className="size-4" />}
-                onClick={handleLogout}
-                variant="secondary"
-              >
+              <Button icon={<LogOut className="size-4" />} onClick={handleLogout} variant="secondary">
                 退出
               </Button>
             </div>
           </div>
           <div className="max-h-[60vh] overflow-y-auto border-t border-salon-line py-2 dark:border-zinc-800 lg:hidden">
-            <SidebarNav />
+            <SidebarNav loadingRoutes={loadingRoutes} routeError={routeError} routes={routes} />
           </div>
         </header>
 

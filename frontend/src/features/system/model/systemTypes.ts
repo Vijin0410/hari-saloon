@@ -104,10 +104,12 @@ export interface MenuVO {
 
 export interface RouteVO {
   name: string;
-  path: string;
+  type?: MenuRawType;
+  path?: string;
   component?: string;
   redirect?: string;
   meta?: MetaInfo;
+  perm?: string;
   children?: RouteVO[];
 }
 

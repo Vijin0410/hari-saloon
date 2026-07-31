@@ -44,7 +44,7 @@ public class SalonStoreController {
 
     @Operation(summary = "门店下拉")
     @GetMapping("/options")
-    @PreAuthorize("hasAnyAuthority('biz:store:list','biz:member:list','biz:member:add','biz:member:edit')")
+    @PreAuthorize("hasAnyAuthority('biz:store:list','biz:member:list','biz:member:add','biz:member:edit','system:user:list')")
     public Result<List<Option<Long>>> options() {
         return Result.success(storeService.listStoreOptions());
     }

@@ -1,6 +1,7 @@
 package com.wangjin.salon.system.model.form;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.wangjin.salon.system.model.bo.InitialStoreInfo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -39,4 +40,8 @@ public class TenantForm {
     /** 开通时管理员初始密码；空则用系统默认密码 */
     @Schema(description = "管理员初始密码（仅新增，不回显）")
     private String adminPassword;
+
+    /** 开通时联合创建的初始门店（可选；为 null 或 name 空白则不建门店，仅新增生效，编辑不回显） */
+    @Schema(description = "开通时联合创建的初始门店（可选，仅新增）")
+    private InitialStoreInfo store;
 }

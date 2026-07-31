@@ -30,6 +30,7 @@ import com.wangjin.salon.system.model.form.UserForm;
 import com.wangjin.salon.system.model.query.UserPageQuery;
 import com.wangjin.salon.system.model.vo.UserInfoVO;
 import com.wangjin.salon.system.model.vo.UserPageVO;
+import com.wangjin.salon.system.service.SalonStorePort;
 import com.wangjin.salon.system.service.SysDeptService;
 import com.wangjin.salon.system.service.SysMenuService;
 import com.wangjin.salon.system.service.SysRoleService;
@@ -62,6 +63,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     private final UserConverter userConverter;
     private final SalonProperties salonProperties;
     private final MinioService minioService;
+    private final SalonStorePort salonStorePort;
 
     public SysUserServiceImpl(PasswordEncoder passwordEncoder,
                               SysUserRoleService userRoleService,
@@ -71,7 +73,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
                               @Lazy SystemCacheService systemCacheService,
                               UserConverter userConverter,
                               SalonProperties salonProperties,
-                              MinioService minioService) {
+                              MinioService minioService,
+                              SalonStorePort salonStorePort) {
         this.passwordEncoder = passwordEncoder;
         this.userRoleService = userRoleService;
         this.menuService = menuService;
@@ -81,6 +84,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         this.userConverter = userConverter;
         this.salonProperties = salonProperties;
         this.minioService = minioService;
+        this.salonStorePort = salonStorePort;
     }
 
     @Override
@@ -118,6 +122,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     public UserForm getUserFormData(Long userId) {
         UserForm form = this.baseMapper.getUserDetail(userId);
         Assert.notNull(form, "用户不存在");
+        form.setStoreIds(salonStorePort.listUserStoreIds(userId));
         return form;
     }
 
@@ -137,6 +142,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         boolean ok = this.save(entity);
         if (ok) {
             userRoleService.saveUserRoles(entity.getId(), form.getRoleIds());
+            salonStorePort.syncUserStores(entity.getId(), form.getStoreIds());
             systemCacheService.refreshUserCache();
         }
         return ok;
@@ -162,6 +168,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         boolean ok = this.updateById(entity);
         if (ok) {
             userRoleService.saveUserRoles(userId, form.getRoleIds());
+            salonStorePort.syncUserStores(userId, form.getStoreIds());
             systemCacheService.refreshUserCache();
         }
         return ok;
@@ -172,14 +179,15 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      * 非 ROOT 不能赋 ROOT 角色，也不能赋 data_scope 比自己更宽的角色。
      */
     private void assertDeptAndRolesAssignable(Long deptId, List<Long> roleIds) {
-        Assert.notNull(deptId, "所属部门不能为空");
-        SysDept dept = deptService.getById(deptId);
-        Assert.notNull(dept, "所属部门不存在");
-
-        if (!SecurityUtils.isAllDataScope()) {
-            Set<Long> visible = SecurityUtils.getDataScopeDeptIds();
-            Assert.isTrue(CollUtil.isNotEmpty(visible) && visible.contains(deptId),
-                    "无权在该部门下创建/修改用户");
+        // 部门可选：仅当指定部门时校验存在性与权限
+        if (deptId != null) {
+            SysDept dept = deptService.getById(deptId);
+            Assert.notNull(dept, "所属部门不存在");
+            if (!SecurityUtils.isAllDataScope()) {
+                Set<Long> visible = SecurityUtils.getDataScopeDeptIds();
+                Assert.isTrue(CollUtil.isNotEmpty(visible) && visible.contains(deptId),
+                        "无权在该部门下创建/修改用户");
+            }
         }
 
         Assert.isTrue(CollUtil.isNotEmpty(roleIds), "用户角色不能为空");

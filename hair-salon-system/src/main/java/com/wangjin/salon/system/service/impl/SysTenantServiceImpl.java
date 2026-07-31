@@ -15,7 +15,7 @@ import com.wangjin.salon.system.constant.RoleCodes;
 import com.wangjin.salon.system.converter.TenantConverter;
 import com.wangjin.salon.system.mapper.SysMenuMapper;
 import com.wangjin.salon.system.mapper.SysTenantMapper;
-import com.wangjin.salon.system.model.entity.SysDept;
+import com.wangjin.salon.system.model.bo.InitialStoreInfo;
 import com.wangjin.salon.system.model.entity.SysMenu;
 import com.wangjin.salon.system.model.entity.SysRole;
 import com.wangjin.salon.system.model.entity.SysTenant;
@@ -23,7 +23,7 @@ import com.wangjin.salon.system.model.entity.SysUser;
 import com.wangjin.salon.system.model.form.TenantForm;
 import com.wangjin.salon.system.model.query.TenantPageQuery;
 import com.wangjin.salon.system.model.vo.TenantPageVO;
-import com.wangjin.salon.system.service.SysDeptService;
+import com.wangjin.salon.system.service.SalonStorePort;
 import com.wangjin.salon.system.service.SysRoleMenuService;
 import com.wangjin.salon.system.service.SysRoleService;
 import com.wangjin.salon.system.service.SysTenantService;
@@ -39,13 +39,14 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * 租户：CRUD + 开通时事务初始化总部部门 / 预置角色 / 管理员。
+ * 租户：CRUD + 开通时初始化预置角色 / 管理员（可选联合创建初始门店）。
+ * <p>
+ * 部门与门店已解耦：开通不再创建总部部门，部门作为租户内功能由租户管理员自行维护。
  */
 @Service
 public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant> implements SysTenantService {
 
     private final TenantConverter tenantConverter;
-    private final SysDeptService deptService;
     private final SysRoleService roleService;
     private final SysRoleMenuService roleMenuService;
     private final SysUserRoleService userRoleService;
@@ -53,18 +54,18 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
     private final SysMenuMapper menuMapper;
     private final PasswordEncoder passwordEncoder;
     private final SalonProperties salonProperties;
+    private final SalonStorePort salonStorePort;
 
     public SysTenantServiceImpl(TenantConverter tenantConverter,
-                                SysDeptService deptService,
                                 SysRoleService roleService,
                                 SysRoleMenuService roleMenuService,
                                 SysUserRoleService userRoleService,
                                 @Lazy SysUserService userService,
                                 SysMenuMapper menuMapper,
                                 PasswordEncoder passwordEncoder,
-                                SalonProperties salonProperties) {
+                                SalonProperties salonProperties,
+                                SalonStorePort salonStorePort) {
         this.tenantConverter = tenantConverter;
-        this.deptService = deptService;
         this.roleService = roleService;
         this.roleMenuService = roleMenuService;
         this.userRoleService = userRoleService;
@@ -72,6 +73,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         this.menuMapper = menuMapper;
         this.passwordEncoder = passwordEncoder;
         this.salonProperties = salonProperties;
+        this.salonStorePort = salonStorePort;
     }
 
     /** 店长默认可挂菜单 id（与 data.sql 种子一致；菜单全局共享） */
@@ -124,33 +126,27 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
 
         TenantContextRunner.run(entity.getId(), () -> bootstrapTenant(
                 entity.getId(),
-                form.getName(),
                 adminUsername,
                 adminNickname,
-                rawPassword
+                rawPassword,
+                form.getStore()
         ));
         return true;
     }
 
     /**
-     * 开通：总部 dept + 租户管理员/店长/店员角色 + 管理员用户。
-     * 须在目标 tenant 的 {@link TenantContextRunner} 内调用。
+     * 开通：预置角色 + 管理员用户（+ 可选初始门店）。
+     * <p>
+     * 部门与门店已解耦：开通不再创建总部部门；管理员默认不挂部门，可选联合创建一个初始门店并绑定，
+     * 便于其查看门店业务数据。须在目标 tenant 的 {@link TenantContextRunner} 内调用。
      */
-    private void bootstrapTenant(Long tenantId, String tenantName,
-                                 String adminUsername, String adminNickname, String rawPassword) {
-        SysDept hq = new SysDept();
-        hq.setName(StrUtil.blankToDefault(tenantName, "总部"));
-        hq.setParentId(SystemConstants.ROOT_NODE_ID);
-        hq.setTreePath(String.valueOf(SystemConstants.ROOT_NODE_ID));
-        hq.setSort(1);
-        hq.setStatus(StatusEnum.ENABLE.getValue());
-        hq.setTenantId(tenantId);
-        deptService.save(hq);
-
+    private void bootstrapTenant(Long tenantId,
+                                 String adminUsername, String adminNickname, String rawPassword,
+                                 InitialStoreInfo store) {
         // 租户内管理员（本租户全部数据，不含租户管理）；ROOT 是系统管理员，仅默认租户，不在开通时创建
-        SysRole tenantAdmin = savePresetRole("租户管理员", RoleCodes.TENANT_ADMIN, 1, DataScopeEnum.ALL.getValue(), tenantId);
-        SysRole manager = savePresetRole("店长", RoleCodes.STORE_MANAGER, 2, DataScopeEnum.DEPT_AND_SUB.getValue(), tenantId);
-        SysRole staff = savePresetRole("店员", RoleCodes.STORE_STAFF, 3, DataScopeEnum.SELF.getValue(), tenantId);
+        SysRole tenantAdmin = savePresetRole("租户管理员", RoleCodes.TENANT_ADMIN.getCode(), 1, DataScopeEnum.ALL.getValue(), tenantId);
+        SysRole manager = savePresetRole("店长", RoleCodes.STORE_MANAGER.getCode(), 2, DataScopeEnum.DEPT_AND_SUB.getValue(), tenantId);
+        SysRole staff = savePresetRole("店员", RoleCodes.STORE_STAFF.getCode(), 3, DataScopeEnum.SELF.getValue(), tenantId);
 
         // 租户管理员菜单：除「租户管理 system:tenant:*」外的全部（租户内管理 + 业务）
         List<Long> tenantAdminMenuIds = menuMapper.selectList(new LambdaQueryWrapper<SysMenu>()
@@ -171,11 +167,17 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         admin.setNickname(adminNickname);
         admin.setPassword(passwordEncoder.encode(rawPassword));
         admin.setStatus(StatusEnum.ENABLE.getValue());
-        admin.setDeptId(hq.getId());
-        // lastPasswordChangeTime 默认 null → 首次登录强制改密
+        // 部门可选：开通不建部门，管理员不挂部门；后续由租户管理员自行分配
+        // lastPasswordChangeTime 默认 null -> 首次登录强制改密
         admin.setTenantId(tenantId);
         userService.save(admin);
         userRoleService.saveUserRoles(admin.getId(), List.of(tenantAdmin.getId()));
+
+        // 可选：联合创建初始门店，并把管理员绑定到该门店
+        Long storeId = salonStorePort.provisionInitialStore(store);
+        if (storeId != null) {
+            salonStorePort.syncUserStores(admin.getId(), List.of(storeId));
+        }
     }
 
     private SysRole savePresetRole(String name, String code, int sort, Integer dataScope, Long tenantId) {

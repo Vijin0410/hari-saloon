@@ -20,4 +20,8 @@ public class RoleForm {
     private Integer status;
     private Integer dataScope;
     private String deptIds;
+
+    /** 是否系统预置角色（只读回显；预置角色编码不允许修改） */
+    @Schema(description = "是否系统预置角色（只读回显）")
+    private Boolean preset;
 }

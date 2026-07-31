@@ -1,22 +1,45 @@
 package com.wangjin.salon.system.constant;
 
-/**
- * 预置角色编码（各租户开通时复制）。
- */
-public final class RoleCodes {
+import cn.hutool.core.util.StrUtil;
 
-    private RoleCodes() {
+/**
+ * 预置角色编码（各租户开通时复制；ROOT 仅默认租户系统种子）。
+ * <p>
+ * 预置角色编码受保护：编辑时不可修改其编码，亦不可新建为 ROOT 系统管理员。
+ */
+public enum RoleCodes {
+
+    ROOT("ROOT", "系统管理员"),
+    TENANT_ADMIN("TENANT_ADMIN", "租户管理员"),
+    STORE_MANAGER("STORE_MANAGER", "店长"),
+    STORE_STAFF("STORE_STAFF", "店员");
+
+    private final String code;
+    private final String label;
+
+    RoleCodes(String code, String label) {
+        this.code = code;
+        this.label = label;
     }
 
-    /** 系统管理员（跨租户，仅默认租户；查看所有租户数据） */
-    public static final String ROOT = "ROOT";
+    public String getCode() {
+        return code;
+    }
 
-    /** 租户管理员（本租户全部数据，不含租户管理） */
-    public static final String TENANT_ADMIN = "TENANT_ADMIN";
+    public String getLabel() {
+        return label;
+    }
 
-    /** 店长：本部门及子部门 */
-    public static final String STORE_MANAGER = "STORE_MANAGER";
-
-    /** 店员：仅本人 */
-    public static final String STORE_STAFF = "STORE_STAFF";
+    /** 是否为系统预置角色编码（大小写不敏感）。 */
+    public static boolean isPreset(String code) {
+        if (StrUtil.isBlank(code)) {
+            return false;
+        }
+        for (RoleCodes r : values()) {
+            if (r.code.equalsIgnoreCase(code)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

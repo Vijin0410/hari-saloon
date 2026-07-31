@@ -10,6 +10,7 @@ import com.wangjin.common.constant.SystemConstants;
 import com.wangjin.common.enums.DataScopeEnum;
 import com.wangjin.common.security.util.SecurityUtils;
 import com.wangjin.common.web.model.Option;
+import com.wangjin.salon.system.constant.RoleCodes;
 import com.wangjin.salon.system.converter.RoleConverter;
 import com.wangjin.salon.system.mapper.SysRoleMapper;
 import com.wangjin.salon.system.model.entity.SysRole;
@@ -77,6 +78,18 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     @Override
     public boolean saveRole(RoleForm form) {
         Long roleId = form.getId();
+        // ROOT 系统管理员仅由系统种子维护，禁止新增或改名为 ROOT
+        Assert.isTrue(!RoleCodes.ROOT.getCode().equalsIgnoreCase(form.getCode()),
+                "系统管理员角色由系统维护，不允许新增或修改");
+        // 预置角色编码受保护：编辑时不得修改编码
+        if (roleId != null) {
+            SysRole exist = this.getById(roleId);
+            Assert.notNull(exist, "角色不存在");
+            Assert.isTrue(!RoleCodes.isPreset(exist.getCode())
+                            || exist.getCode().equalsIgnoreCase(form.getCode()),
+                    "系统预置角色编码不允许修改");
+        }
+        // 同租户内编码/名称唯一（TenantLine 自动按当前租户过滤，DB 唯一索引 uk_sys_role_code_tenant 兜底）
         long count = this.count(new LambdaQueryWrapper<SysRole>()
                 .ne(roleId != null, SysRole::getId, roleId)
                 .and(w -> w.eq(SysRole::getCode, form.getCode()).or().eq(SysRole::getName, form.getName())));

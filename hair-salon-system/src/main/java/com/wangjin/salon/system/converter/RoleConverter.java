@@ -29,5 +29,7 @@ public interface RoleConverter {
 
     SysRole form2Entity(RoleForm roleForm);
 
+    @Mapping(target = "preset",
+            expression = "java(com.wangjin.salon.system.constant.RoleCodes.isPreset(entity.getCode()))")
     RoleForm entity2Form(SysRole entity);
 }

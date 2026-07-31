@@ -72,7 +72,7 @@
 - 文件字段约定：业务表（如 `sys_user.avatar`）存 `object_key`；`UserPageVO` 返回时转预签名 URL；表单回显给 object_key，预览调 `GET /files/url?objectKey=`
 
 ## 最近更新
-- 2026-07-31: dept/store 解耦后续——租户开通不再建总部部门（可选联合创建初始门店并绑定管理员，`TenantForm.store`）；部门改为租户内可选功能（`UserForm.deptId` 可空，`assertDeptAndRolesAssignable` 仅在指定部门时校验）；用户新增/编辑增加 `storeIds` 多选绑定门店（新增 `SalonStorePort` SPI 跨模块同步 `salon_store_user`；门店 options 放行 `system:user:list`）；`RoleCodes` 升级为 Enum + `isPreset()`，角色编辑禁改预置编码、禁新建/改名 ROOT（同租户 code 唯一 = DB 索引 + TenantLine）。前端改造进行中
+- 2026-07-31: dept/store 解耦后续——租户开通不再建总部部门（可选联合创建初始门店并绑定管理员，`TenantForm.store`）；部门改为租户内可选功能（`UserForm.deptId` 可空，`assertDeptAndRolesAssignable` 仅在指定部门时校验）；用户新增/编辑增加 `storeIds` 多选绑定门店（新增 `SalonStorePort` SPI 跨模块同步 `salon_store_user`；门店 options 放行 `system:user:list`）；`RoleCodes` 升级为 Enum + `isPreset()`，角色编辑禁改预置编码、禁新建/改名 ROOT（同租户 code 唯一 = DB 索引 + TenantLine）。前端：租户表单加可选门店块、用户表单门店多选+部门可选、角色 code 预置禁用、新增 DeptPage 部门管理页（路由+菜单映射+deptApi CRUD）
 - 2026-07-30: 门店与部门解耦：`salon_store` 去掉 `dept_id`，新增 `salon_store_user` 维护门店-用户数据范围；`salon_member.dept_id` 改为 `store_id`；门店/会员列表和写操作按授权门店过滤；前端门店表单增加授权用户，会员表单改门店下拉；新增 `sql/migrate-store-data-scope.sql`
 
 - 2026-07-30: 菜单编辑支持移动到顶级菜单（`parent_id=0`），保存时禁止选择自身/子孙作为父级，并级联刷新子孙 `tree_path`；菜单上级下拉改树形缩进展示；用户新增/编辑表单的所属部门改为部门名称下拉，提交仍用 `deptId`

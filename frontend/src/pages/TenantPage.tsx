@@ -17,7 +17,7 @@ import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuthStore } from '@/store/useAuthStore';
 
 /**
- * 租户开通：创建时自动初始化总部部门、预置角色、管理员。
+ * 租户开通：创建时初始化预置角色、管理员，可选联合创建初始门店。
  */
 export function TenantPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
@@ -33,6 +33,7 @@ export function TenantPage() {
     code: '',
     status: 1,
     adminUsername: 'admin',
+    store: { name: '', code: '', phone: '', address: '' },
   });
   const [saving, setSaving] = useState(false);
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
@@ -57,7 +58,7 @@ export function TenantPage() {
     try {
       await tenantApi.create(form);
       setOpen(false);
-      setForm({ name: '', code: '', status: 1, adminUsername: 'admin' });
+      setForm({ name: '', code: '', status: 1, adminUsername: 'admin', store: { name: '', code: '', phone: '', address: '' } });
       await load();
     } finally {
       setSaving(false);
@@ -69,7 +70,7 @@ export function TenantPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">租户管理</h1>
-          <p className="text-sm text-zinc-500">开通租户会自动创建总部部门、ROOT/店长/店员角色与管理员账号。</p>
+          <p className="text-sm text-zinc-500">开通租户会自动创建预置角色与管理员账号，可选联合创建初始门店。</p>
         </div>
         {hasPermission('system:tenant:add') ? (
           <Button icon={<Plus className="size-4" />} onClick={() => setOpen(true)}>
@@ -195,6 +196,36 @@ export function TenantPage() {
               value={form.adminPassword ?? ''}
             />
           </Field>
+        </div>
+
+        <div className="space-y-3 border-t border-salon-line pt-3 dark:border-zinc-800">
+          <div className="text-sm font-medium text-salon-ink dark:text-white">初始门店（可选，门店名称留空则不开通门店）</div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field label="门店名称">
+              <Input
+                onChange={(e) => setForm((f) => ({ ...f, store: { ...(f.store ?? {}), name: e.target.value } }))}
+                value={form.store?.name ?? ''}
+              />
+            </Field>
+            <Field label="门店编码">
+              <Input
+                onChange={(e) => setForm((f) => ({ ...f, store: { ...(f.store ?? {}), code: e.target.value } }))}
+                value={form.store?.code ?? ''}
+              />
+            </Field>
+            <Field label="门店电话">
+              <Input
+                onChange={(e) => setForm((f) => ({ ...f, store: { ...(f.store ?? {}), phone: e.target.value } }))}
+                value={form.store?.phone ?? ''}
+              />
+            </Field>
+            <Field label="门店地址">
+              <Input
+                onChange={(e) => setForm((f) => ({ ...f, store: { ...(f.store ?? {}), address: e.target.value } }))}
+                value={form.store?.address ?? ''}
+              />
+            </Field>
+          </div>
         </div>
       </Modal>
 

@@ -100,6 +100,7 @@ function RoleFormDialog({
 }) {
   const [loadingForm, setLoadingForm] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [isPreset, setIsPreset] = useState(false);
   const {
     formState: { errors },
     handleSubmit,
@@ -119,6 +120,7 @@ function RoleFormDialog({
 
     if (mode === 'create') {
       reset(defaultRoleValues());
+      setIsPreset(false);
       return;
     }
 
@@ -133,6 +135,7 @@ function RoleFormDialog({
       .then((payload) => {
         if (active) {
           reset(toRoleFormValues(payload));
+          setIsPreset(Boolean(payload.preset));
         }
       })
       .finally(() => {
@@ -188,7 +191,17 @@ function RoleFormDialog({
               <Input invalid={Boolean(errors.name)} placeholder="例如：门店管理员" {...register('name')} />
             </Field>
             <Field error={errors.code?.message} label="角色编码" required>
-              <Input invalid={Boolean(errors.code)} placeholder="例如：STORE_ADMIN" {...register('code')} />
+              <>
+                <Input
+                  disabled={isPreset}
+                  invalid={Boolean(errors.code)}
+                  placeholder="例如：STORE_ADMIN"
+                  {...register('code')}
+                />
+                {isPreset ? (
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">系统预置角色编码不可修改。</span>
+                ) : null}
+              </>
             </Field>
             <Field error={errors.sort?.message} label="排序" required>
               <Input

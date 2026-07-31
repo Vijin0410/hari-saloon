@@ -19,6 +19,7 @@ const DictPage = lazy(() => import('@/pages/DictPage').then((module) => ({ defau
 const TenantPage = lazy(() => import('@/pages/TenantPage').then((module) => ({ default: module.TenantPage })));
 const StorePage = lazy(() => import('@/pages/StorePage').then((module) => ({ default: module.StorePage })));
 const MemberPage = lazy(() => import('@/pages/MemberPage').then((module) => ({ default: module.MemberPage })));
+const DeptPage = lazy(() => import('@/pages/DeptPage').then((module) => ({ default: module.DeptPage })));
 const ForbiddenPage = lazy(() =>
   import('@/pages/ForbiddenPage').then((module) => ({ default: module.ForbiddenPage })),
 );
@@ -66,6 +67,14 @@ export const router = createBrowserRouter([
             element: (
               <PermissionRoute permission="system:menu:list">
                 <MenuPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'system/dept',
+            element: (
+              <PermissionRoute permission="system:dept:list">
+                <DeptPage />
               </PermissionRoute>
             ),
           },

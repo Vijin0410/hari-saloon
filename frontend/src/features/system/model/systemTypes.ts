@@ -55,6 +55,7 @@ export interface UserFormPayload {
   status?: StatusValue;
   deptId?: EntityId;
   roleIds: EntityId[];
+  storeIds?: EntityId[];
 }
 
 export interface RolePageQuery extends PageParams {
@@ -78,6 +79,8 @@ export interface RoleFormPayload {
   status?: StatusValue;
   dataScope?: DataScopeValue;
   deptIds?: string;
+  /** 是否系统预置角色（只读回显；预置角色编码不可修改） */
+  preset?: boolean;
 }
 
 export interface MenuQuery {
@@ -135,6 +138,30 @@ export type RoleOption = OptionNode<EntityId>;
 export type MenuOption = OptionNode<EntityId>;
 export type DeptOption = OptionNode<EntityId>;
 export type StoreOption = OptionNode<EntityId>;
+
+export interface DeptVO {
+  id: EntityId;
+  name: string;
+  parentId?: EntityId;
+  sort?: number;
+  status?: StatusValue;
+  leaderId?: EntityId;
+  children?: DeptVO[];
+}
+
+export interface DeptFormPayload {
+  id?: EntityId;
+  name: string;
+  parentId: EntityId;
+  status?: StatusValue;
+  sort?: number;
+  leaderId?: EntityId;
+}
+
+export interface DeptQuery {
+  keywords?: string;
+  status?: StatusValue;
+}
 
 export const ROLE_MENU_TYPE_WEB = 1;
 

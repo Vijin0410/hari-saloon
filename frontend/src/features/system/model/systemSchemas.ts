@@ -20,11 +20,23 @@ export const userFormSchema = z.object({
   avatar: z.string().trim().optional(),
   email: z.union([z.literal(''), z.string().email('邮箱格式不正确')]).optional(),
   status: statusSchema,
-  deptId: z.string().trim().min(1, '所属部门不能为空'),
+  deptId: z.string().trim().optional(),
   roleIds: z.array(z.string()).min(1, '请至少选择一个角色'),
+  storeIds: z.array(z.string()).optional(),
 });
 
 export type UserFormValues = z.infer<typeof userFormSchema>;
+
+export const deptFormSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().trim().min(1, '部门名称不能为空'),
+  parentId: z.string().trim().min(1, '请选择上级部门'),
+  status: statusSchema,
+  sort: z.number().int().min(0, '排序不能小于 0'),
+  leaderId: z.string().trim().optional(),
+});
+
+export type DeptFormValues = z.infer<typeof deptFormSchema>;
 
 export const roleFormSchema = z
   .object({

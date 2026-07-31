@@ -9,7 +9,7 @@ import {
   ToggleRight,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { deptApi, fileApi, roleApi, userApi } from '@/shared/api/modules/systemApi';
+import { deptApi, fileApi, roleApi, storeApi, userApi } from '@/shared/api/modules/systemApi';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
@@ -30,6 +30,7 @@ import type {
   GenderValue,
   RoleOption,
   StatusValue,
+  StoreOption,
   UserFormPayload,
   UserPageQuery,
   UserPageVO,
@@ -58,6 +59,7 @@ function defaultUserValues(): UserFormValues {
     status: 1,
     deptId: '',
     roleIds: [],
+    storeIds: [],
   };
 }
 
@@ -73,6 +75,7 @@ function toUserFormValues(payload: UserFormPayload): UserFormValues {
     status: normalizeNumber(payload.status, 1) as StatusValue,
     deptId: payload.deptId ?? '',
     roleIds: normalizeStringArray(payload.roleIds),
+    storeIds: normalizeStringArray(payload.storeIds),
   };
 }
 
@@ -86,8 +89,9 @@ function toUserPayload(values: UserFormValues): UserFormPayload {
     avatar: values.avatar?.trim() || undefined,
     email: values.email?.trim() || undefined,
     status: values.status,
-    deptId: values.deptId.trim(),
+    deptId: values.deptId?.trim() || undefined,
     roleIds: values.roleIds,
+    storeIds: values.storeIds,
   };
 }
 
@@ -109,6 +113,7 @@ function UserFormDialog({
   open,
   deptOptions,
   roleOptions,
+  storeOptions,
   userId,
   onClose,
   onSaved,
@@ -117,6 +122,7 @@ function UserFormDialog({
   open: boolean;
   deptOptions: DeptOption[];
   roleOptions: RoleOption[];
+  storeOptions: StoreOption[];
   userId: EntityId | null;
   onClose: () => void;
   onSaved: () => void;
@@ -204,6 +210,7 @@ function UserFormDialog({
   }
 
   const selectedRoleIds = watch('roleIds');
+  const selectedStoreIds = watch('storeIds') ?? [];
   const avatarObjectKey = watch('avatar');
 
   async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>): Promise<void> {
@@ -282,9 +289,9 @@ function UserFormDialog({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Field error={errors.deptId?.message} label="所属部门" required>
+            <Field error={errors.deptId?.message} label="所属部门">
               <Select invalid={Boolean(errors.deptId)} {...register('deptId')}>
-                <option value="">请选择所属部门</option>
+                <option value="">不选择部门（仅绑定门店）</option>
                 {flatDeptOptions.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -370,6 +377,37 @@ function UserFormDialog({
             </div>
           </Field>
 
+          <Field label="绑定门店">
+            <div className="grid max-h-48 gap-2 overflow-y-auto rounded-md border border-salon-line bg-slate-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/60 md:grid-cols-2">
+              {storeOptions.length ? (
+                storeOptions.map((store) => {
+                  const checked = selectedStoreIds.includes(store.value);
+                  return (
+                    <label
+                      className="flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-salon-line hover:bg-white dark:hover:border-zinc-700 dark:hover:bg-zinc-900"
+                      key={store.value}
+                    >
+                      <input
+                        checked={checked}
+                        className="size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
+                        onChange={(event) => {
+                          const nextStoreIds = event.target.checked
+                            ? Array.from(new Set([...selectedStoreIds, store.value]))
+                            : selectedStoreIds.filter((id) => id !== store.value);
+                          setValue('storeIds', nextStoreIds, { shouldValidate: true, shouldDirty: true });
+                        }}
+                        type="checkbox"
+                      />
+                      <span>{store.label}</span>
+                    </label>
+                  );
+                })
+              ) : (
+                <div className="col-span-full text-sm text-zinc-500 dark:text-zinc-400">暂无可选门店</div>
+              )}
+            </div>
+          </Field>
+
           <Field label="补充说明">
             <Textarea
               readOnly
@@ -388,6 +426,7 @@ export function UserManagement() {
   const [rows, setRows] = useState<UserPageVO[]>([]);
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [deptOptions, setDeptOptions] = useState<DeptOption[]>([]);
+  const [storeOptions, setStoreOptions] = useState<StoreOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<EntityId[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -413,11 +452,17 @@ export function UserManagement() {
         keywords: debouncedKeyword.trim() || undefined,
         status: queryStatus === 'all' ? undefined : queryStatus,
       };
-      const [userPage, roles, depts] = await Promise.all([userApi.list(params), roleApi.options(), deptApi.options()]);
+      const [userPage, roles, depts, stores] = await Promise.all([
+        userApi.list(params),
+        roleApi.options(),
+        deptApi.options(),
+        storeApi.options(),
+      ]);
       setRows(userPage.list);
       setTotal(userPage.total);
       setRoleOptions(roles);
       setDeptOptions(depts);
+      setStoreOptions(stores);
       setSelectedIds([]);
     } finally {
       setLoading(false);
@@ -677,6 +722,7 @@ export function UserManagement() {
           onSaved={loadUsers}
           open={Boolean(modalMode)}
           roleOptions={roleOptions}
+          storeOptions={storeOptions}
           userId={activeUserId}
         />
       ) : null}

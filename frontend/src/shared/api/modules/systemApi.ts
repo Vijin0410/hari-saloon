@@ -2,7 +2,10 @@ import { deleteRequest, get, patch, post, put } from '@/shared/api/client';
 import type { PageData } from '@/types';
 import type {
   EntityId,
+  DeptFormPayload,
   DeptOption,
+  DeptQuery,
+  DeptVO,
   MenuFormPayload,
   MenuOption,
   MenuQuery,
@@ -127,8 +130,23 @@ export const menuApi = {
 };
 
 export const deptApi = {
+  list(params?: DeptQuery): Promise<DeptVO[]> {
+    return get<DeptVO[]>('/v1/dept', { params });
+  },
   options(): Promise<DeptOption[]> {
     return get<DeptOption[]>('/v1/dept/options');
+  },
+  getForm(deptId: EntityId): Promise<DeptFormPayload> {
+    return get<DeptFormPayload>(`/v1/dept/form/${deptId}`);
+  },
+  create(payload: DeptFormPayload): Promise<EntityId> {
+    return post<EntityId, DeptFormPayload>('/v1/dept', payload);
+  },
+  update(deptId: EntityId, payload: DeptFormPayload): Promise<void> {
+    return put<void, DeptFormPayload>(`/v1/dept/update/${deptId}`, payload);
+  },
+  remove(ids: EntityId[]): Promise<void> {
+    return deleteRequest<void>('/v1/dept/delete', { params: { ids: ids.join(',') } });
   },
 };
 
@@ -151,6 +169,13 @@ export interface TenantPageVO {
   createTime?: string;
 }
 
+export interface InitialStoreInfoPayload {
+  name?: string;
+  code?: string;
+  phone?: string;
+  address?: string;
+}
+
 export interface TenantFormPayload {
   id?: EntityId;
   name: string;
@@ -163,6 +188,8 @@ export interface TenantFormPayload {
   adminUsername?: string;
   adminNickname?: string;
   adminPassword?: string;
+  /** 开通时联合创建的初始门店（可选；name 空则不建门店，仅新增） */
+  store?: InitialStoreInfoPayload;
 }
 
 export const tenantApi = {

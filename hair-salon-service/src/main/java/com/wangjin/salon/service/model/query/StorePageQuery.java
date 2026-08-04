@@ -9,21 +9,23 @@ import java.util.List;
 
 @Data
 @EqualsAndHashCode(callSuper = true)
-@Schema(description = "Store page query")
+@Schema(description = "门店分页查询")
 public class StorePageQuery extends BasePageQuery {
 
+    @Schema(description = "关键词")
     private String keywords;
+    @Schema(description = "状态：1启用 0禁用")
     private Integer status;
 
-    @Schema(hidden = true)
+    @Schema(hidden = true, description = "全部门店范围")
     private Boolean allStoreScope;
 
-    @Schema(hidden = true)
+    @Schema(hidden = true, description = "禁止门店范围")
     private Boolean deniedStoreScope;
 
-    @Schema(hidden = true)
+    @Schema(hidden = true, description = "允许门店ID列表")
     private List<Long> permittedStoreIds;
 
-    @Schema(hidden = true)
+    @Schema(hidden = true, description = "权限用户ID")
     private Long permissionUserId;
 }

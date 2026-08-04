@@ -1,5 +1,7 @@
 package com.wangjin.salon.service.model.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.wangjin.common.base.BaseTenantEntity;
 import lombok.Data;
@@ -16,15 +18,30 @@ import java.time.LocalDate;
 @TableName("salon_member")
 public class SalonMember extends BaseTenantEntity<Long> {
 
+    /** 会员姓名 */
     private String name;
+    /** 手机号 */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String phone;
+    /** 性别（字典 gender） */
     private Integer gender;
+    /** 生日 */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private LocalDate birthday;
+    /** 会员等级 */
     private Integer level;
+    /** 余额 */
     private BigDecimal balance;
+    /** 积分 */
     private Integer points;
+    /** 来源（字典 member_source） */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String source;
+    /** 状态：1启用 0禁用 */
     private Integer status;
+    /** 备注 */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String remark;
+    /** 所属门店ID */
     private Long storeId;
 }

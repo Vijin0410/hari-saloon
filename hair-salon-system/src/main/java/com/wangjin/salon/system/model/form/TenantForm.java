@@ -12,21 +12,29 @@ import java.time.LocalDateTime;
 @Schema(description = "租户表单")
 public class TenantForm {
 
+    @Schema(description = "租户ID")
     private Long id;
 
+    @Schema(description = "租户名称")
     @NotBlank(message = "租户名称不能为空")
     private String name;
 
+    @Schema(description = "租户编码")
     @NotBlank(message = "租户编码不能为空")
     private String code;
 
+    @Schema(description = "状态（1启用 0禁用）")
     private Integer status;
+    @Schema(description = "联系人")
     private String contact;
+    @Schema(description = "联系电话")
     private String phone;
 
+    @Schema(description = "到期时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime expireTime;
 
+    @Schema(description = "备注")
     private String remark;
 
     /** 开通时管理员登录名；空则默认 admin */

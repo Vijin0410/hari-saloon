@@ -10,5 +10,6 @@ import lombok.EqualsAndHashCode;
 @Schema(description = "角色分页查询")
 public class RolePageQuery extends BasePageQuery {
 
+    @Schema(description = "关键字（角色名称/编码）")
     private String keywords;
 }

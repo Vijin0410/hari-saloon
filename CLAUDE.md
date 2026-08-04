@@ -36,6 +36,7 @@
 - Controller **只调 Service**；禁止 Controller → Mapper。
 - Entity/VO/Form 互转用 **MapStruct `converter`**，禁止大段手写 getter/setter。
 - Listener / Scheduling 禁止直接 Mapper，须经 Service。
+- **模型字段说明（强制）**：`model.entity` 每个字段必须 `/** ... */` Javadoc 注释；`model.form` / `model.query` / `model.vo` 每个字段必须 `@Schema(description = "...")`；均用简体中文，含义与 SQL `COMMENT` 一致。类级 `@Schema` 必备。基类（`BaseEntity` / `BaseTenantEntity`，在 `wj-framework`）字段已标注，继承类不重复。
 
 ### 2. HTTP 入参 / 出参（强制）
 
@@ -53,6 +54,25 @@
 - 仅当后半段确实是 `{id}` 所定位资源的子资源/关联资源时，才使用 `/{id}/xxx`，且新代码应优先确认是否能表达为动作前置路径。
 - 写接口按需 `@PreventDuplicateResubmit`；字典字段 VO 上 `@Dict`，Controller 方法 `@QueryDict`。
 - 常用：`Result.success` / `Result.judge` / `PageResult.success(records, total)`。
+
+### 2.1 字段更新契约（PUT/PATCH，强制）
+
+所有 PUT/PATCH 更新接口统一遵循"部分更新"三态语义（同 RFC 7396 JSON Merge Patch）：
+
+| 场景 | 请求体 | 后端处理 |
+|------|--------|---------|
+| 修改值 | 传具体值 | 更新为传入值 |
+| 清空字段 | 传 `null` | 置为 `NULL` |
+| 不修改 | 不传该字段（key 不存在） | 保持原值 |
+
+示例（改用户名 + 清空手机号，其余不动）：
+
+```json
+{ "username": "新名字", "phone": null }
+```
+
+- 前端：有值传值；用户清空可选字段须显式传 `null`（**不是** `undefined` / 省略 key）；不涉及的字段不传 key。`JSON.stringify` 会丢弃 `undefined`、保留 `null`，天然区分"不传"与"清空"。
+- 后端：Java POJO + Jackson **默认无法区分**"未传 key"与"传 `null`"（反序列化后均为 `null`）。严格三态须用 `JsonNullable<T>` 包装可空字段并注册 `jackson-databind-nullable`。现状（全量表单 PUT）：MyBatis-Plus 默认 `FieldStrategy.NOT_NULL`（`null` 不更新）满足"不传保持"；"传 `null` 清空"对可清空字段标注 `@TableField(updateStrategy = FieldStrategy.ALWAYS)` 实现。全量表单下前端总会提交全部字段，"不传保持"不触发；**新增纯 PATCH 部分更新接口前须先引入 `JsonNullable`**，否则 IGNORED 字段在"不传"时会被误清空。`password` / `lastPasswordChangeTime` 等不由前端控制的字段保持默认 `NOT_NULL`，service 置 `null` 跳过更新。
 
 ### 3. `@PreAuthorize`（强制）
 

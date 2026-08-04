@@ -63,7 +63,7 @@ function toTypeValues(payload: DictTypeFormPayload): DictTypeFormValues {
     name: payload.name ?? '',
     code: payload.code ?? '',
     status: normalizeNumber(payload.status, 1) as StatusValue,
-    groupCode: payload.groupCode ?? 'system',
+    groupCode: payload.groupCode ?? '',
     remark: payload.remark ?? '',
   };
 }
@@ -74,8 +74,8 @@ function toTypePayload(values: DictTypeFormValues): DictTypeFormPayload {
     name: values.name.trim(),
     code: values.code.trim(),
     status: values.status,
-    groupCode: values.groupCode?.trim() || undefined,
-    remark: values.remark?.trim() || undefined,
+    groupCode: values.groupCode?.trim() || null,
+    remark: values.remark?.trim() || null,
   };
 }
 
@@ -103,7 +103,7 @@ function toItemPayload(values: DictFormValues): DictFormPayload {
     value: values.value.trim(),
     status: values.status,
     sort: values.sort,
-    remark: values.remark?.trim() || undefined,
+    remark: values.remark?.trim() || null,
   };
 }
 

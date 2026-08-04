@@ -10,6 +10,8 @@ import lombok.EqualsAndHashCode;
 @Schema(description = "租户分页查询")
 public class TenantPageQuery extends BasePageQuery {
 
+    @Schema(description = "关键字（租户名称/编码）")
     private String keywords;
+    @Schema(description = "状态（1启用 0禁用）")
     private Integer status;
 }

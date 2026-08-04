@@ -14,7 +14,9 @@ import lombok.NoArgsConstructor;
 @TableName("sys_role_menu")
 public class SysRoleMenu {
 
+    /** 角色ID */
     private Long roleId;
+    /** 菜单ID */
     private Long menuId;
     /** 1=web 2=app，一期仅用 1 */
     private Integer type;

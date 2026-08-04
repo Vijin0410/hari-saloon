@@ -20,8 +20,8 @@ export interface DictTypeFormPayload {
   name: string;
   code: string;
   status?: StatusValue;
-  groupCode?: string;
-  remark?: string;
+  groupCode?: string | null;
+  remark?: string | null;
 }
 
 export interface DictPageQuery extends PageParams {
@@ -46,7 +46,7 @@ export interface DictFormPayload {
   value: string;
   status?: StatusValue;
   sort?: number;
-  remark?: string;
+  remark?: string | null;
 }
 
 /** 字典下拉项：value=字典值，label=字典名称 */

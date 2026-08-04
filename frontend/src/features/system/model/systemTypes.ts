@@ -48,12 +48,12 @@ export interface UserFormPayload {
   id?: EntityId;
   username: string;
   nickname: string;
-  phone?: string;
+  phone?: string | null;
   gender?: GenderValue;
-  avatar?: string;
-  email?: string;
+  avatar?: string | null;
+  email?: string | null;
   status?: StatusValue;
-  deptId?: EntityId;
+  deptId?: EntityId | null;
   roleIds: EntityId[];
   storeIds?: EntityId[];
 }
@@ -78,7 +78,7 @@ export interface RoleFormPayload {
   sort?: number;
   status?: StatusValue;
   dataScope?: DataScopeValue;
-  deptIds?: string;
+  deptIds?: string | null;
   /** 是否系统预置角色（只读回显；预置角色编码不可修改） */
   preset?: boolean;
 }
@@ -122,12 +122,12 @@ export interface MenuFormPayload {
   name: string;
   type: MenuTypeValue;
   path?: string;
-  component?: string;
-  redirect?: string;
+  component?: string | null;
+  redirect?: string | null;
   meta?: MetaInfo;
-  perm?: string;
-  apiPath?: string;
-  remark?: string;
+  perm?: string | null;
+  apiPath?: string | null;
+  remark?: string | null;
 }
 
 export interface FlatMenuNode extends MenuVO {

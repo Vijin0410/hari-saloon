@@ -10,5 +10,6 @@ import lombok.EqualsAndHashCode;
 @Schema(description = "字典类型分页查询")
 public class DictTypePageQuery extends BasePageQuery {
 
+    @Schema(description = "关键字（字典类型名称/编码）")
     private String keywords;
 }

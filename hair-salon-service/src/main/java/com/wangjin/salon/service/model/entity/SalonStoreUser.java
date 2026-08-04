@@ -13,6 +13,8 @@ import lombok.EqualsAndHashCode;
 @TableName("salon_store_user")
 public class SalonStoreUser extends BaseTenantEntity<Long> {
 
+    /** 门店ID */
     private Long storeId;
+    /** 用户ID */
     private Long userId;
 }

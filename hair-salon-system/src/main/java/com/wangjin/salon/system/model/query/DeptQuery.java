@@ -7,6 +7,8 @@ import lombok.Data;
 @Schema(description = "部门查询")
 public class DeptQuery {
 
+    @Schema(description = "关键字（部门名称）")
     private String keywords;
+    @Schema(description = "状态（1启用 0禁用）")
     private Integer status;
 }

@@ -81,7 +81,7 @@ function toRolePayload(values: RoleFormValues): RoleFormPayload {
     sort: Number(values.sort),
     status: values.status,
     dataScope: values.dataScope,
-    deptIds: values.deptIds?.trim() || undefined,
+    deptIds: values.deptIds?.trim() || null,
   };
 }
 

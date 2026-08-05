@@ -21,6 +21,12 @@
             <if test="q.status != null">
                 AND m.status = #{q.status}
             </if>
+            <if test="q.tenantId != null">
+                AND m.tenant_id = #{q.tenantId}
+            </if>
+            <if test="q.storeId != null">
+                AND m.store_id = #{q.storeId}
+            </if>
             <if test="q.allStoreScope == null or q.allStoreScope == false">
                 <choose>
                     <when test="q.deniedStoreScope == true">

@@ -16,7 +16,7 @@
         <result property="perm" column="perm"/>
     </resultMap>
 
-    <!-- 非按钮菜单；角色列表在 Service 层按需补充也可，一期先出路由树 -->
+    <!-- 非按钮菜单；菜单 type=1/2 不存 perm，运行时从子按钮 :list 推导（供路由过滤/侧边栏显示） -->
     <select id="listRoutes" resultMap="RouteMap">
         SELECT
             m.id,
@@ -27,7 +27,10 @@
             m.component,
             m.redirect,
             m.meta,
-            m.perm
+            (SELECT b.perm FROM sys_menu b
+              WHERE b.parent_id = m.id AND b.deleted = 0 AND b.type = 4
+                AND b.perm LIKE '%:list'
+              LIMIT 1) AS perm
         FROM sys_menu m
         WHERE m.deleted = 0
           AND m.type != 4

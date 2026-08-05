@@ -43,7 +43,7 @@ public class SysRoleController {
 
     @Operation(summary = "角色下拉")
     @GetMapping("/options")
-    @PreAuthorize("hasAuthority('system:role:list')")
+    @PreAuthorize("isAuthenticated()")
     public Result<List<Option<Long>>> listRoleOptions() {
         return Result.success(roleService.listRoleOptions());
     }
@@ -58,7 +58,7 @@ public class SysRoleController {
 
     @Operation(summary = "角色表单")
     @GetMapping("/form/{roleId}")
-    @PreAuthorize("hasAuthority('system:role:list')")
+    @PreAuthorize("hasAuthority('system:role:view')")
     public Result<RoleForm> getRoleForm(@PathVariable Long roleId) {
         return Result.success(roleService.getRoleForm(roleId));
     }
@@ -80,14 +80,14 @@ public class SysRoleController {
 
     @Operation(summary = "修改角色状态")
     @PutMapping("/status/{roleId}")
-    @PreAuthorize("hasAuthority('system:role:edit')")
+    @PreAuthorize("hasAuthority('system:role:status')")
     public Result<Void> updateRoleStatus(@PathVariable Long roleId, @RequestParam Integer status) {
         return Result.judge(roleService.updateRoleStatus(roleId, status));
     }
 
     @Operation(summary = "角色菜单 ID 集合")
     @GetMapping("/menuIds/{roleId}/{type}")
-    @PreAuthorize("hasAuthority('system:role:list')")
+    @PreAuthorize("hasAuthority('system:role:view')")
     public Result<List<Long>> getRoleMenuIds(@PathVariable Long roleId, @PathVariable Integer type) {
         return Result.success(roleService.getRoleMenuIds(roleId, type));
     }

@@ -16,6 +16,8 @@ public class StorePageQuery extends BasePageQuery {
     private String keywords;
     @Schema(description = "状态：1启用 0禁用")
     private Integer status;
+    @Schema(description = "租户ID（ROOT 跨租户筛选用，非 ROOT 忽略）")
+    private Long tenantId;
 
     @Schema(hidden = true, description = "全部门店范围")
     private Boolean allStoreScope;

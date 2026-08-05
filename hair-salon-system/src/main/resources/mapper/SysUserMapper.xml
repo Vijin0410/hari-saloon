@@ -36,6 +36,31 @@
             <if test="q.deptId != null">
                 AND u.dept_id = #{q.deptId}
             </if>
+            <if test="q.tenantId != null">
+                AND u.tenant_id = #{q.tenantId}
+            </if>
+            <if test="q.storeScopeAll == null or q.storeScopeAll == false">
+                <choose>
+                    <when test="q.permittedStoreIds != null and q.permittedStoreIds.size > 0">
+                        AND u.id IN (
+                            SELECT su.user_id FROM salon_store_user su
+                            WHERE su.deleted = 0 AND su.store_id IN
+                            <foreach collection="q.permittedStoreIds" item="sid" open="(" separator="," close=")">
+                                #{sid}
+                            </foreach>
+                        )
+                    </when>
+                    <otherwise>
+                        AND 1 = 0
+                    </otherwise>
+                </choose>
+            </if>
+            <if test="q.storeId != null">
+                AND u.id IN (
+                    SELECT su.user_id FROM salon_store_user su
+                    WHERE su.deleted = 0 AND su.store_id = #{q.storeId}
+                )
+            </if>
         </where>
         GROUP BY u.id, u.username, u.nickname, u.phone, u.gender, u.avatar,
                  u.status, u.email, u.dept_id, d.name, u.create_time

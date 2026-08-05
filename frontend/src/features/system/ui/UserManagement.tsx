@@ -9,7 +9,7 @@ import {
   ToggleRight,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { deptApi, fileApi, roleApi, storeApi, userApi } from '@/shared/api/modules/systemApi';
+import { deptApi, fileApi, roleApi, userApi } from '@/shared/api/modules/systemApi';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
@@ -23,6 +23,7 @@ import { Textarea } from '@/shared/ui/Textarea';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { normalizeNumber, normalizeStringArray } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useTenantStoreFilter } from '@/features/system/model/useTenantStoreFilter';
 import { userFormSchema, type UserFormValues } from '@/features/system/model/systemSchemas';
 import type {
   DeptOption,
@@ -423,10 +424,20 @@ function UserFormDialog({
 
 export function UserManagement() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
+  const {
+    showTenant,
+    showStore,
+    tenantId,
+    storeId,
+    tenantOptions,
+    storeOptions,
+    changeTenant,
+    changeStore,
+    isRoot,
+  } = useTenantStoreFilter({ withStore: true });
   const [rows, setRows] = useState<UserPageVO[]>([]);
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [deptOptions, setDeptOptions] = useState<DeptOption[]>([]);
-  const [storeOptions, setStoreOptions] = useState<StoreOption[]>([]);
   const [selectedIds, setSelectedIds] = useState<EntityId[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -451,23 +462,23 @@ export function UserManagement() {
         pageSize,
         keywords: debouncedKeyword.trim() || undefined,
         status: queryStatus === 'all' ? undefined : queryStatus,
+        tenantId: isRoot ? tenantId || undefined : undefined,
+        storeId: showStore ? storeId || undefined : undefined,
       };
-      const [userPage, roles, depts, stores] = await Promise.all([
+      const [userPage, roles, depts] = await Promise.all([
         userApi.list(params),
         roleApi.options(),
         deptApi.options(),
-        storeApi.options(),
       ]);
       setRows(userPage.list);
       setTotal(userPage.total);
       setRoleOptions(roles);
       setDeptOptions(depts);
-      setStoreOptions(stores);
       setSelectedIds([]);
     } finally {
       setLoading(false);
     }
-  }, [debouncedKeyword, pageNum, pageSize, queryStatus]);
+  }, [debouncedKeyword, pageNum, pageSize, queryStatus, isRoot, showStore, tenantId, storeId]);
 
   useEffect(() => {
     void loadUsers();
@@ -550,8 +561,8 @@ export function UserManagement() {
       </div>
 
       <div className="rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[200px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
             <Input
               className="pl-9"
@@ -560,7 +571,27 @@ export function UserManagement() {
               onChange={(event) => setQueryKeyword(event.target.value)}
             />
           </div>
-          <Select value={queryStatus} onChange={(event) => setQueryStatus(event.target.value === 'all' ? 'all' : (Number(event.target.value) as StatusValue))}>
+          {showTenant ? (
+            <Select className="md:w-44" value={tenantId} onChange={(event) => changeTenant(event.target.value)}>
+              <option value="">全部租户</option>
+              {tenantOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+          {showStore ? (
+            <Select className="md:w-44" value={storeId} onChange={(event) => changeStore(event.target.value)}>
+              <option value="">全部门店</option>
+              {storeOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+          <Select className="md:w-36" value={queryStatus} onChange={(event) => setQueryStatus(event.target.value === 'all' ? 'all' : (Number(event.target.value) as StatusValue))}>
             <option value="all">全部状态</option>
             {STATUS_OPTIONS.map((item) => (
               <option key={item.value} value={item.value}>
@@ -647,25 +678,25 @@ export function UserManagement() {
                     <td className="px-4 py-3">{row.createTime || '-'}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
+                        {hasPermission('system:user:status') ? (
+                          <Button
+                            icon={row.status === 1 ? <ToggleLeft className="size-4" /> : <ToggleRight className="size-4" />}
+                            onClick={() => void toggleStatus(row)}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            {row.status === 1 ? '禁用' : '启用'}
+                          </Button>
+                        ) : null}
                         {hasPermission('system:user:edit') ? (
-                          <>
-                            <Button
-                              icon={row.status === 1 ? <ToggleLeft className="size-4" /> : <ToggleRight className="size-4" />}
-                              onClick={() => void toggleStatus(row)}
-                              size="sm"
-                              variant="secondary"
-                            >
-                              {row.status === 1 ? '禁用' : '启用'}
-                            </Button>
-                            <Button
-                              icon={<Pencil className="size-4" />}
-                              onClick={() => openEdit(row.id)}
-                              size="sm"
-                              variant="secondary"
-                            >
-                              编辑
-                            </Button>
-                          </>
+                          <Button
+                            icon={<Pencil className="size-4" />}
+                            onClick={() => openEdit(row.id)}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            编辑
+                          </Button>
                         ) : null}
                         {hasPermission('system:user:delete') ? (
                           <Button

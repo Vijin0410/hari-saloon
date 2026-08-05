@@ -52,6 +52,10 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
 
     @Override
     public Page<RolePageVO> getRolePage(RolePageQuery queryParams) {
+        // 非 ROOT 忽略 tenantId：TenantLine 已自动按本租户过滤，防止越权指定它租户
+        if (!SecurityUtils.isRoot()) {
+            queryParams.setTenantId(null);
+        }
         Page<SysRole> page = this.page(
                 new Page<>(queryParams.getPageNum(), queryParams.getPageSize()),
                 new LambdaQueryWrapper<SysRole>()
@@ -59,6 +63,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
                                 .like(SysRole::getName, queryParams.getKeywords())
                                 .or()
                                 .like(SysRole::getCode, queryParams.getKeywords()))
+                        .eq(queryParams.getTenantId() != null, SysRole::getTenantId, queryParams.getTenantId())
                         .ne(!SecurityUtils.isRoot(), SysRole::getCode, SystemConstants.ROOT_ROLE_CODE)
                         .orderByAsc(SysRole::getSort)
         );

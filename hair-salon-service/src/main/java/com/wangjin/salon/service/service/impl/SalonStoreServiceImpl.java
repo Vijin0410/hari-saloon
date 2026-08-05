@@ -44,15 +44,22 @@ public class SalonStoreServiceImpl extends ServiceImpl<SalonStoreMapper, SalonSt
 
     @Override
     public Page<StorePageVO> getStorePage(StorePageQuery query) {
+        // 非 ROOT 忽略 tenantId：TenantLine 已自动按本租户过滤，防止越权指定它租户
+        if (!SecurityUtils.isRoot()) {
+            query.setTenantId(null);
+        }
         storePermissionService.apply(query);
         return this.baseMapper.getStorePage(new Page<>(query.getPageNum(), query.getPageSize()), query);
     }
 
     @Override
-    public List<Option<Long>> listStoreOptions() {
+    public List<Option<Long>> listStoreOptions(Long tenantId) {
         StoreDataScopeBO scope = storePermissionService.currentScope();
+        // ROOT 按选中租户过滤门店下拉；非 ROOT 忽略 tenantId（TenantLine 已限本租户）
+        Long effectiveTenantId = SecurityUtils.isRoot() ? tenantId : null;
         LambdaQueryWrapper<SalonStore> wrapper = new LambdaQueryWrapper<SalonStore>()
                 .eq(SalonStore::getStatus, StatusEnum.ENABLE.getValue())
+                .eq(effectiveTenantId != null, SalonStore::getTenantId, effectiveTenantId)
                 .orderByAsc(SalonStore::getSort)
                 .orderByDesc(SalonStore::getCreateTime);
         applyStoreScope(wrapper, scope);

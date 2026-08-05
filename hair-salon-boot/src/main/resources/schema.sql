@@ -159,13 +159,13 @@ COMMENT ON TABLE sys_menu IS '菜单/按钮权限（各租户通过 sys_role_men
 COMMENT ON COLUMN sys_menu.id IS '菜单ID';
 COMMENT ON COLUMN sys_menu.parent_id IS '父级菜单ID（0=顶级）';
 COMMENT ON COLUMN sys_menu.name IS '菜单/按钮名称';
-COMMENT ON COLUMN sys_menu.type IS '类型（见 MenuTypeEnum）';
+COMMENT ON COLUMN sys_menu.type IS '类型（1=菜单 2=目录 3=外链 4=按钮，见 MenuTypeEnum）';
 COMMENT ON COLUMN sys_menu.path IS '路由路径';
 COMMENT ON COLUMN sys_menu.component IS '前端组件路径';
 COMMENT ON COLUMN sys_menu.redirect IS '重定向路径';
 COMMENT ON COLUMN sys_menu.tree_path IS '层级路径（逗号分隔）';
 COMMENT ON COLUMN sys_menu.meta IS '元数据（JSON：标题/图标/排序/是否显示等）';
-COMMENT ON COLUMN sys_menu.perm IS '权限标识，如 system:user:add';
+COMMENT ON COLUMN sys_menu.perm IS '权限标识（如 system:user:add）；目录/菜单 type=1/2 留空，按钮 type=4 挂 :list/:view/:add/:edit/:delete/:status/:password/:assign';
 COMMENT ON COLUMN sys_menu.api_path IS '接口路径';
 COMMENT ON COLUMN sys_menu.remark IS '备注';
 COMMENT ON COLUMN sys_menu.tenant_id IS '租户ID';

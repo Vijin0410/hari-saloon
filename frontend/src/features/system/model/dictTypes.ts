@@ -3,6 +3,7 @@ import type { EntityId, StatusValue } from '@/features/system/model/systemTypes'
 
 export interface DictTypePageQuery extends PageParams {
   keywords?: string;
+  tenantId?: EntityId;
 }
 
 export interface DictTypePageVO {
@@ -27,6 +28,7 @@ export interface DictTypeFormPayload {
 export interface DictPageQuery extends PageParams {
   keywords?: string;
   typeCode?: string;
+  tenantId?: EntityId;
 }
 
 export interface DictPageVO {

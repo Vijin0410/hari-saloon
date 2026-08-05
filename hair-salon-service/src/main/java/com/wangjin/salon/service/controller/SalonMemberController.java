@@ -43,7 +43,7 @@ public class SalonMemberController {
 
     @Operation(summary = "会员详情")
     @GetMapping("/detail/{id}")
-    @PreAuthorize("hasAuthority('biz:member:list')")
+    @PreAuthorize("hasAuthority('biz:member:view')")
     public Result<MemberDetailVO> detail(@PathVariable Long id) {
         return Result.success(memberService.getDetail(id));
     }

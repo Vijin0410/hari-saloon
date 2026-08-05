@@ -57,7 +57,7 @@ public class SysTenantController {
 
     @Operation(summary = "租户表单")
     @GetMapping("/form/{id}")
-    @PreAuthorize("hasAuthority('system:tenant:list')")
+    @PreAuthorize("hasAuthority('system:tenant:view')")
     public Result<TenantForm> form(@PathVariable Long id) {
         return Result.success(tenantService.getTenantForm(id));
     }
@@ -86,7 +86,7 @@ public class SysTenantController {
 
     @Operation(summary = "修改状态")
     @PatchMapping("/status/{id}")
-    @PreAuthorize("hasAuthority('system:tenant:edit')")
+    @PreAuthorize("hasAuthority('system:tenant:status')")
     public Result<Void> status(@PathVariable Long id, @RequestParam Integer status) {
         return Result.judge(tenantService.updateStatus(id, status));
     }

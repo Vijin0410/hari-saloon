@@ -78,9 +78,12 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
 
     /** 店长默认可挂菜单 id（与 data.sql 种子一致；菜单全局共享） */
     private static final List<Long> STORE_MANAGER_MENU_IDS = List.of(
-            1L, 2L, 21L, 22L, 23L, 5L, 51L, 52L, 8L, 9L, 91L, 92L, 10L, 101L, 102L, 103L
+            1L, 2L, 21L, 22L, 23L, 24L, 25L, 26L, 27L,
+            5L, 51L, 52L, 53L, 54L,
+            8L, 9L, 91L, 92L, 93L, 94L,
+            10L, 101L, 102L, 103L, 104L, 105L
     );
-    private static final List<Long> STORE_STAFF_MENU_IDS = List.of(8L, 10L, 101L, 102L);
+    private static final List<Long> STORE_STAFF_MENU_IDS = List.of(8L, 10L, 101L, 102L, 103L, 104L);
 
     @Override
     public Page<TenantPageVO> getTenantPage(TenantPageQuery query) {
@@ -145,7 +148,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
                                  InitialStoreInfo store) {
         // 租户内管理员（本租户全部数据，不含租户管理）；ROOT 是系统管理员，仅默认租户，不在开通时创建
         SysRole tenantAdmin = savePresetRole("租户管理员", RoleCodes.TENANT_ADMIN.getCode(), 1, DataScopeEnum.ALL.getValue(), tenantId);
-        SysRole manager = savePresetRole("店长", RoleCodes.STORE_MANAGER.getCode(), 2, DataScopeEnum.DEPT_AND_SUB.getValue(), tenantId);
+        SysRole manager = savePresetRole("店长", RoleCodes.STORE_MANAGER.getCode(), 2, DataScopeEnum.ALL.getValue(), tenantId);
         SysRole staff = savePresetRole("店员", RoleCodes.STORE_STAFF.getCode(), 3, DataScopeEnum.SELF.getValue(), tenantId);
 
         // 租户管理员菜单：除「租户管理 system:tenant:*」外的全部（租户内管理 + 业务）

@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wangjin.common.enums.StatusEnum;
+import com.wangjin.common.security.util.SecurityUtils;
 import com.wangjin.salon.service.converter.MemberConverter;
 import com.wangjin.salon.service.mapper.SalonMemberMapper;
 import com.wangjin.salon.service.model.entity.SalonMember;
@@ -34,6 +35,10 @@ public class SalonMemberServiceImpl extends ServiceImpl<SalonMemberMapper, Salon
 
     @Override
     public Page<MemberPageVO> getMemberPage(MemberPageQuery query) {
+        // 非 ROOT 忽略 tenantId：TenantLine 已自动按本租户过滤，防止越权指定它租户
+        if (!SecurityUtils.isRoot()) {
+            query.setTenantId(null);
+        }
         storePermissionService.apply(query);
         return this.baseMapper.getMemberPage(new Page<>(query.getPageNum(), query.getPageSize()), query);
     }

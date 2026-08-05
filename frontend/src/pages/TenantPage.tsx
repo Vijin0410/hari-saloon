@@ -112,7 +112,7 @@ export function TenantPage() {
                     <Badge tone={row.status === 1 ? 'success' : 'danger'}>{row.status === 1 ? '启用' : '禁用'}</Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {hasPermission('system:tenant:edit') ? (
+                    {hasPermission('system:tenant:status') ? (
                       <Button
                         className="mr-2"
                         icon={row.status === 1 ? <ToggleRight className="size-4" /> : <ToggleLeft className="size-4" />}

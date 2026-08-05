@@ -1,4 +1,6 @@
 -- 默认租户 1 种子数据
+-- 权限模型：目录/菜单(type=1/2) 不挂 perm，只存路由信息；按钮(type=4) 挂 :list/:view/:add/:edit/:delete/:status/:password/:assign
+-- 业务接口每个一个 perm 不重复；公用 options/me/routes 走 isAuthenticated，不在此挂 perm
 
 INSERT INTO sys_tenant (id, name, code, status, contact, phone, remark, create_by, create_time, update_by, update_time, deleted)
 SELECT 1, '默认门店', 'default', 1, '管理员', '15061952394', '系统默认租户', 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
@@ -13,9 +15,9 @@ INSERT INTO sys_role (id, name, code, sort, status, data_scope, tenant_id, creat
 SELECT 1, '系统管理员', 'ROOT', 1, 1, 1, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE code = 'ROOT' AND tenant_id = 1);
 
--- 预置角色：店长(本部门及子) / 店员(仅本人)
+-- 预置角色：店长 data_scope=1（全部，部门维度不过滤；门店维度按 salon_store_user 限本门店）/ 店员 data_scope=4（仅本人）
 INSERT INTO sys_role (id, name, code, sort, status, data_scope, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 2, '店长', 'STORE_MANAGER', 2, 1, 2, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+SELECT 2, '店长', 'STORE_MANAGER', 2, 1, 1, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE code = 'STORE_MANAGER' AND tenant_id = 1);
 
 INSERT INTO sys_role (id, name, code, sort, status, data_scope, tenant_id, create_by, create_time, update_by, update_time, deleted)
@@ -30,172 +32,101 @@ INSERT INTO sys_user_role (user_id, role_id)
 SELECT 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM sys_user_role WHERE user_id = 1 AND role_id = 1);
 
+-- ===== 目录/菜单（type=1/2）：perm 留空，运行时 listRoutes 从子按钮 :list 推导 =====
 INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 1, 0, 'system', 2, '/system', 'Layout', '/system/user', '0',
-       '{"title":"系统管理","icon":"setting","rank":100,"showLink":true}',
-       NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 1);
+SELECT v.id, v.parent_id, v.name, v.type, v.path, v.component, v.redirect, v.tree_path, v.meta, NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (1::int8,  0::int8, 'system',       2, '/system', 'Layout',           '/system/user', '0',   '{"title":"系统管理","icon":"setting","rank":100,"showLink":true}'),
+  (2::int8,  1::int8, 'systemUser',   1, 'user',    'system/user/index',  NULL,          '0,1', '{"title":"用户管理","icon":"user","rank":1,"showLink":true}'),
+  (3::int8,  1::int8, 'systemRole',   1, 'role',    'system/role/index',  NULL,          '0,1', '{"title":"角色管理","icon":"peoples","rank":2,"showLink":true}'),
+  (4::int8,  1::int8, 'systemMenu',   1, 'menu',    'system/menu/index',  NULL,          '0,1', '{"title":"菜单管理","icon":"tree-table","rank":3,"showLink":true}'),
+  (5::int8,  1::int8, 'systemDept',   1, 'dept',    'system/dept/index',  NULL,          '0,1', '{"title":"部门管理","icon":"tree","rank":4,"showLink":true}'),
+  (6::int8,  1::int8, 'systemDict',   1, 'dict',    'system/dict/index',  NULL,          '0,1', '{"title":"字典管理","icon":"dict","rank":5,"showLink":true}'),
+  (7::int8,  1::int8, 'systemTenant', 1, 'tenant',  'system/tenant/index',NULL,          '0,1', '{"title":"租户管理","icon":"office-building","rank":0,"showLink":true}'),
+  (8::int8,  0::int8, 'biz',          2, '/biz',    'Layout',             '/biz/store',  '0',   '{"title":"业务管理","icon":"shop","rank":50,"showLink":true}'),
+  (9::int8,  8::int8, 'bizStore',     1, 'store',   'biz/store/index',    NULL,          '0,8', '{"title":"门店管理","icon":"office-building","rank":1,"showLink":true}'),
+  (10::int8, 8::int8, 'bizMember',    1, 'member',  'biz/member/index',   NULL,          '0,8', '{"title":"会员管理","icon":"peoples","rank":2,"showLink":true}')
+) AS v(id, parent_id, name, type, path, component, redirect, tree_path, meta)
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 
-INSERT INTO sys_menu (id, parent_id, name, type, path, component, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 2, 1, 'systemUser', 1, 'user', 'system/user/index', '0,1',
-       '{"title":"用户管理","icon":"user","rank":1,"showLink":true}',
-       'system:user:list', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 2);
-
-INSERT INTO sys_menu (id, parent_id, name, type, path, component, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 3, 1, 'systemRole', 1, 'role', 'system/role/index', '0,1',
-       '{"title":"角色管理","icon":"peoples","rank":2,"showLink":true}',
-       'system:role:list', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 3);
-
-INSERT INTO sys_menu (id, parent_id, name, type, path, component, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 4, 1, 'systemMenu', 1, 'menu', 'system/menu/index', '0,1',
-       '{"title":"菜单管理","icon":"tree-table","rank":3,"showLink":true}',
-       'system:menu:list', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 4);
-
-INSERT INTO sys_menu (id, parent_id, name, type, path, component, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 5, 1, 'systemDept', 1, 'dept', 'system/dept/index', '0,1',
-       '{"title":"部门管理","icon":"tree","rank":4,"showLink":true}',
-       'system:dept:list', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 5);
-
-INSERT INTO sys_menu (id, parent_id, name, type, path, component, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 6, 1, 'systemDict', 1, 'dict', 'system/dict/index', '0,1',
-       '{"title":"字典管理","icon":"dict","rank":5,"showLink":true}',
-       'system:dict:list', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 6);
-
-INSERT INTO sys_menu (id, parent_id, name, type, path, component, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 7, 1, 'systemTenant', 1, 'tenant', 'system/tenant/index', '0,1',
-       '{"title":"租户管理","icon":"office-building","rank":0,"showLink":true}',
-       'system:tenant:list', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 7);
-
--- 业务：门店 / 会员
-INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 8, 0, 'biz', 2, '/biz', 'Layout', '/biz/store', '0',
-       '{"title":"业务管理","icon":"shop","rank":50,"showLink":true}',
-       NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 8);
-
-INSERT INTO sys_menu (id, parent_id, name, type, path, component, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 9, 8, 'bizStore', 1, 'store', 'biz/store/index', '0,8',
-       '{"title":"门店管理","icon":"office-building","rank":1,"showLink":true}',
-       'biz:store:list', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 9);
-
-INSERT INTO sys_menu (id, parent_id, name, type, path, component, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 10, 8, 'bizMember', 1, 'member', 'biz/member/index', '0,8',
-       '{"title":"会员管理","icon":"peoples","rank":2,"showLink":true}',
-       'biz:member:list', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 10);
-
--- 用户按钮
+-- ===== 按钮（type=4）：每个接口一个权限标识，命名与路径/方法匹配 =====
 INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 21, 2, 'userAdd', 4, '0,1,2', '{"title":"新增用户"}', 'system:user:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 21);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 22, 2, 'userEdit', 4, '0,1,2', '{"title":"编辑用户"}', 'system:user:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 22);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 23, 2, 'userDelete', 4, '0,1,2', '{"title":"删除用户"}', 'system:user:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 23);
-
--- 角色按钮
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 31, 3, 'roleAdd', 4, '0,1,3', '{"title":"新增角色"}', 'system:role:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 31);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 32, 3, 'roleEdit', 4, '0,1,3', '{"title":"编辑角色"}', 'system:role:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 32);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 33, 3, 'roleDelete', 4, '0,1,3', '{"title":"删除角色"}', 'system:role:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 33);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 34, 3, 'roleAssign', 4, '0,1,3', '{"title":"分配菜单"}', 'system:role:assign', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 34);
-
--- 菜单按钮
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 41, 4, 'menuAdd', 4, '0,1,4', '{"title":"新增菜单"}', 'system:menu:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 41);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 42, 4, 'menuEdit', 4, '0,1,4', '{"title":"编辑菜单"}', 'system:menu:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 42);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 43, 4, 'menuDelete', 4, '0,1,4', '{"title":"删除菜单"}', 'system:menu:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 43);
-
--- 部门按钮
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 51, 5, 'deptAdd', 4, '0,1,5', '{"title":"新增部门"}', 'system:dept:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 51);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 52, 5, 'deptEdit', 4, '0,1,5', '{"title":"编辑部门"}', 'system:dept:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 52);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 53, 5, 'deptDelete', 4, '0,1,5', '{"title":"删除部门"}', 'system:dept:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 53);
-
--- 租户按钮
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 71, 7, 'tenantAdd', 4, '0,1,7', '{"title":"新增租户"}', 'system:tenant:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 71);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 72, 7, 'tenantEdit', 4, '0,1,7', '{"title":"编辑租户"}', 'system:tenant:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 72);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 73, 7, 'tenantDelete', 4, '0,1,7', '{"title":"删除租户"}', 'system:tenant:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 73);
-
--- 字典按钮
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 61, 6, 'dictAdd', 4, '0,1,6', '{"title":"新增字典"}', 'system:dict:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 61);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 62, 6, 'dictEdit', 4, '0,1,6', '{"title":"编辑字典"}', 'system:dict:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 62);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 63, 6, 'dictDelete', 4, '0,1,6', '{"title":"删除字典"}', 'system:dict:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 63);
-
--- 门店 / 会员按钮
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 91, 9, 'storeAdd', 4, '0,8,9', '{"title":"新增门店"}', 'biz:store:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 91);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 92, 9, 'storeEdit', 4, '0,8,9', '{"title":"编辑门店"}', 'biz:store:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 92);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 93, 9, 'storeDelete', 4, '0,8,9', '{"title":"删除门店"}', 'biz:store:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 93);
-
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 101, 10, 'memberAdd', 4, '0,8,10', '{"title":"新增会员"}', 'biz:member:add', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 101);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 102, 10, 'memberEdit', 4, '0,8,10', '{"title":"编辑会员"}', 'biz:member:edit', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 102);
-INSERT INTO sys_menu (id, parent_id, name, type, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 103, 10, 'memberDelete', 4, '0,8,10', '{"title":"删除会员"}', 'biz:member:delete', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE id = 103);
+SELECT v.id, v.parent_id, v.name, 4, v.tree_path, v.meta, v.perm, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  -- 用户 system:user:*
+  (21::int8, 2::int8,  'userList',     '0,1,2', '{"title":"查看列表"}', 'system:user:list'),
+  (22::int8, 2::int8,  'userView',     '0,1,2', '{"title":"查看详情"}', 'system:user:view'),
+  (23::int8, 2::int8,  'userAdd',      '0,1,2', '{"title":"新增用户"}', 'system:user:add'),
+  (24::int8, 2::int8,  'userEdit',     '0,1,2', '{"title":"编辑用户"}', 'system:user:edit'),
+  (25::int8, 2::int8,  'userDelete',   '0,1,2', '{"title":"删除用户"}', 'system:user:delete'),
+  (26::int8, 2::int8,  'userPassword', '0,1,2', '{"title":"重置密码"}', 'system:user:password'),
+  (27::int8, 2::int8,  'userStatus',   '0,1,2', '{"title":"改状态"}',   'system:user:status'),
+  -- 角色 system:role:*
+  (31::int8, 3::int8,  'roleList',     '0,1,3', '{"title":"查看列表"}', 'system:role:list'),
+  (32::int8, 3::int8,  'roleView',     '0,1,3', '{"title":"查看详情"}', 'system:role:view'),
+  (33::int8, 3::int8,  'roleAdd',      '0,1,3', '{"title":"新增角色"}', 'system:role:add'),
+  (34::int8, 3::int8,  'roleEdit',     '0,1,3', '{"title":"编辑角色"}', 'system:role:edit'),
+  (35::int8, 3::int8,  'roleDelete',   '0,1,3', '{"title":"删除角色"}', 'system:role:delete'),
+  (36::int8, 3::int8,  'roleAssign',   '0,1,3', '{"title":"分配菜单"}', 'system:role:assign'),
+  (37::int8, 3::int8,  'roleStatus',   '0,1,3', '{"title":"改状态"}',   'system:role:status'),
+  -- 菜单 system:menu:*
+  (41::int8, 4::int8,  'menuList',     '0,1,4', '{"title":"查看列表"}', 'system:menu:list'),
+  (42::int8, 4::int8,  'menuView',     '0,1,4', '{"title":"查看详情"}', 'system:menu:view'),
+  (43::int8, 4::int8,  'menuAdd',      '0,1,4', '{"title":"新增菜单"}', 'system:menu:add'),
+  (44::int8, 4::int8,  'menuEdit',     '0,1,4', '{"title":"编辑菜单"}', 'system:menu:edit'),
+  (45::int8, 4::int8,  'menuDelete',   '0,1,4', '{"title":"删除菜单"}', 'system:menu:delete'),
+  -- 部门 system:dept:*
+  (51::int8, 5::int8,  'deptList',     '0,1,5', '{"title":"查看列表"}', 'system:dept:list'),
+  (52::int8, 5::int8,  'deptView',     '0,1,5', '{"title":"查看详情"}', 'system:dept:view'),
+  (53::int8, 5::int8,  'deptAdd',      '0,1,5', '{"title":"新增部门"}', 'system:dept:add'),
+  (54::int8, 5::int8,  'deptEdit',     '0,1,5', '{"title":"编辑部门"}', 'system:dept:edit'),
+  (55::int8, 5::int8,  'deptDelete',   '0,1,5', '{"title":"删除部门"}', 'system:dept:delete'),
+  -- 字典 system:dict:*（字典项与字典类型共用）
+  (61::int8, 6::int8,  'dictList',     '0,1,6', '{"title":"查看列表"}', 'system:dict:list'),
+  (62::int8, 6::int8,  'dictView',     '0,1,6', '{"title":"查看详情"}', 'system:dict:view'),
+  (63::int8, 6::int8,  'dictAdd',      '0,1,6', '{"title":"新增字典"}', 'system:dict:add'),
+  (64::int8, 6::int8,  'dictEdit',     '0,1,6', '{"title":"编辑字典"}', 'system:dict:edit'),
+  (65::int8, 6::int8,  'dictDelete',   '0,1,6', '{"title":"删除字典"}', 'system:dict:delete'),
+  -- 租户 system:tenant:*
+  (71::int8, 7::int8,  'tenantList',   '0,1,7', '{"title":"查看列表"}', 'system:tenant:list'),
+  (72::int8, 7::int8,  'tenantView',   '0,1,7', '{"title":"查看详情"}', 'system:tenant:view'),
+  (73::int8, 7::int8,  'tenantAdd',    '0,1,7', '{"title":"新增租户"}', 'system:tenant:add'),
+  (74::int8, 7::int8,  'tenantEdit',   '0,1,7', '{"title":"编辑租户"}', 'system:tenant:edit'),
+  (75::int8, 7::int8,  'tenantDelete', '0,1,7', '{"title":"删除租户"}', 'system:tenant:delete'),
+  (76::int8, 7::int8,  'tenantStatus', '0,1,7', '{"title":"改状态"}',   'system:tenant:status'),
+  -- 门店 biz:store:*
+  (91::int8, 9::int8,  'storeList',    '0,8,9',  '{"title":"查看列表"}', 'biz:store:list'),
+  (92::int8, 9::int8,  'storeView',    '0,8,9',  '{"title":"查看详情"}', 'biz:store:view'),
+  (93::int8, 9::int8,  'storeAdd',     '0,8,9',  '{"title":"新增门店"}', 'biz:store:add'),
+  (94::int8, 9::int8,  'storeEdit',    '0,8,9',  '{"title":"编辑门店"}', 'biz:store:edit'),
+  (95::int8, 9::int8,  'storeDelete',  '0,8,9',  '{"title":"删除门店"}', 'biz:store:delete'),
+  -- 会员 biz:member:*
+  (101::int8, 10::int8, 'memberList',   '0,8,10', '{"title":"查看列表"}', 'biz:member:list'),
+  (102::int8, 10::int8, 'memberView',   '0,8,10', '{"title":"查看详情"}', 'biz:member:view'),
+  (103::int8, 10::int8, 'memberAdd',    '0,8,10', '{"title":"新增会员"}', 'biz:member:add'),
+  (104::int8, 10::int8, 'memberEdit',   '0,8,10', '{"title":"编辑会员"}', 'biz:member:edit'),
+  (105::int8, 10::int8, 'memberDelete', '0,8,10', '{"title":"删除会员"}', 'biz:member:delete')
+) AS v(id, parent_id, name, tree_path, meta, perm)
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 
 -- ROOT 挂全部菜单
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 1, m.id, 1 FROM sys_menu m
 WHERE NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 1 AND rm.menu_id = m.id AND rm.type = 1);
 
--- 店长：用户/部门 + 门店/会员（无租户/菜单/角色管理）
+-- 店长：用户全按钮 + 部门(查/增/改) + 门店(查/改) + 会员(查/增/改/删)，无租户/菜单/角色/字典管理
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 2, m.id, 1 FROM sys_menu m
-WHERE m.id IN (1, 2, 21, 22, 23, 5, 51, 52, 8, 9, 91, 92, 10, 101, 102, 103)
+WHERE m.id IN (1, 2, 21, 22, 23, 24, 25, 26, 27,
+               5, 51, 52, 53, 54,
+               8, 9, 91, 92, 94,
+               10, 101, 102, 103, 104, 105)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 2 AND rm.menu_id = m.id AND rm.type = 1);
 
--- 店员：会员读写
+-- 店员：会员查看/新增/编辑
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 3, m.id, 1 FROM sys_menu m
-WHERE m.id IN (8, 10, 101, 102)
+WHERE m.id IN (8, 10, 101, 102, 103, 104)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 3 AND rm.menu_id = m.id AND rm.type = 1);
 
 -- 默认总店营业档案
@@ -214,7 +145,7 @@ INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id
 SELECT 2, '通用状态', 'status', 1, '启用/禁用', 'system', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'status' AND tenant_id = 1);
 
-INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_cle
 SELECT 11, 'gender', '男', '1', 1, 1, 1, NULL, 1
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'gender' AND value = '1' AND tenant_id = 1);
 INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
@@ -226,3 +157,25 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'status' AND value = 
 INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
 SELECT 22, 'status', '禁用', '0', 2, 1, 0, NULL, 1
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'status' AND value = '0' AND tenant_id = 1);
+
+
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 101, '性别', 'gender', 1, '用户性别', 'system', 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+    WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'gender' AND tenant_id = 2084880957290426370);
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 102, '通用状态', 'status', 1, '启用/禁用', 'system', 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+    WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'status' AND tenant_id = 2084880957290426370);
+
+
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT 101, 'gender', '男', '1', 1, 1, 1, NULL, 2084880957290426370
+    WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'gender' AND value = '1' AND tenant_id = 2084880957290426370);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT 102, 'gender', '女', '2', 2, 1, 0, NULL, 2084880957290426370
+    WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'gender' AND value = '2' AND tenant_id = 2084880957290426370);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT 103, 'status', '启用', '1', 1, 1, 1, NULL, 2084880957290426370
+    WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'status' AND value = '1' AND tenant_id = 2084880957290426370);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT 104, 'status', '禁用', '0', 2, 1, 0, NULL, 2084880957290426370
+    WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'status' AND value = '0' AND tenant_id = 2084880957290426370);

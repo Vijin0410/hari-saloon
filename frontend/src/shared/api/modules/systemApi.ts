@@ -16,6 +16,7 @@ import type {
   RolePageVO,
   RouteVO,
   StoreOption,
+  TenantOption,
   UserFormPayload,
   UserPageQuery,
   UserPageVO,
@@ -212,6 +213,11 @@ export const tenantApi = {
     return patch<void>(`/v1/tenants/status/${id}`, undefined, { params: { status } });
   },
 
+  /** 租户下拉（鉴权，value=租户ID）：ROOT 跨租户筛选用 */
+  options(): Promise<TenantOption[]> {
+    return get<TenantOption[]>('/v1/tenants/options');
+  },
+
   /** 登录页公开租户下拉（无需鉴权）：value=租户编码 code，label=租户名称 */
   optionsPublic(): Promise<TenantLoginOption[]> {
     return get<TenantLoginOption[]>('/v1/tenants/options-public');
@@ -223,6 +229,7 @@ export interface StorePageQuery {
   pageSize: number;
   keywords?: string;
   status?: number;
+  tenantId?: EntityId;
 }
 
 export interface StorePageVO {
@@ -267,8 +274,8 @@ export const storeApi = {
   detail(id: EntityId): Promise<StoreFormPayload> {
     return get<StoreFormPayload>(`/v1/stores/detail/${id}`);
   },
-  options(): Promise<StoreOption[]> {
-    return get<StoreOption[]>('/v1/stores/options');
+  options(tenantId?: EntityId): Promise<StoreOption[]> {
+    return get<StoreOption[]>('/v1/stores/options', { params: tenantId ? { tenantId } : undefined });
   },
   create(payload: StoreFormPayload): Promise<EntityId> {
     return post<EntityId, StoreFormPayload>('/v1/stores', payload);
@@ -286,6 +293,8 @@ export interface MemberPageQuery {
   pageSize: number;
   keywords?: string;
   status?: number;
+  tenantId?: EntityId;
+  storeId?: EntityId;
 }
 
 export interface MemberPageVO {

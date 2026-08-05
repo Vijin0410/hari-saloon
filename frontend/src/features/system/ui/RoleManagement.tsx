@@ -26,6 +26,7 @@ import { Textarea } from '@/shared/ui/Textarea';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { normalizeNumber } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useTenantStoreFilter } from '@/features/system/model/useTenantStoreFilter';
 import {
   collectMenuIds,
   getDataScopeLabel,
@@ -467,6 +468,7 @@ function MenuPermissionDialog({
 
 export function RoleManagement() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
+  const { showTenant, tenantId, tenantOptions, changeTenant, isRoot } = useTenantStoreFilter();
   const [rows, setRows] = useState<RolePageVO[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -490,6 +492,7 @@ export function RoleManagement() {
         pageNum,
         pageSize,
         keywords: debouncedKeyword.trim() || undefined,
+        tenantId: isRoot ? tenantId || undefined : undefined,
       });
       setRows(page.list);
       setTotal(page.total);
@@ -498,7 +501,7 @@ export function RoleManagement() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedKeyword, pageNum, pageSize]);
+  }, [debouncedKeyword, pageNum, pageSize, isRoot, tenantId]);
 
   useEffect(() => {
     void loadRoles();
@@ -589,8 +592,8 @@ export function RoleManagement() {
       </div>
 
       <div className="rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
-          <div className="relative">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[200px] flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
             <Input
               className="pl-9"
@@ -599,6 +602,16 @@ export function RoleManagement() {
               onChange={(event) => setQueryKeyword(event.target.value)}
             />
           </div>
+          {showTenant ? (
+            <Select className="md:w-44" value={tenantId} onChange={(event) => changeTenant(event.target.value)}>
+              <option value="">全部租户</option>
+              {tenantOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </Select>
+          ) : null}
           <Button
             className="lg:w-24"
             icon={<Search className="size-4" />}
@@ -665,25 +678,25 @@ export function RoleManagement() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
+                        {hasPermission('system:role:status') ? (
+                          <Button
+                            icon={row.status === 1 ? <ToggleLeft className="size-4" /> : <ToggleRight className="size-4" />}
+                            onClick={() => void toggleStatus(row)}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            {row.status === 1 ? '禁用' : '启用'}
+                          </Button>
+                        ) : null}
                         {hasPermission('system:role:edit') ? (
-                          <>
-                            <Button
-                              icon={row.status === 1 ? <ToggleLeft className="size-4" /> : <ToggleRight className="size-4" />}
-                              onClick={() => void toggleStatus(row)}
-                              size="sm"
-                              variant="secondary"
-                            >
-                              {row.status === 1 ? '禁用' : '启用'}
-                            </Button>
-                            <Button
-                              icon={<Edit className="size-4" />}
-                              onClick={() => openEdit(row.id)}
-                              size="sm"
-                              variant="secondary"
-                            >
-                              编辑
-                            </Button>
-                          </>
+                          <Button
+                            icon={<Edit className="size-4" />}
+                            onClick={() => openEdit(row.id)}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            编辑
+                          </Button>
                         ) : null}
                         {hasPermission('system:role:assign') ? (
                           <Button

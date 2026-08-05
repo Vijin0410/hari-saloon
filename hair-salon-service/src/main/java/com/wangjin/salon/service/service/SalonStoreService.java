@@ -15,7 +15,7 @@ public interface SalonStoreService extends IService<SalonStore> {
 
     Page<StorePageVO> getStorePage(StorePageQuery query);
 
-    List<Option<Long>> listStoreOptions();
+    List<Option<Long>> listStoreOptions(Long tenantId);
 
     StoreDetailVO getDetail(Long id);
 

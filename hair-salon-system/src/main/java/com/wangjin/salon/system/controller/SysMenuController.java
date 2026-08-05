@@ -42,7 +42,7 @@ public class SysMenuController {
 
     @Operation(summary = "菜单下拉")
     @GetMapping("/options")
-    @PreAuthorize("hasAuthority('system:menu:list')")
+    @PreAuthorize("isAuthenticated()")
     public Result<List<Option<Long>>> listMenuOptions(@RequestParam(required = false) String menuType) {
         return Result.success(menuService.listMenuOptions(menuType));
     }
@@ -56,7 +56,7 @@ public class SysMenuController {
 
     @Operation(summary = "菜单表单")
     @GetMapping("/form/{id}")
-    @PreAuthorize("hasAuthority('system:menu:list')")
+    @PreAuthorize("hasAuthority('system:menu:view')")
     public Result<MenuForm> getMenuForm(@PathVariable Long id) {
         return Result.success(menuService.getMenuForm(id));
     }

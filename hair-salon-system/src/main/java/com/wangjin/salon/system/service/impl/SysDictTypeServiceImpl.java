@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.wangjin.common.security.util.SecurityUtils;
 import com.wangjin.salon.system.cache.SystemCacheService;
 import com.wangjin.salon.system.converter.DictTypeConverter;
 import com.wangjin.salon.system.mapper.SysDictTypeMapper;
@@ -42,6 +43,10 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
 
     @Override
     public Page<DictTypePageVO> getDictTypePage(DictTypePageQuery queryParams) {
+        // 非 ROOT 忽略 tenantId：TenantLine 已自动按本租户过滤，防止越权指定它租户
+        if (!SecurityUtils.isRoot()) {
+            queryParams.setTenantId(null);
+        }
         Page<SysDictType> page = this.page(
                 new Page<>(queryParams.getPageNum(), queryParams.getPageSize()),
                 new LambdaQueryWrapper<SysDictType>()
@@ -49,6 +54,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
                                 .like(SysDictType::getName, queryParams.getKeywords())
                                 .or()
                                 .like(SysDictType::getCode, queryParams.getKeywords()))
+                        .eq(queryParams.getTenantId() != null, SysDictType::getTenantId, queryParams.getTenantId())
         );
         return dictTypeConverter.entity2Page(page);
     }

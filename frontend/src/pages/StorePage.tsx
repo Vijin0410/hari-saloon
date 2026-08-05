@@ -15,8 +15,10 @@ import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
 import { PageLoading } from '@/shared/ui/PageLoading';
+import { Select } from '@/shared/ui/Select';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useTenantStoreFilter } from '@/features/system/model/useTenantStoreFilter';
 
 function defaultStoreForm(): StoreFormPayload {
   return {
@@ -38,6 +40,7 @@ function toUserOption(user: UserPageVO): { value: EntityId; label: string } {
 
 export function StorePage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const { showTenant, tenantId, tenantOptions, changeTenant, isRoot } = useTenantStoreFilter();
   const [rows, setRows] = useState<StorePageVO[]>([]);
   const [userOptions, setUserOptions] = useState<Array<{ value: EntityId; label: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -73,13 +76,13 @@ export function StorePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await storeApi.list({ pageNum, pageSize: 10, keywords: debounced || undefined });
+      const data = await storeApi.list({ pageNum, pageSize: 10, keywords: debounced || undefined, tenantId: isRoot ? tenantId || undefined : undefined });
       setRows(data.list ?? []);
       setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [pageNum, debounced]);
+  }, [pageNum, debounced, isRoot, tenantId]);
 
   useEffect(() => {
     void load();
@@ -154,9 +157,21 @@ export function StorePage() {
         ) : null}
       </div>
 
-      <div className="relative max-w-xs">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-        <Input className="pl-9" onChange={(e) => setKeyword(e.target.value)} placeholder="名称/编码/电话" value={keyword} />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+          <Input className="pl-9" onChange={(e) => setKeyword(e.target.value)} placeholder="名称/编码/电话" value={keyword} />
+        </div>
+        {showTenant ? (
+          <Select className="md:w-44" value={tenantId} onChange={(e) => changeTenant(e.target.value)}>
+            <option value="">全部租户</option>
+            {tenantOptions.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </Select>
+        ) : null}
       </div>
 
       {loading ? (

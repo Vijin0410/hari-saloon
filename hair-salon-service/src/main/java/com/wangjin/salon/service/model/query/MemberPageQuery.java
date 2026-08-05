@@ -16,6 +16,10 @@ public class MemberPageQuery extends BasePageQuery {
     private String keywords;
     @Schema(description = "状态：1启用 0禁用")
     private Integer status;
+    @Schema(description = "租户ID（ROOT 跨租户筛选用，非 ROOT 忽略）")
+    private Long tenantId;
+    @Schema(description = "门店ID（前端按门店筛选）")
+    private Long storeId;
 
     @Schema(hidden = true, description = "全部门店范围")
     private Boolean allStoreScope;

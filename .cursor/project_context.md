@@ -58,10 +58,12 @@
 
 ## 权限与菜单（种子）
 
-- 系统：user/role/menu/dept/tenant 按钮
-- 业务：`biz:store:list|add|edit|delete`；`biz:member:list|add|edit|delete`
-- 预置角色菜单：ROOT 全量；店长用户+部门+门店+会员；店员会员读写
-- 默认 `sql.init.mode=never`：存量库跑按需补 data.sql 菜单/角色
+- 模型：目录/菜单 type=1/2 `perm=NULL`（只存 path/component）；按钮 type=4 挂 perm
+- 按钮 perm（每资源）：`:list` 查看列表 / `:view` 查看详情 / `:add` / `:edit` / `:delete` / `:status` 改状态 / `:password` 重置密码 / `:assign` 角色分配菜单
+- 公用接口 `isAuthenticated()`（不挂 perm）：各 `options` 下拉、`/me`、`/me/password`、`/menus/routes`
+- 按钮 id：用户 21-27、角色 31-37、菜单 41-45、部门 51-55、字典 61-65、租户 71-76、门店 91-95、会员 101-105
+- 预置角色菜单：ROOT 全量；店长（data_scope=1）用户全+部门(查/增/改)+门店(查/增/改)+会员(查/增/改/删)；店员会员(查/增/改)
+- 默认 `sql.init.mode=never`：重置跑 `sql/truncate-all.sql` 再 `data.sql`
 
 ## 关键配置
 
@@ -72,6 +74,8 @@
 - 文件字段约定：业务表（如 `sys_user.avatar`）存 `object_key`；`UserPageVO` 返回时转预签名 URL；表单回显给 object_key，预览调 `GET /files/url?objectKey=`
 
 ## 最近更新
+- 2026-08-05: 管理员跨租户/门店筛选。ROOT 登录在门店/会员/用户/角色/部门/字典列表显示「租户筛选」（会员/用户另加「门店筛选」，门店下拉跟随所选租户）；租户管理员在会员/用户列表显示「门店筛选」（本租户全量）；店长/店员不显示筛选条件。后端：各列表 query 加 `tenantId`（会员/用户加 `storeId`），**非 ROOT 一律清空 tenantId**（TenantLine 自动限本租户，防越权），ROOT 传时显式 `tenant_id` 过滤（XML `SalonStoreMapper`/`SalonMemberMapper`/`SysUserMapper` + Wrapper `SysRole`/`SysDept`/`SysDict`/`SysDictType`，会员 XML 加 `store_id`）；门店 options `GET /api/v1/stores/options` 加可选 `tenantId`（ROOT 按租户过滤、非 ROOT 忽略，`SalonStoreService.listStoreOptions(Long)`）；租户 options `GET /api/v1/tenants/options`（value=id，`isAuthenticated()`，已存在）供 ROOT 筛选。前端：抽 `useTenantStoreFilter({withStore})` hook（`showTenant=isRoot`、`showStore=withStore&&(isRoot||isTenantAdmin)`，门店下拉 ROOT 跟随租户/TENANT_ADMIN 本租户/其它按授权范围；`changeTenant` 联动重置门店），6 页筛选区按角色显示；`systemTypes`/`dictTypes` 各 query 加 `tenantId`/`storeId`，`tenantApi.options()`、`storeApi.options(tenantId?)`。
+- 2026-08-05: 权限模型重构 + 门店数据权限落地。(1) 菜单 type=1/2 不挂 perm（perm=NULL，只存 path/component）；按钮 type=4 挂 `:list/:view/:add/:edit/:delete/:status/:password/:assign`；`listRoutes` 运行时从子按钮 `:list` 推导 perm（`SysMenuMapper.xml` 子查询 `b.perm LIKE '%:list'`），前端 `MainLayout`/`PermissionRoute` 无感。(2) 业务接口每个一个 perm 不重复：form/detail 用 `:view`、改状态 `:status`、重置密码 `:password`（不再复用 `:edit`）；公用 options/me/routes 改 `isAuthenticated()`。(3) 门店数据权限：sys_user 列表加门店过滤（`UserPageQuery.storeScopeAll/permittedStoreIds` + `SysUserMapper.xml` JOIN `salon_store_user`，ROOT/租户管理员全量、店长/店员按 `salon_store_user` 限本门店）；`SalonStorePermissionService` 放行条件 `isAllDataScope()` 改 `isRoot()||isTenantAdmin()`（解耦：店长 data_scope=ALL 不再触发门店全量）。(4) 店长 `data_scope` 2->1（ALL），店员 SELF 不变；`STORE_MANAGER_MENU_IDS/STORE_STAFF_MENU_IDS` 同步新按钮 id。(5) SQL 重生成：`data.sql` 菜单种子重写（按钮 id 21-105 重排）、`schema.sql` 加 sys_menu type/perm 注释、新增 `sql/truncate-all.sql`。前端：用户/角色/租户"启用禁用"按钮 perm 从 `:edit` 拆为 `:status`。
 - 2026-08-04: 模型字段说明规范 + update 三态契约落地。(1) Entity 每字段 `/** */` Javadoc；Form/Query/VO 每字段 `@Schema(description=...)`（简体中文）；写入 `CLAUDE.md`/`AGENTS.md` §1「模型字段说明」+ §2.1「字段更新契约」。(2) update 三态（传值更新/传 null 清空/不传保持）：后端可清空字段标 `@TableField(updateStrategy = FieldStrategy.ALWAYS)`（`IGNORED` 已废弃，勿用），`updateById` 时 null 即写 NULL；`password`/`lastPasswordChangeTime` 等保持默认 `NOT_NULL`，service 置 null 跳过。前端 toPayload 可选字段清空传 `null`（非 `undefined`），Payload 类型加 `| null`。ALWAYS 字段清单：`SysUser`(phone/email/avatar/deptId)、`SysDept`(leaderId)、`SysRole`(deptIds)、`SysDict`(remark)、`SysDictType`(remark/groupCode)、`SysTenant`(contact/phone/remark/expireTime)、`SysMenu`(component/redirect/perm/apiPath/remark)、`SalonMember`(phone/birthday/remark/source)、`SalonStore`(phone/address/province/city/district/longitude/latitude/businessHours/restDays/remark/openTime/closeTime)。注：当前 update 为全量表单 PUT，"不传保持"不触发；新增纯 PATCH 部分更新接口前须先引入 `JsonNullable`（POJO 无法区分 absent/null）
 - 2026-07-31: dept/store 解耦后续——租户开通不再建总部部门（可选联合创建初始门店并绑定管理员，`TenantForm.store`）；部门改为租户内可选功能（`UserForm.deptId` 可空，`assertDeptAndRolesAssignable` 仅在指定部门时校验）；用户新增/编辑增加 `storeIds` 多选绑定门店（新增 `SalonStorePort` SPI 跨模块同步 `salon_store_user`；门店 options 放行 `system:user:list`）；`RoleCodes` 升级为 Enum + `isPreset()`，角色编辑禁改预置编码、禁新建/改名 ROOT（同租户 code 唯一 = DB 索引 + TenantLine）。前端：租户表单加可选门店块、用户表单门店多选+部门可选、角色 code 预置禁用、新增 DeptPage 部门管理页（路由+菜单映射+deptApi CRUD）
 - 2026-07-30: 门店与部门解耦：`salon_store` 去掉 `dept_id`，新增 `salon_store_user` 维护门店-用户数据范围；`salon_member.dept_id` 改为 `store_id`；门店/会员列表和写操作按授权门店过滤；前端门店表单增加授权用户，会员表单改门店下拉；新增 `sql/migrate-store-data-scope.sql`

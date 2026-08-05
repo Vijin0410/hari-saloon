@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wangjin.common.constant.SystemConstants;
 import com.wangjin.common.enums.StatusEnum;
+import com.wangjin.common.security.util.SecurityUtils;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.cache.SystemCacheService;
 import com.wangjin.salon.system.converter.DeptConverter;
@@ -40,9 +41,14 @@ public class SysDeptServiceImpl extends ServiceImpl<SysDeptMapper, SysDept> impl
 
     @Override
     public List<DeptVO> listDepartments(DeptQuery queryParams) {
+        // 非 ROOT 忽略 tenantId：TenantLine 已自动按本租户过滤，防止越权指定它租户
+        if (!SecurityUtils.isRoot()) {
+            queryParams.setTenantId(null);
+        }
         List<SysDept> deptList = this.list(new LambdaQueryWrapper<SysDept>()
                 .like(StrUtil.isNotBlank(queryParams.getKeywords()), SysDept::getName, queryParams.getKeywords())
                 .eq(queryParams.getStatus() != null, SysDept::getStatus, queryParams.getStatus())
+                .eq(queryParams.getTenantId() != null, SysDept::getTenantId, queryParams.getTenantId())
                 .orderByAsc(SysDept::getSort));
         return buildTree(deptList);
     }

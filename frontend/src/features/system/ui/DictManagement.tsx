@@ -17,6 +17,7 @@ import { useDebounce } from '@/shared/hooks/useDebounce';
 import { cn } from '@/shared/lib/cn';
 import { normalizeNumber } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useTenantStoreFilter } from '@/features/system/model/useTenantStoreFilter';
 import { dictFormSchema, dictTypeFormSchema, type DictFormValues, type DictTypeFormValues } from '@/features/system/model/dictSchemas';
 import type {
   DictFormPayload,
@@ -349,6 +350,7 @@ function DictItemDialog({
 
 export function DictManagement() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
+  const { showTenant, tenantId, tenantOptions, changeTenant, isRoot } = useTenantStoreFilter();
   const [types, setTypes] = useState<DictTypePageVO[]>([]);
   const [typeLoading, setTypeLoading] = useState(false);
   const [typeKeyword, setTypeKeyword] = useState('');
@@ -383,6 +385,7 @@ export function DictManagement() {
         pageNum: 1,
         pageSize: 200,
         keywords: debouncedTypeKeyword.trim() || undefined,
+        tenantId: isRoot ? tenantId || undefined : undefined,
       });
       setTypes(data.list ?? []);
       setSelectedTypeCode((current) => {
@@ -394,7 +397,7 @@ export function DictManagement() {
     } finally {
       setTypeLoading(false);
     }
-  }, [debouncedTypeKeyword]);
+  }, [debouncedTypeKeyword, isRoot, tenantId]);
 
   useEffect(() => {
     void loadTypes();
@@ -413,13 +416,14 @@ export function DictManagement() {
         pageSize,
         typeCode: selectedTypeCode,
         keywords: debouncedItemKeyword.trim() || undefined,
+        tenantId: isRoot ? tenantId || undefined : undefined,
       });
       setItems(data.list ?? []);
       setItemTotal(data.total ?? 0);
     } finally {
       setItemLoading(false);
     }
-  }, [debouncedItemKeyword, pageNum, pageSize, selectedTypeCode]);
+  }, [debouncedItemKeyword, pageNum, pageSize, selectedTypeCode, isRoot, tenantId]);
 
   useEffect(() => {
     void loadItems();
@@ -476,6 +480,16 @@ export function DictManagement() {
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">左侧选择字典类型，右侧维护其字典项。</p>
         </div>
+        {showTenant ? (
+          <Select className="md:w-48" value={tenantId} onChange={(event) => changeTenant(event.target.value)}>
+            <option value="">全部租户</option>
+            {tenantOptions.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </Select>
+        ) : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">

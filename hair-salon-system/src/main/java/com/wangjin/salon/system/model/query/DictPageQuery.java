@@ -12,6 +12,8 @@ public class DictPageQuery extends BasePageQuery {
 
     @Schema(description = "关键字（字典项名称/值）")
     private String keywords;
+    @Schema(description = "租户ID（ROOT 跨租户筛选用，非 ROOT 忽略）")
+    private Long tenantId;
     @Schema(description = "字典类型编码")
     private String typeCode;
 }

@@ -48,7 +48,7 @@ public class SysDictController {
 
     @Operation(summary = "字典表单")
     @GetMapping("/form/{id}")
-    @PreAuthorize("hasAuthority('system:dict:list')")
+    @PreAuthorize("hasAuthority('system:dict:view')")
     public Result<DictForm> getDictForm(@PathVariable Long id) {
         return Result.success(dictService.getDictForm(id));
     }
@@ -77,7 +77,7 @@ public class SysDictController {
 
     @Operation(summary = "字典下拉")
     @GetMapping("/options")
-    @PreAuthorize("hasAuthority('system:dict:list')")
+    @PreAuthorize("isAuthenticated()")
     public Result<List<Option<String>>> listDictOptions(@RequestParam String typeCode) {
         return Result.success(dictService.listDictOptions(typeCode));
     }
@@ -99,7 +99,7 @@ public class SysDictController {
 
     @Operation(summary = "字典类型表单")
     @GetMapping("/types/form/{id}")
-    @PreAuthorize("hasAuthority('system:dict:list')")
+    @PreAuthorize("hasAuthority('system:dict:view')")
     public Result<DictTypeForm> getDictTypeForm(@PathVariable Long id) {
         return Result.success(dictTypeService.getDictTypeForm(id));
     }

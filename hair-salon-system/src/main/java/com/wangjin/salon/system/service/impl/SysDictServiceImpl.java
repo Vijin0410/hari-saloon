@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wangjin.common.constant.CacheConstants;
 import com.wangjin.common.redis.service.RedisService;
+import com.wangjin.common.security.util.SecurityUtils;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.cache.SystemCacheService;
 import com.wangjin.salon.system.converter.DictConverter;
@@ -40,11 +41,16 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict> impl
 
     @Override
     public Page<DictPageVO> getDictPage(DictPageQuery queryParams) {
+        // 非 ROOT 忽略 tenantId：TenantLine 已自动按本租户过滤，防止越权指定它租户
+        if (!SecurityUtils.isRoot()) {
+            queryParams.setTenantId(null);
+        }
         Page<SysDict> page = this.page(
                 new Page<>(queryParams.getPageNum(), queryParams.getPageSize()),
                 new LambdaQueryWrapper<SysDict>()
                         .like(StrUtil.isNotBlank(queryParams.getKeywords()), SysDict::getName, queryParams.getKeywords())
                         .eq(StrUtil.isNotBlank(queryParams.getTypeCode()), SysDict::getTypeCode, queryParams.getTypeCode())
+                        .eq(queryParams.getTenantId() != null, SysDict::getTenantId, queryParams.getTenantId())
                         .orderByAsc(SysDict::getSort)
         );
         return dictConverter.entity2Page(page);

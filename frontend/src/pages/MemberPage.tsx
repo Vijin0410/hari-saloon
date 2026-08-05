@@ -2,11 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import {
   memberApi,
-  storeApi,
   type MemberFormPayload,
   type MemberPageVO,
 } from '@/shared/api/modules/systemApi';
-import type { StoreOption } from '@/features/system/model/systemTypes';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
@@ -18,6 +16,7 @@ import { PageLoading } from '@/shared/ui/PageLoading';
 import { Select } from '@/shared/ui/Select';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useTenantStoreFilter } from '@/features/system/model/useTenantStoreFilter';
 
 function defaultMemberForm(storeId = ''): MemberFormPayload {
   return {
@@ -30,8 +29,18 @@ function defaultMemberForm(storeId = ''): MemberFormPayload {
 
 export function MemberPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const {
+    showTenant,
+    showStore,
+    tenantId,
+    storeId,
+    tenantOptions,
+    storeOptions,
+    changeTenant,
+    changeStore,
+    isRoot,
+  } = useTenantStoreFilter({ withStore: true });
   const [rows, setRows] = useState<MemberPageVO[]>([]);
-  const [storeOptions, setStoreOptions] = useState<StoreOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [pageNum, setPageNum] = useState(1);
@@ -46,17 +55,19 @@ export function MemberPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [memberPage, stores] = await Promise.all([
-        memberApi.list({ pageNum, pageSize: 10, keywords: debounced || undefined }),
-        storeApi.options().catch(() => [] as StoreOption[]),
-      ]);
+      const memberPage = await memberApi.list({
+        pageNum,
+        pageSize: 10,
+        keywords: debounced || undefined,
+        tenantId: isRoot ? tenantId || undefined : undefined,
+        storeId: showStore ? storeId || undefined : undefined,
+      });
       setRows(memberPage.list ?? []);
       setTotal(memberPage.total ?? 0);
-      setStoreOptions((stores ?? []).map((store) => ({ ...store, value: String(store.value) })));
     } finally {
       setLoading(false);
     }
-  }, [pageNum, debounced]);
+  }, [pageNum, debounced, isRoot, showStore, tenantId, storeId]);
 
   useEffect(() => {
     void load();
@@ -119,9 +130,31 @@ export function MemberPage() {
         ) : null}
       </div>
 
-      <div className="relative max-w-xs">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-        <Input className="pl-9" onChange={(e) => setKeyword(e.target.value)} placeholder="姓名/手机号/门店" value={keyword} />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[200px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+          <Input className="pl-9" onChange={(e) => setKeyword(e.target.value)} placeholder="姓名/手机号/门店" value={keyword} />
+        </div>
+        {showTenant ? (
+          <Select className="md:w-44" value={tenantId} onChange={(e) => changeTenant(e.target.value)}>
+            <option value="">全部租户</option>
+            {tenantOptions.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </Select>
+        ) : null}
+        {showStore ? (
+          <Select className="md:w-44" value={storeId} onChange={(e) => changeStore(e.target.value)}>
+            <option value="">全部门店</option>
+            {storeOptions.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </Select>
+        ) : null}
       </div>
 
       {loading ? (

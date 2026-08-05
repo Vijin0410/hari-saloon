@@ -44,14 +44,14 @@ public class SalonStoreController {
 
     @Operation(summary = "门店下拉")
     @GetMapping("/options")
-    @PreAuthorize("hasAnyAuthority('biz:store:list','biz:member:list','biz:member:add','biz:member:edit','system:user:list')")
-    public Result<List<Option<Long>>> options() {
-        return Result.success(storeService.listStoreOptions());
+    @PreAuthorize("isAuthenticated()")
+    public Result<List<Option<Long>>> options(@RequestParam(required = false) Long tenantId) {
+        return Result.success(storeService.listStoreOptions(tenantId));
     }
 
     @Operation(summary = "门店详情")
     @GetMapping("/detail/{id}")
-    @PreAuthorize("hasAuthority('biz:store:list')")
+    @PreAuthorize("hasAuthority('biz:store:view')")
     public Result<StoreDetailVO> detail(@PathVariable Long id) {
         return Result.success(storeService.getDetail(id));
     }

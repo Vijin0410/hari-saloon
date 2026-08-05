@@ -15,6 +15,7 @@ import { Select } from '@/shared/ui/Select';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { normalizeNumber } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useTenantStoreFilter } from '@/features/system/model/useTenantStoreFilter';
 import { deptFormSchema, type DeptFormValues } from '@/features/system/model/systemSchemas';
 import type {
   DeptFormPayload,
@@ -210,6 +211,7 @@ function DeptFormDialog({
 
 export function DeptPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const { showTenant, tenantId, tenantOptions, changeTenant, isRoot } = useTenantStoreFilter();
   const [tree, setTree] = useState<DeptVO[]>([]);
   const [deptOptions, setDeptOptions] = useState<DeptOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -224,7 +226,7 @@ export function DeptPage() {
     setLoading(true);
     try {
       const [list, options] = await Promise.all([
-        deptApi.list({ keywords: debounced.trim() || undefined }),
+        deptApi.list({ keywords: debounced.trim() || undefined, tenantId: isRoot ? tenantId || undefined : undefined }),
         deptApi.options(),
       ]);
       setTree(list ?? []);
@@ -232,7 +234,7 @@ export function DeptPage() {
     } finally {
       setLoading(false);
     }
-  }, [debounced]);
+  }, [debounced, isRoot, tenantId]);
 
   useEffect(() => {
     void load();
@@ -275,11 +277,24 @@ export function DeptPage() {
       </div>
 
       <div className="rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <Input
-          placeholder="按部门名称搜索"
-          value={keyword}
-          onChange={(event) => setKeyword(event.target.value)}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            className="min-w-[200px] flex-1"
+            placeholder="按部门名称搜索"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+          />
+          {showTenant ? (
+            <Select className="md:w-44" value={tenantId} onChange={(event) => changeTenant(event.target.value)}>
+              <option value="">全部租户</option>
+              {tenantOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-salon-line bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">

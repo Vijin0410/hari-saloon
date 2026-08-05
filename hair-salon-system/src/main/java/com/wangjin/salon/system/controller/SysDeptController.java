@@ -48,7 +48,7 @@ public class SysDeptController {
 
     @Operation(summary = "部门表单")
     @GetMapping("/form/{deptId}")
-    @PreAuthorize("hasAuthority('system:dept:list')")
+    @PreAuthorize("hasAuthority('system:dept:view')")
     public Result<DeptForm> getDeptForm(@PathVariable Long deptId) {
         return Result.success(deptService.getDeptForm(deptId));
     }

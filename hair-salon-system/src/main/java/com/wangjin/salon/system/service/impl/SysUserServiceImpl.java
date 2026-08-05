@@ -18,6 +18,7 @@ import com.wangjin.common.security.context.UserContext;
 import com.wangjin.common.security.util.SecurityUtils;
 import com.wangjin.salon.system.cache.SystemCacheService;
 import com.wangjin.salon.system.config.SalonProperties;
+import com.wangjin.salon.system.constant.RoleCodes;
 import com.wangjin.salon.system.converter.UserConverter;
 import com.wangjin.salon.system.mapper.SysUserMapper;
 import com.wangjin.salon.system.model.bo.UserBO;
@@ -96,6 +97,17 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     @Override
     public IPage<UserPageVO> getUserPage(UserPageQuery queryParams) {
+        // 非 ROOT 忽略 tenantId：TenantLine 已自动按本租户过滤，防止越权指定它租户
+        if (!SecurityUtils.isRoot()) {
+            queryParams.setTenantId(null);
+        }
+        // 门店数据范围：ROOT/租户管理员本租户全部门店；店长/店员按绑定门店过滤
+        if (SecurityUtils.isRoot() || isTenantAdmin()) {
+            queryParams.setStoreScopeAll(true);
+        } else {
+            queryParams.setStoreScopeAll(false);
+            queryParams.setPermittedStoreIds(salonStorePort.listUserStoreIds(SecurityUtils.getUserId()));
+        }
         Page<UserBO> page = this.baseMapper.getUserPage(
                 new Page<>(queryParams.getPageNum(), queryParams.getPageSize()), queryParams);
         Page<UserPageVO> voPage = userConverter.bo2Vo(page);
@@ -104,6 +116,12 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             vo.setAvatar(presignUrl(vo.getAvatar()));
         }
         return voPage;
+    }
+
+    /** 租户管理员：本租户全部门店可见。 */
+    private boolean isTenantAdmin() {
+        return SecurityUtils.getRoles().stream()
+                .anyMatch(RoleCodes.TENANT_ADMIN.getCode()::equalsIgnoreCase);
     }
 
     /** 文件字段存 object_key，转预签名 URL 供展示；空或签名失败返回 null。 */

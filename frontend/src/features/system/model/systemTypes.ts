@@ -27,6 +27,8 @@ export interface UserPageQuery extends PageParams {
   keywords?: string;
   status?: StatusValue;
   deptId?: EntityId;
+  tenantId?: EntityId;
+  storeId?: EntityId;
 }
 
 export interface UserPageVO {
@@ -60,6 +62,7 @@ export interface UserFormPayload {
 
 export interface RolePageQuery extends PageParams {
   keywords?: string;
+  tenantId?: EntityId;
 }
 
 export interface RolePageVO {
@@ -138,6 +141,7 @@ export type RoleOption = OptionNode<EntityId>;
 export type MenuOption = OptionNode<EntityId>;
 export type DeptOption = OptionNode<EntityId>;
 export type StoreOption = OptionNode<EntityId>;
+export type TenantOption = OptionNode<EntityId>;
 
 export interface DeptVO {
   id: EntityId;
@@ -161,6 +165,7 @@ export interface DeptFormPayload {
 export interface DeptQuery {
   keywords?: string;
   status?: StatusValue;
+  tenantId?: EntityId;
 }
 
 export const ROLE_MENU_TYPE_WEB = 1;

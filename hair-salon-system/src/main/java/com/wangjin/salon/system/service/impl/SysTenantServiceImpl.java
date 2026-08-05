@@ -24,6 +24,7 @@ import com.wangjin.salon.system.model.form.TenantForm;
 import com.wangjin.salon.system.model.query.TenantPageQuery;
 import com.wangjin.salon.system.model.vo.TenantPageVO;
 import com.wangjin.salon.system.service.SalonStorePort;
+import com.wangjin.salon.system.service.SysDictService;
 import com.wangjin.salon.system.service.SysRoleMenuService;
 import com.wangjin.salon.system.service.SysRoleService;
 import com.wangjin.salon.system.service.SysTenantService;
@@ -55,6 +56,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
     private final PasswordEncoder passwordEncoder;
     private final SalonProperties salonProperties;
     private final SalonStorePort salonStorePort;
+    private final SysDictService dictService;
 
     public SysTenantServiceImpl(TenantConverter tenantConverter,
                                 SysRoleService roleService,
@@ -64,7 +66,8 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
                                 SysMenuMapper menuMapper,
                                 PasswordEncoder passwordEncoder,
                                 SalonProperties salonProperties,
-                                SalonStorePort salonStorePort) {
+                                SalonStorePort salonStorePort,
+                                @Lazy SysDictService dictService) {
         this.tenantConverter = tenantConverter;
         this.roleService = roleService;
         this.roleMenuService = roleMenuService;
@@ -74,6 +77,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         this.passwordEncoder = passwordEncoder;
         this.salonProperties = salonProperties;
         this.salonStorePort = salonStorePort;
+        this.dictService = dictService;
     }
 
     /** 店长默认可挂菜单 id（与 data.sql 种子一致；菜单全局共享） */
@@ -181,6 +185,9 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         if (storeId != null) {
             salonStorePort.syncUserStores(admin.getId(), List.of(storeId));
         }
+
+        // 复制默认租户的字典作为初始字典（技术字典 + 运营字典模板），新租户开箱即有下拉选项
+        dictService.copyFromTenant(SystemConstants.DEFAULT_TENANT_ID);
     }
 
     private SysRole savePresetRole(String name, String code, int sort, Integer dataScope, Long tenantId) {

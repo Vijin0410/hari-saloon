@@ -70,7 +70,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
     public boolean saveDictType(DictTypeForm form) {
         boolean ok = this.save(dictTypeConverter.form2Entity(form));
         if (ok) {
-            systemCacheService.refreshDictCache();
+            systemCacheService.refreshDictCache(SecurityUtils.getTenantId());
         }
         return ok;
     }
@@ -88,7 +88,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
                     .set(SysDict::getTypeCode, form.getCode()));
         }
         if (ok) {
-            systemCacheService.refreshDictCache();
+            systemCacheService.refreshDictCache(SecurityUtils.getTenantId());
         }
         return ok;
     }
@@ -107,7 +107,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
         }
         boolean ok = this.removeByIds(idList);
         if (ok) {
-            systemCacheService.refreshDictCache();
+            systemCacheService.refreshDictCache(SecurityUtils.getTenantId());
         }
         return ok;
     }

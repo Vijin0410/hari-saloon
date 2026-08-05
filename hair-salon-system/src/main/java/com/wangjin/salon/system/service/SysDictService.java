@@ -23,4 +23,13 @@ public interface SysDictService extends IService<SysDict> {
     boolean deleteDict(String ids);
 
     List<Option<String>> listDictOptions(String typeCode);
+
+    /**
+     * 复制源租户的全部字典（类型 + 项）到当前租户上下文，供新租户开通继承初始字典。
+     * <p>
+     * 须在目标 tenant 的 {@code TenantContextRunner} 内调用；目标租户已存在的 type code 跳过（幂等）。
+     *
+     * @param fromTenantId 模板租户ID
+     */
+    void copyFromTenant(Long fromTenantId);
 }

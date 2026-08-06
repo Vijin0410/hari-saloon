@@ -118,6 +118,15 @@
 - 提交生产密钥、本机 token、把凭证写入仓库。
 - 未要求的抽象层、多余依赖、大范围无关重构。
 
+### 8. 前端时间字段表单（强制）
+
+- 前端表单中日期/时间字段（生日、过期时间、起止时间等）**生成时必须配时间选择组件**，禁止裸 `<Input>` + `placeholder` 让用户手敲字符串。
+- 统一用原生 `<Input type="...">`（`frontend/src/shared/ui/Input` 透传 `type`，零依赖，符合不引第三方 UI 库）：
+  - **优先按天**：能按天（仅年月日）的字段一律 `type="date"`（后端 `LocalDate` / `YYYY-MM-DD`，value 与后端格式一致，无需转换）。如积分过期时间按天选择，**选当天则在当天 24:00 后过期**（后端按 `expireDate < today` 判定，定时任务次日扫到即清零）。
+  - **禁用 `type="datetime-local"`**：其空值占位 `--:--` 不美观。确需"日期+时分秒"的字段，用 `type="date"` + `type="time"` 组合提交（后端 `LocalDateTime` / `YYYY-MM-DD HH:mm:ss`），不得用单个 `datetime-local`。
+  - 仅时间：`type="time"`。
+- 禁止为时间字段引入 `dayjs`/`moment`/`react-datepicker` 等；落地细则见 `react-solo-architect` skill。
+
 ---
 
 ## 技术栈速查

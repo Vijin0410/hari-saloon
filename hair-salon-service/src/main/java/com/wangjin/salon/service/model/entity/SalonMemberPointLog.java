@@ -5,7 +5,7 @@ import com.wangjin.common.base.BaseTenantEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 /**
  * 会员积分流水（获得类带 expireTime/remainingPoints 兼作批次，支持过期清零）。
@@ -27,8 +27,8 @@ public class SalonMemberPointLog extends BaseTenantEntity<Long> {
     private Integer changePoints;
     /** 变动后积分 */
     private Integer afterPoints;
-    /** 过期时间（仅获得类有效，标识该批次过期点） */
-    private LocalDateTime expireTime;
+    /** 过期时间（仅获得类有效，按天；选当天则在当天24:00后过期。DB 为 timestamp，按天存当天 00:00:00） */
+    private LocalDate expireTime;
     /** 批次剩余可扣积分（仅获得类有效，FIFO消费/过期时递减） */
     private Integer remainingPoints;
     /** 被扣减的获得批次流水ID（消费/过期类指向源批次） */

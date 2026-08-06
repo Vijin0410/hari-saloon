@@ -5,6 +5,7 @@ import com.wangjin.common.web.annotation.Dict;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -24,9 +25,9 @@ public class MemberPointLogVO {
     private Integer changePoints;
     @Schema(description = "变动后积分")
     private Integer afterPoints;
-    @Schema(description = "过期时间")
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime expireTime;
+    @Schema(description = "过期时间（按天）")
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate expireTime;
     @Schema(description = "关联业务单号")
     private String bizNo;
     @Schema(description = "操作人姓名")

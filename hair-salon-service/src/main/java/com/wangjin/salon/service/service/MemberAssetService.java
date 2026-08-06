@@ -1,6 +1,7 @@
 package com.wangjin.salon.service.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -44,5 +45,18 @@ public interface MemberAssetService {
      */
     void changePoints(Long memberId, int changePoints, int changeType,
                       String bizType, Long bizId, String bizNo,
-                      LocalDateTime expireTime, String remark);
+                      LocalDate expireTime, String remark);
+
+    /**
+     * 清零指定会员已到期的积分批次，生成过期清零流水（changeType=8）。
+     * <p>
+     * 定时任务逐租户调用：扫描 expireTime 早于 now 对应日期（即过期日期 &lt; 今天，选当天则在当天24:00后过期）且 remainingPoints &gt; 0 的获得类批次（expireTime 为空表示永不过期），
+     * 条件置零批次 remainingPoints（幂等，防并发/重复执行重复扣减），逐批写一条过期清零流水（sourceLogId 指向源批次），
+     * 原子扣减 member.points。须在目标租户上下文（{@link com.wangjin.salon.system.util.TenantContextRunner}）内调用。
+     *
+     * @param memberId 会员ID
+     * @param now      截止时间（一般 {@code LocalDateTime.now()}）
+     * @return 实际清零的积分总数（0 表示无到期批次）
+     */
+    int expireMemberPoints(Long memberId, LocalDateTime now);
 }

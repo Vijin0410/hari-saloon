@@ -394,6 +394,11 @@ export interface User {
 12. **列表**：受控分页（page 从 1）+ 搜索 `useDebounce`。
 13. **依赖方向**：`pages` → `features` → `shared`；`store` 可调 `shared/api`；`shared/api` 不调 `store`（仅回调注册）。
 14. **默认导出**：页面与组件优先 **具名 export**；路由 lazy 可用 `export default` 仅当 lazy 需要时，或 `lazy(() => import(...).then(m => ({ default: m.HomePage })))` 保持具名。
+15. **时间字段表单（强制）**：表单中日期/时间字段（生日、过期时间、起止时间等）**生成时必须直接配好选择组件**，禁止裸 `<Input>` + `placeholder` 让用户手敲字符串。统一用原生 `<Input type="...">`（`shared/ui/Input` 透传 `type`，零额外依赖，符合"不引第三方 UI 库"）：
+    - **优先按天**：能按天（仅年月日）的字段一律 `<Input type="date" />`（后端 `LocalDate` / `YYYY-MM-DD`，value 与后端格式一致，无需转换）。如积分过期时间按天选择，**选当天则在当天 24:00 后过期**（后端按 `expireDate < today` 判定，定时任务次日扫到即清零）。
+    - **禁用 `type="datetime-local"`**：其空值占位 `--:--` 不美观。确需"日期+时分秒"的字段，用 `<Input type="date" />` + `<Input type="time" />` 组合提交（后端 `LocalDateTime` / `YYYY-MM-DD HH:mm:ss`），不得用单个 `datetime-local`。
+    - 仅时间：`<Input type="time" />`。
+    - 禁止为时间字段引入 `dayjs` / `moment` / `react-datepicker` 等库（除非已存在或用户明确要求）；禁止保留 `placeholder="YYYY-MM-DD"` 这类手输提示。
 
 ---
 
@@ -469,6 +474,7 @@ export interface User {
 | 请求库扩展 | 默认不装 TanStack Query；用户要「缓存/重试」再加 |
 | 测试 | 脚手架不强制 Vitest；用户要再加 |
 | 成功业务码 | 假设 `code === 0` 或 `code === 200`；在 `client` **一处**配置，并 📖 说明如何改成后端真实约定 |
+| 时间字段 | 原生 `Input` 的 `type=date`（优先按天）/`time`；禁用 `datetime-local`（`--:--` 占位丑），确需时分秒用 date+time 组合；不引第三方日期库 |
 
 ---
 
@@ -486,6 +492,7 @@ export interface User {
 10. 生成 Tailwind v3 的 `tailwind.config.js` + `@tailwind base` 当作默认（除非迁移老项目）。
 11. 列表数据无脑进全局 Zustand。
 12. 用布尔 `loading` 被多个并发请求互相覆盖（应用计数或局部 state）。
+13. 时间字段用裸 `<Input>` + `placeholder="YYYY-MM-DD"` 让用户手敲，而不配 `type="date"` / `type="time"` 选择组件；或用已被禁用的 `type="datetime-local"`（`--:--` 占位丑）。
 
 ---
 

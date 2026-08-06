@@ -5,6 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.net.InetAddress;
 
@@ -13,6 +14,7 @@ import java.net.InetAddress;
  */
 @SpringBootApplication(scanBasePackages = "com.wangjin")
 @MapperScan("com.wangjin.salon.**.mapper")
+@EnableScheduling
 public class HairSalonApplication {
 
     public static void main(String[] args) {

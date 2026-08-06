@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -36,6 +37,9 @@ public class MemberAssetServiceImpl implements MemberAssetService {
     private static final int CT_RECHARGE = 1;
     private static final int CT_RECHARGE_GIFT = 2;
     private static final int CT_CONSUME = 3;
+
+    /** 积分变动类型：8=过期清零 */
+    private static final int CHANGE_TYPE_EXPIRE = 8;
 
     private static final int MAX_RETRY = 3;
 
@@ -108,7 +112,7 @@ public class MemberAssetServiceImpl implements MemberAssetService {
     @Transactional(rollbackFor = Exception.class)
     public void changePoints(Long memberId, int changePoints, int changeType,
                              String bizType, Long bizId, String bizNo,
-                             LocalDateTime expireTime, String remark) {
+                             LocalDate expireTime, String remark) {
         if (changePoints == 0) {
             return;
         }
@@ -168,6 +172,55 @@ public class MemberAssetServiceImpl implements MemberAssetService {
         memberMapper.update(null, Wrappers.<SalonMember>lambdaUpdate()
                 .set(SalonMember::getPoints, after)
                 .eq(SalonMember::getId, memberId));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int expireMemberPoints(Long memberId, LocalDateTime now) {
+        SalonMember member = memberMapper.selectById(memberId);
+        if (member == null) {
+            return 0;
+        }
+        // 过期判定：expireDate < today（选当天则在当天24:00后过期，次日才清零）
+        List<SalonMemberPointLog> dueBatches = pointLogMapper.selectList(
+                Wrappers.<SalonMemberPointLog>lambdaQuery()
+                        .eq(SalonMemberPointLog::getMemberId, memberId)
+                        .gt(SalonMemberPointLog::getRemainingPoints, 0)
+                        .isNotNull(SalonMemberPointLog::getExpireTime)
+                        .lt(SalonMemberPointLog::getExpireTime, now.toLocalDate())
+                        .orderByAsc(SalonMemberPointLog::getExpireTime));
+        if (dueBatches.isEmpty()) {
+            return 0;
+        }
+        Long operatorId = SecurityUtils.getUserId(); // 租户上下文内=0L（系统操作）
+        int runningBefore = member.getPoints() == null ? 0 : member.getPoints();
+        int totalDeduct = 0;
+        for (SalonMemberPointLog batch : dueBatches) {
+            int deduct = batch.getRemainingPoints();
+            // 条件置零：幂等，防并发/重复执行时重复扣减（rows=0 表示已被其他事务清零，跳过）
+            int rows = pointLogMapper.update(null, Wrappers.<SalonMemberPointLog>lambdaUpdate()
+                    .set(SalonMemberPointLog::getRemainingPoints, 0)
+                    .eq(SalonMemberPointLog::getId, batch.getId())
+                    .eq(SalonMemberPointLog::getRemainingPoints, deduct));
+            if (rows == 0) {
+                continue;
+            }
+            SalonMemberPointLog log = newPointLog(member, CHANGE_TYPE_EXPIRE, null, null, null, operatorId, "积分到期清零");
+            log.setBeforePoints(runningBefore);
+            log.setChangePoints(-deduct);
+            log.setAfterPoints(runningBefore - deduct);
+            log.setSourceLogId(batch.getId());
+            pointLogMapper.insert(log);
+            runningBefore -= deduct;
+            totalDeduct += deduct;
+        }
+        if (totalDeduct > 0) {
+            // 原子扣减 member.points，避免与并发的积分变动互相覆盖（流水 before/after 为事务内快照）
+            memberMapper.update(null, Wrappers.<SalonMember>lambdaUpdate()
+                    .setSql("points = points - " + totalDeduct)
+                    .eq(SalonMember::getId, memberId));
+        }
+        return totalDeduct;
     }
 
     private SalonMemberPointLog newPointLog(SalonMember member, int changeType, String bizType, Long bizId,

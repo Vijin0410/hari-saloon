@@ -40,6 +40,18 @@ function defaultMemberForm(storeId = ''): MemberFormPayload {
   return { name: '', storeId, status: 1, gender: 0 };
 }
 
+/** 积分变动类型中文标签（与后端 SalonMemberPointLog.changeType 对应） */
+const POINT_CHANGE_TYPE_LABEL: Record<number, string> = {
+  1: '消费获得',
+  2: '充值获得',
+  3: '活动赠送',
+  4: '手工调整',
+  5: '抵扣消费',
+  6: '兑换商品',
+  7: '手工扣减',
+  8: '过期清零',
+};
+
 export function MemberPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const { showTenant, showStore, tenantId, storeId, tenantOptions, storeOptions, changeTenant, changeStore, isRoot } =
@@ -190,6 +202,7 @@ export function MemberPage() {
     if (!detail) {
       return;
     }
+    // type="date" 的 value 为 YYYY-MM-DD，与后端 LocalDate 格式一致，无需转换
     await memberPointApi.adjust(String(detail.id), pointAdjust);
     setPointAdjustOpen(false);
     setPointAdjust({ changePoints: 0, remark: '' });
@@ -427,7 +440,7 @@ export function MemberPage() {
             </Select>
           </Field>
           <Field label="生日">
-            <Input onChange={(e) => setForm((f) => ({ ...f, birthday: e.target.value }))} placeholder="YYYY-MM-DD" value={form.birthday ?? ''} />
+            <Input type="date" onChange={(e) => setForm((f) => ({ ...f, birthday: e.target.value }))} value={form.birthday ?? ''} />
           </Field>
           <Field label="会员等级">
             <Select onChange={(e) => setForm((f) => ({ ...f, levelId: e.target.value || undefined }))} value={form.levelId ? String(form.levelId) : ''}>
@@ -564,7 +577,7 @@ export function MemberPage() {
             <Input onChange={(e) => setPointAdjust((p) => ({ ...p, changePoints: Number(e.target.value) }))} type="number" value={pointAdjust.changePoints} />
           </Field>
           <Field label="过期时间（增加时可选）">
-            <Input onChange={(e) => setPointAdjust((p) => ({ ...p, expireTime: e.target.value || undefined }))} placeholder="YYYY-MM-DD HH:mm:ss" value={pointAdjust.expireTime ?? ''} />
+            <Input type="date" onChange={(e) => setPointAdjust((p) => ({ ...p, expireTime: e.target.value || undefined }))} value={pointAdjust.expireTime ?? ''} />
           </Field>
           <Field label="备注" required>
             <Input onChange={(e) => setPointAdjust((p) => ({ ...p, remark: e.target.value }))} value={pointAdjust.remark} />
@@ -617,7 +630,7 @@ export function MemberPage() {
               {pointLogs.map((l) => (
                 <tr key={l.id}>
                   <td className="px-2 py-2">{l.createTime}</td>
-                  <td className="px-2 py-2">{l.changeType}</td>
+                  <td className="px-2 py-2">{POINT_CHANGE_TYPE_LABEL[l.changeType ?? 0] ?? l.changeType}</td>
                   <td className="px-2 py-2 text-right" style={{ color: (l.changePoints ?? 0) >= 0 ? 'green' : 'red' }}>{l.changePoints}</td>
                   <td className="px-2 py-2 text-right">{l.afterPoints}</td>
                   <td className="px-2 py-2">{l.operatorName || '-'}</td>

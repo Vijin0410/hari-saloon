@@ -574,7 +574,7 @@ COMMENT ON COLUMN salon_member_point_log.change_type IS '变动类型（1=消费
 COMMENT ON COLUMN salon_member_point_log.before_points IS '变动前积分';
 COMMENT ON COLUMN salon_member_point_log.change_points IS '变动积分（正=增加 负=减少）';
 COMMENT ON COLUMN salon_member_point_log.after_points IS '变动后积分';
-COMMENT ON COLUMN salon_member_point_log.expire_time IS '过期时间（仅获得类有效，标识该批次过期点）';
+COMMENT ON COLUMN salon_member_point_log.expire_time IS '过期时间（仅获得类有效，按天；选当天则在当天24:00后过期）';
 COMMENT ON COLUMN salon_member_point_log.remaining_points IS '批次剩余可扣积分（仅获得类有效，FIFO消费/过期时递减）';
 COMMENT ON COLUMN salon_member_point_log.source_log_id IS '被扣减的获得批次流水ID（消费/过期类指向源批次）';
 COMMENT ON COLUMN salon_member_point_log.biz_type IS '关联业务类型（ORDER/RECHARGE/ACTIVITY/MANUAL/EXCHANGE）';

@@ -7,13 +7,10 @@ import com.wangjin.common.redis.service.RedisService;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.model.entity.SysDept;
 import com.wangjin.salon.system.model.entity.SysDict;
-import com.wangjin.salon.system.model.entity.SysTenant;
 import com.wangjin.salon.system.model.entity.SysUser;
 import com.wangjin.salon.system.service.SysDeptService;
 import com.wangjin.salon.system.service.SysDictService;
-import com.wangjin.salon.system.service.SysTenantService;
 import com.wangjin.salon.system.service.SysUserService;
-import com.wangjin.salon.system.util.TenantContextRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -32,39 +29,34 @@ public class SystemCacheServiceImpl implements SystemCacheService {
     private final SysDictService dictService;
     private final SysUserService userService;
     private final SysDeptService deptService;
-    private final SysTenantService tenantService;
 
     public SystemCacheServiceImpl(RedisService redisService,
                                   @Lazy SysDictService dictService,
                                   @Lazy SysUserService userService,
-                                  @Lazy SysDeptService deptService,
-                                  @Lazy SysTenantService tenantService) {
+                                  @Lazy SysDeptService deptService) {
         this.redisService = redisService;
         this.dictService = dictService;
         this.userService = userService;
         this.deptService = deptService;
-        this.tenantService = tenantService;
     }
 
     @Override
-    public void refreshDictCache(Long tenantId) {
-        // 仅清当前租户的字典缓存（key 含 tenantId 前缀，避免误清它租户）
-        redisService.deleteByPrefix(CacheConstants.SYS_DICT_KEY + tenantId + ":");
-        TenantContextRunner.run(tenantId, () -> {
-            List<SysDict> list = dictService.list(new LambdaQueryWrapper<SysDict>()
-                    .eq(SysDict::getStatus, 1)
-                    .orderByAsc(SysDict::getSort));
-            Map<String, List<SysDict>> grouped = list.stream()
-                    .collect(Collectors.groupingBy(SysDict::getTypeCode));
-            grouped.forEach((typeCode, items) -> {
-                List<Option<String>> options = items.stream()
-                        .sorted(Comparator.comparing(d -> d.getSort() == null ? 0 : d.getSort()))
-                        .map(d -> new Option<>(d.getValue(), d.getName(), d.getRemark()))
-                        .toList();
-                redisService.setCacheList(CacheConstants.SYS_DICT_KEY + tenantId + ":" + typeCode, options);
-            });
-            log.info("字典缓存已刷新，tenantId={}, 类型数={}", tenantId, grouped.size());
+    public void refreshDictCache() {
+        // 字典全局共享（sys_dict/sys_dict_type 在 ignore-tables，不走租户隔离），缓存 key 不含 tenantId
+        redisService.deleteByPrefix(CacheConstants.SYS_DICT_KEY);
+        List<SysDict> list = dictService.list(new LambdaQueryWrapper<SysDict>()
+                .eq(SysDict::getStatus, 1)
+                .orderByAsc(SysDict::getSort));
+        Map<String, List<SysDict>> grouped = list.stream()
+                .collect(Collectors.groupingBy(SysDict::getTypeCode));
+        grouped.forEach((typeCode, items) -> {
+            List<Option<String>> options = items.stream()
+                    .sorted(Comparator.comparing(d -> d.getSort() == null ? 0 : d.getSort()))
+                    .map(d -> new Option<>(d.getValue(), d.getName(), d.getRemark()))
+                    .toList();
+            redisService.setCacheList(CacheConstants.SYS_DICT_KEY + typeCode, options);
         });
+        log.info("字典缓存已刷新，类型数={}", grouped.size());
     }
 
     @Override
@@ -95,13 +87,8 @@ public class SystemCacheServiceImpl implements SystemCacheService {
 
     @Override
     public void refreshAll() {
-        // 全清字典缓存前缀（含历史无租户 key 残留），再按租户逐个重建
-        redisService.deleteByPrefix(CacheConstants.SYS_DICT_KEY);
+        refreshDictCache();
         refreshUserCache();
         refreshDeptCache();
-        List<SysTenant> tenants = tenantService.list(new LambdaQueryWrapper<>());
-        for (SysTenant tenant : tenants) {
-            refreshDictCache(tenant.getId());
-        }
     }
 }

@@ -158,28 +158,6 @@ INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remar
 SELECT 22, 'status', '禁用', '0', 2, 1, 0, NULL, 1
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'status' AND value = '0' AND tenant_id = 1);
 
-
-INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 101, '性别', 'gender', 1, '用户性别', 'system', 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-    WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'gender' AND tenant_id = 2084880957290426370);
-INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 102, '通用状态', 'status', 1, '启用/禁用', 'system', 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-    WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'status' AND tenant_id = 2084880957290426370);
-
-
-INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
-SELECT 101, 'gender', '男', '1', 1, 1, 1, NULL, 2084880957290426370
-    WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'gender' AND value = '1' AND tenant_id = 2084880957290426370);
-INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
-SELECT 102, 'gender', '女', '2', 2, 1, 0, NULL, 2084880957290426370
-    WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'gender' AND value = '2' AND tenant_id = 2084880957290426370);
-INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
-SELECT 103, 'status', '启用', '1', 1, 1, 1, NULL, 2084880957290426370
-    WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'status' AND value = '1' AND tenant_id = 2084880957290426370);
-INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
-SELECT 104, 'status', '禁用', '0', 2, 1, 0, NULL, 2084880957290426370
-    WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'status' AND value = '0' AND tenant_id = 2084880957290426370);
-
 -- ===== P1 会员资产闭环种子（默认租户 1）=====
 
 -- 会员等级
@@ -316,8 +294,8 @@ SELECT 3, m.id, 1 FROM sys_menu m
 WHERE m.id IN (110, 107, 109)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 3 AND rm.menu_id = m.id AND rm.type = 1);
 
--- ===== 租户 2084880957290426370 P1 通用数据（等级/标签/4类字典）=====
--- 与默认租户 1 保持一致；id 段避开租户1（等级 1001-1004 / 标签 2001-2006 / dict_type 1-6 / dict 11-68）
+-- ===== 租户 2084880957290426370 P1 通用数据（等级/标签）=====
+-- 与默认租户 1 保持一致；id 段避开租户1（等级 1001-1004 / 标签 2001-2006）。字典已全局共享，不再为第二租户单独种子。
 
 -- 会员等级
 INSERT INTO salon_member_level (id, tenant_id, name, level_no, service_discount, goods_discount, point_rate, recharge_gift_rate, sort, status, create_by, create_time, update_by, update_time, deleted)
@@ -343,67 +321,4 @@ FROM (VALUES
 ) AS v(id, name, color, sort)
 WHERE NOT EXISTS (SELECT 1 FROM salon_member_tag t WHERE t.id = v.id);
 
--- 字典：member_source
-INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 103, '会员来源', 'member_source', 1, '会员来源渠道', 'system', 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'member_source' AND tenant_id = 2084880957290426370);
-INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
-SELECT v.id, 'member_source', v.name, v.value, v.sort, 1, v.defaulted, NULL, 2084880957290426370
-FROM (VALUES
-  (105::int8, '到店',     '1', 1, 1),
-  (106::int8, '小程序',   '2', 2, 0),
-  (107::int8, '推荐',     '3', 3, 0),
-  (108::int8, '活动',     '4', 4, 0),
-  (109::int8, '其他',     '9', 9, 0)
-) AS v(id, name, value, sort, defaulted)
-WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'member_source' AND d.value = v.value AND d.tenant_id = 2084880957290426370);
-
--- 字典：member_balance_type
-INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 104, '余额桶类型', 'member_balance_type', 1, '会员余额分桶', 'system', 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'member_balance_type' AND tenant_id = 2084880957290426370);
-INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
-SELECT v.id, 'member_balance_type', v.name, v.value, v.sort, 1, 0, NULL, 2084880957290426370
-FROM (VALUES
-  (110::int8, '本金', '1', 1),
-  (111::int8, '赠送', '2', 2),
-  (112::int8, '冻结', '3', 3)
-) AS v(id, name, value, sort)
-WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'member_balance_type' AND d.value = v.value AND d.tenant_id = 2084880957290426370);
-
--- 字典：balance_change_type
-INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 105, '余额变动类型', 'balance_change_type', 1, '会员余额流水业务类型', 'system', 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'balance_change_type' AND tenant_id = 2084880957290426370);
-INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
-SELECT v.id, 'balance_change_type', v.name, v.value, v.sort, 1, 0, NULL, 2084880957290426370
-FROM (VALUES
-  (113::int8, '充值',     '1', 1),
-  (114::int8, '充值赠送', '2', 2),
-  (115::int8, '消费扣款', '3', 3),
-  (116::int8, '退款退回', '4', 4),
-  (117::int8, '手工调整', '5', 5),
-  (118::int8, '余额转入', '6', 6),
-  (119::int8, '余额转出', '7', 7),
-  (120::int8, '冻结',     '8', 8),
-  (121::int8, '解冻',     '9', 9)
-) AS v(id, name, value, sort)
-WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'balance_change_type' AND d.value = v.value AND d.tenant_id = 2084880957290426370);
-
--- 字典：point_change_type
-INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 106, '积分变动类型', 'point_change_type', 1, '会员积分流水类型', 'system', 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
-WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'point_change_type' AND tenant_id = 2084880957290426370);
-INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
-SELECT v.id, 'point_change_type', v.name, v.value, v.sort, 1, 0, NULL, 2084880957290426370
-FROM (VALUES
-  (122::int8, '消费获得', '1', 1),
-  (123::int8, '充值获得', '2', 2),
-  (124::int8, '活动赠送', '3', 3),
-  (125::int8, '手工调整', '4', 4),
-  (126::int8, '抵扣消费', '5', 5),
-  (127::int8, '兑换商品', '6', 6),
-  (128::int8, '手工扣减', '7', 7),
-  (129::int8, '过期清零', '8', 8)
-) AS v(id, name, value, sort)
-WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'point_change_type' AND d.value = v.value AND d.tenant_id = 2084880957290426370);
+-- 字典已全局共享（sys_dict/sys_dict_type 走 ignore-tables），第二租户不再单独种子

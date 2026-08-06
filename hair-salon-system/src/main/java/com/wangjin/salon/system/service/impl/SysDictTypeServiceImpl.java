@@ -43,7 +43,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
 
     @Override
     public Page<DictTypePageVO> getDictTypePage(DictTypePageQuery queryParams) {
-        // 非 ROOT 忽略 tenantId：TenantLine 已自动按本租户过滤，防止越权指定它租户
+        // 字典全局共享（ignore-tables），TenantLine 不再按租户过滤；ROOT 可按 tenantId 筛选，其余忽略防越权
         if (!SecurityUtils.isRoot()) {
             queryParams.setTenantId(null);
         }
@@ -68,15 +68,17 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
 
     @Override
     public boolean saveDictType(DictTypeForm form) {
+        Assert.isTrue(SecurityUtils.isRoot(), "字典为全局共享数据，仅系统管理员可维护");
         boolean ok = this.save(dictTypeConverter.form2Entity(form));
         if (ok) {
-            systemCacheService.refreshDictCache(SecurityUtils.getTenantId());
+            systemCacheService.refreshDictCache();
         }
         return ok;
     }
 
     @Override
     public boolean updateDictType(Long id, DictTypeForm form) {
+        Assert.isTrue(SecurityUtils.isRoot(), "字典为全局共享数据，仅系统管理员可维护");
         SysDictType old = this.getById(id);
         Assert.notNull(old, "字典类型不存在");
         SysDictType entity = dictTypeConverter.form2Entity(form);
@@ -88,7 +90,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
                     .set(SysDict::getTypeCode, form.getCode()));
         }
         if (ok) {
-            systemCacheService.refreshDictCache(SecurityUtils.getTenantId());
+            systemCacheService.refreshDictCache();
         }
         return ok;
     }
@@ -96,6 +98,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteDictTypes(String ids) {
+        Assert.isTrue(SecurityUtils.isRoot(), "字典为全局共享数据，仅系统管理员可维护");
         Assert.isTrue(StrUtil.isNotBlank(ids), "删除数据为空");
         List<Long> idList = Arrays.stream(ids.split(",")).map(Long::parseLong).toList();
         List<String> codes = this.list(new LambdaQueryWrapper<SysDictType>()
@@ -107,7 +110,7 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
         }
         boolean ok = this.removeByIds(idList);
         if (ok) {
-            systemCacheService.refreshDictCache(SecurityUtils.getTenantId());
+            systemCacheService.refreshDictCache();
         }
         return ok;
     }

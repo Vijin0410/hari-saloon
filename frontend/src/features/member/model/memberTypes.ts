@@ -99,7 +99,9 @@ export interface MemberBalanceLogVO {
   id: EntityId;
   memberId?: EntityId;
   balanceType?: number;
+  balanceType_text?: string;
   changeType?: number;
+  changeType_text?: string;
   beforeAmount?: number;
   changeAmount?: number;
   afterAmount?: number;

@@ -602,7 +602,7 @@ export function MemberPage() {
               {balanceLogs.map((l) => (
                 <tr key={l.id}>
                   <td className="px-2 py-2">{l.createTime}</td>
-                  <td className="px-2 py-2">{l.balanceType}/{l.changeType}</td>
+                  <td className="px-2 py-2">{l.balanceType_text ?? l.balanceType}/{l.changeType_text ?? l.changeType}</td>
                   <td className="px-2 py-2 text-right" style={{ color: (l.changeAmount ?? 0) >= 0 ? 'green' : 'red' }}>{l.changeAmount}</td>
                   <td className="px-2 py-2 text-right">{l.afterAmount}</td>
                   <td className="px-2 py-2">{l.operatorName || '-'}</td>

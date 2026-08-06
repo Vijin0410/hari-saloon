@@ -38,15 +38,15 @@ export const userApi = {
   },
 
   getForm(userId: EntityId): Promise<UserFormPayload> {
-    return get<UserFormPayload>(`/v1/users/form/${userId}`);
+    return get<UserFormPayload>(`/v1/users/${userId}/form`);
   },
 
   create(payload: UserFormPayload): Promise<void> {
-    return post<void, UserFormPayload>('/v1/users', payload);
+    return post<void, UserFormPayload>('/v1/users/add', payload);
   },
 
   update(userId: EntityId, payload: UserFormPayload): Promise<void> {
-    return put<void, UserFormPayload>(`/v1/users/update/${userId}`, payload);
+    return put<void, UserFormPayload>(`/v1/users/${userId}/update`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {
@@ -54,11 +54,11 @@ export const userApi = {
   },
 
   updateStatus(userId: EntityId, status: number): Promise<void> {
-    return patch<void>(`/v1/users/status/${userId}`, undefined, { params: { status } });
+    return patch<void>(`/v1/users/${userId}/status`, undefined, { params: { status } });
   },
 
   resetPassword(userId: EntityId, password: string): Promise<void> {
-    return patch<void>(`/v1/users/password/${userId}`, undefined, { params: { password } });
+    return patch<void>(`/v1/users/${userId}/password`, undefined, { params: { password } });
   },
 };
 
@@ -72,15 +72,15 @@ export const roleApi = {
   },
 
   getForm(roleId: EntityId): Promise<RoleFormPayload> {
-    return get<RoleFormPayload>(`/v1/roles/form/${roleId}`);
+    return get<RoleFormPayload>(`/v1/roles/${roleId}/form`);
   },
 
   create(payload: RoleFormPayload): Promise<void> {
-    return post<void, RoleFormPayload>('/v1/roles', payload);
+    return post<void, RoleFormPayload>('/v1/roles/add', payload);
   },
 
   update(roleId: EntityId, payload: RoleFormPayload): Promise<void> {
-    return put<void, RoleFormPayload>(`/v1/roles/update/${roleId}`, payload);
+    return put<void, RoleFormPayload>(`/v1/roles/${roleId}/update`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {
@@ -88,15 +88,15 @@ export const roleApi = {
   },
 
   updateStatus(roleId: EntityId, status: number): Promise<void> {
-    return put<void>(`/v1/roles/status/${roleId}`, undefined, { params: { status } });
+    return put<void>(`/v1/roles/${roleId}/status`, undefined, { params: { status } });
   },
 
   menuIds(roleId: EntityId, type: number): Promise<EntityId[]> {
-    return get<EntityId[]>(`/v1/roles/menuIds/${roleId}/${type}`);
+    return get<EntityId[]>(`/v1/roles/${roleId}/menuIds/${type}`);
   },
 
   updateMenus(roleId: EntityId, type: number, menuIds: EntityId[]): Promise<void> {
-    return put<void, EntityId[]>(`/v1/roles/menus/${roleId}/${type}`, menuIds);
+    return put<void, EntityId[]>(`/v1/roles/${roleId}/menus/${type}`, menuIds);
   },
 };
 
@@ -114,15 +114,15 @@ export const menuApi = {
   },
 
   getForm(menuId: EntityId): Promise<MenuFormPayload> {
-    return get<MenuFormPayload>(`/v1/menus/form/${menuId}`);
+    return get<MenuFormPayload>(`/v1/menus/${menuId}/form`);
   },
 
   create(payload: MenuFormPayload): Promise<void> {
-    return post<void, MenuFormPayload>('/v1/menus', payload);
+    return post<void, MenuFormPayload>('/v1/menus/add', payload);
   },
 
   update(menuId: EntityId, payload: MenuFormPayload): Promise<void> {
-    return put<void, MenuFormPayload>(`/v1/menus/update/${menuId}`, payload);
+    return put<void, MenuFormPayload>(`/v1/menus/${menuId}/update`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {
@@ -138,13 +138,13 @@ export const deptApi = {
     return get<DeptOption[]>('/v1/dept/options');
   },
   getForm(deptId: EntityId): Promise<DeptFormPayload> {
-    return get<DeptFormPayload>(`/v1/dept/form/${deptId}`);
+    return get<DeptFormPayload>(`/v1/dept/${deptId}/form`);
   },
   create(payload: DeptFormPayload): Promise<EntityId> {
-    return post<EntityId, DeptFormPayload>('/v1/dept', payload);
+    return post<EntityId, DeptFormPayload>('/v1/dept/add', payload);
   },
   update(deptId: EntityId, payload: DeptFormPayload): Promise<void> {
-    return put<void, DeptFormPayload>(`/v1/dept/update/${deptId}`, payload);
+    return put<void, DeptFormPayload>(`/v1/dept/${deptId}/update`, payload);
   },
   remove(ids: EntityId[]): Promise<void> {
     return deleteRequest<void>('/v1/dept/delete', { params: { ids: ids.join(',') } });
@@ -198,19 +198,19 @@ export const tenantApi = {
     return get<PageData<TenantPageVO>>('/v1/tenants/page', { params });
   },
   getForm(id: EntityId): Promise<TenantFormPayload> {
-    return get<TenantFormPayload>(`/v1/tenants/form/${id}`);
+    return get<TenantFormPayload>(`/v1/tenants/${id}/form`);
   },
   create(payload: TenantFormPayload): Promise<void> {
-    return post<void, TenantFormPayload>('/v1/tenants', payload);
+    return post<void, TenantFormPayload>('/v1/tenants/add', payload);
   },
   update(id: EntityId, payload: TenantFormPayload): Promise<void> {
-    return put<void, TenantFormPayload>(`/v1/tenants/update/${id}`, payload);
+    return put<void, TenantFormPayload>(`/v1/tenants/${id}/update`, payload);
   },
   remove(ids: EntityId[]): Promise<void> {
     return deleteRequest<void>('/v1/tenants/delete', { params: { ids: ids.join(',') } });
   },
   updateStatus(id: EntityId, status: number): Promise<void> {
-    return patch<void>(`/v1/tenants/status/${id}`, undefined, { params: { status } });
+    return patch<void>(`/v1/tenants/${id}/status`, undefined, { params: { status } });
   },
 
   /** 租户下拉（鉴权，value=租户ID）：ROOT 跨租户筛选用 */
@@ -272,16 +272,16 @@ export const storeApi = {
     return get<PageData<StorePageVO>>('/v1/stores/page', { params });
   },
   detail(id: EntityId): Promise<StoreFormPayload> {
-    return get<StoreFormPayload>(`/v1/stores/detail/${id}`);
+    return get<StoreFormPayload>(`/v1/stores/${id}/detail`);
   },
   options(tenantId?: EntityId): Promise<StoreOption[]> {
     return get<StoreOption[]>('/v1/stores/options', { params: tenantId ? { tenantId } : undefined });
   },
   create(payload: StoreFormPayload): Promise<EntityId> {
-    return post<EntityId, StoreFormPayload>('/v1/stores', payload);
+    return post<EntityId, StoreFormPayload>('/v1/stores/add', payload);
   },
   update(id: EntityId, payload: StoreFormPayload): Promise<void> {
-    return put<void, StoreFormPayload>(`/v1/stores/update/${id}`, payload);
+    return put<void, StoreFormPayload>(`/v1/stores/${id}/update`, payload);
   },
   remove(ids: EntityId[]): Promise<void> {
     return deleteRequest<void>('/v1/stores/delete', { params: { ids: ids.join(',') } });
@@ -331,13 +331,13 @@ export const memberApi = {
     return get<PageData<MemberPageVO>>('/v1/members/page', { params });
   },
   detail(id: EntityId): Promise<MemberFormPayload> {
-    return get<MemberFormPayload>(`/v1/members/detail/${id}`);
+    return get<MemberFormPayload>(`/v1/members/${id}/detail`);
   },
   create(payload: MemberFormPayload): Promise<EntityId> {
-    return post<EntityId, MemberFormPayload>('/v1/members', payload);
+    return post<EntityId, MemberFormPayload>('/v1/members/add', payload);
   },
   update(id: EntityId, payload: MemberFormPayload): Promise<void> {
-    return put<void, MemberFormPayload>(`/v1/members/update/${id}`, payload);
+    return put<void, MemberFormPayload>(`/v1/members/${id}/update`, payload);
   },
   remove(ids: EntityId[]): Promise<void> {
     return deleteRequest<void>('/v1/members/delete', { params: { ids: ids.join(',') } });
@@ -378,15 +378,15 @@ export const dictTypeApi = {
   },
 
   getForm(id: EntityId): Promise<DictTypeFormPayload> {
-    return get<DictTypeFormPayload>(`/v1/dict/types/form/${id}`);
+    return get<DictTypeFormPayload>(`/v1/dict/types/${id}/form`);
   },
 
   create(payload: DictTypeFormPayload): Promise<void> {
-    return post<void, DictTypeFormPayload>('/v1/dict/types', payload);
+    return post<void, DictTypeFormPayload>('/v1/dict/types/add', payload);
   },
 
   update(id: EntityId, payload: DictTypeFormPayload): Promise<void> {
-    return put<void, DictTypeFormPayload>(`/v1/dict/types/update/${id}`, payload);
+    return put<void, DictTypeFormPayload>(`/v1/dict/types/${id}/update`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {
@@ -400,15 +400,15 @@ export const dictApi = {
   },
 
   getForm(id: EntityId): Promise<DictFormPayload> {
-    return get<DictFormPayload>(`/v1/dict/form/${id}`);
+    return get<DictFormPayload>(`/v1/dict/${id}/form`);
   },
 
   create(payload: DictFormPayload): Promise<void> {
-    return post<void, DictFormPayload>('/v1/dict', payload);
+    return post<void, DictFormPayload>('/v1/dict/add', payload);
   },
 
   update(id: EntityId, payload: DictFormPayload): Promise<void> {
-    return put<void, DictFormPayload>(`/v1/dict/update/${id}`, payload);
+    return put<void, DictFormPayload>(`/v1/dict/${id}/update`, payload);
   },
 
   remove(ids: EntityId[]): Promise<void> {

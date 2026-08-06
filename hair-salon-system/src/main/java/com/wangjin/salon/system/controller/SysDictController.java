@@ -47,14 +47,14 @@ public class SysDictController {
     }
 
     @Operation(summary = "字典表单")
-    @GetMapping("/form/{id}")
+    @GetMapping("/{id}/form")
     @PreAuthorize("hasAuthority('system:dict:view')")
     public Result<DictForm> getDictForm(@PathVariable Long id) {
         return Result.success(dictService.getDictForm(id));
     }
 
     @Operation(summary = "新增字典")
-    @PostMapping
+    @PostMapping("/add")
     @PreventDuplicateResubmit
     @PreAuthorize("hasAuthority('system:dict:add')")
     public Result<Void> saveDict(@RequestBody DictForm form) {
@@ -62,7 +62,7 @@ public class SysDictController {
     }
 
     @Operation(summary = "修改字典")
-    @PutMapping("/update/{id}")
+    @PutMapping("/{id}/update")
     @PreAuthorize("hasAuthority('system:dict:edit')")
     public Result<Void> updateDict(@PathVariable Long id, @RequestBody DictForm form) {
         return Result.judge(dictService.updateDict(id, form));
@@ -98,14 +98,14 @@ public class SysDictController {
     }
 
     @Operation(summary = "字典类型表单")
-    @GetMapping("/types/form/{id}")
+    @GetMapping("/types/{id}/form")
     @PreAuthorize("hasAuthority('system:dict:view')")
     public Result<DictTypeForm> getDictTypeForm(@PathVariable Long id) {
         return Result.success(dictTypeService.getDictTypeForm(id));
     }
 
     @Operation(summary = "新增字典类型")
-    @PostMapping("/types")
+    @PostMapping("/types/add")
     @PreventDuplicateResubmit
     @PreAuthorize("hasAuthority('system:dict:add')")
     public Result<Void> saveDictType(@RequestBody DictTypeForm form) {
@@ -113,7 +113,7 @@ public class SysDictController {
     }
 
     @Operation(summary = "修改字典类型")
-    @PutMapping("/types/update/{id}")
+    @PutMapping("/types/{id}/update")
     @PreAuthorize("hasAuthority('system:dict:edit')")
     public Result<Void> updateDictType(@PathVariable Long id, @RequestBody DictTypeForm form) {
         return Result.judge(dictTypeService.updateDictType(id, form));

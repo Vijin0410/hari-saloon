@@ -50,14 +50,14 @@ public class SalonStoreController {
     }
 
     @Operation(summary = "门店详情")
-    @GetMapping("/detail/{id}")
+    @GetMapping("/{id}/detail")
     @PreAuthorize("hasAuthority('biz:store:view')")
     public Result<StoreDetailVO> detail(@PathVariable Long id) {
         return Result.success(storeService.getDetail(id));
     }
 
     @Operation(summary = "新增门店")
-    @PostMapping
+    @PostMapping("/add")
     @PreventDuplicateResubmit
     @PreAuthorize("hasAuthority('biz:store:add')")
     public Result<Long> save(@Valid @RequestBody StoreForm form) {
@@ -65,7 +65,7 @@ public class SalonStoreController {
     }
 
     @Operation(summary = "修改门店")
-    @PutMapping("/update/{id}")
+    @PutMapping("/{id}/update")
     @PreAuthorize("hasAuthority('biz:store:edit')")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody StoreForm form) {
         return Result.judge(storeService.updateStore(id, form));

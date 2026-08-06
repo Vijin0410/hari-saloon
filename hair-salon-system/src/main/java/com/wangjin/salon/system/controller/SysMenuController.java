@@ -55,14 +55,14 @@ public class SysMenuController {
     }
 
     @Operation(summary = "菜单表单")
-    @GetMapping("/form/{id}")
+    @GetMapping("/{id}/form")
     @PreAuthorize("hasAuthority('system:menu:view')")
     public Result<MenuForm> getMenuForm(@PathVariable Long id) {
         return Result.success(menuService.getMenuForm(id));
     }
 
     @Operation(summary = "新增菜单")
-    @PostMapping
+    @PostMapping("/add")
     @PreventDuplicateResubmit
     @PreAuthorize("hasAuthority('system:menu:add')")
     public Result<Void> addMenu(@RequestBody MenuForm menuForm) {
@@ -70,7 +70,7 @@ public class SysMenuController {
     }
 
     @Operation(summary = "修改菜单")
-    @PutMapping("/update/{id}")
+    @PutMapping("/{id}/update")
     @PreAuthorize("hasAuthority('system:menu:edit')")
     public Result<Void> updateMenu(@PathVariable Long id, @RequestBody MenuForm menuForm) {
         menuForm.setId(id);

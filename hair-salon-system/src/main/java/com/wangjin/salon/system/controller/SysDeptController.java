@@ -47,14 +47,14 @@ public class SysDeptController {
     }
 
     @Operation(summary = "部门表单")
-    @GetMapping("/form/{deptId}")
+    @GetMapping("/{deptId}/form")
     @PreAuthorize("hasAuthority('system:dept:view')")
     public Result<DeptForm> getDeptForm(@PathVariable Long deptId) {
         return Result.success(deptService.getDeptForm(deptId));
     }
 
     @Operation(summary = "新增部门")
-    @PostMapping
+    @PostMapping("/add")
     @PreventDuplicateResubmit
     @PreAuthorize("hasAuthority('system:dept:add')")
     public Result<Long> saveDept(@Valid @RequestBody DeptForm form) {
@@ -62,7 +62,7 @@ public class SysDeptController {
     }
 
     @Operation(summary = "修改部门")
-    @PutMapping("/update/{deptId}")
+    @PutMapping("/{deptId}/update")
     @PreAuthorize("hasAuthority('system:dept:edit')")
     public Result<Long> updateDept(@PathVariable Long deptId, @Valid @RequestBody DeptForm form) {
         return Result.success(deptService.updateDept(deptId, form));

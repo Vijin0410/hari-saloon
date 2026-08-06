@@ -50,8 +50,10 @@
 - 存量 `GET .../form` → `Result<XxxForm>` **不得作为新代码范本**。
 - 路径：业务 `/api/v1/...`，认证 `/auth`；类上 `@Tag`，方法 `@Operation(summary=…)`。
 - 路径变量 ID **禁止直接单独挂在资源后**（反例：`PUT /api/v1/users/{id}`、`DELETE /api/v1/files/{id}`）。
-- 动作/视图类路径首选放在 `{id}` 前：表单 `/form/{id}`，详情 `/detail/{id}`，修改 `/update/{id}`，删除 `/delete/{id}` 或批量 `/delete?ids=`，状态 `/status/{id}`，重置密码 `/password/{id}`。
-- 仅当后半段确实是 `{id}` 所定位资源的子资源/关联资源时，才使用 `/{id}/xxx`，且新代码应优先确认是否能表达为动作前置路径。
+- 动作/视图类路径，`{id}` 放在资源与动作之间（`/{id}/动作`），便于 F12 网络面板按资源 ID 区分请求：表单 `/{id}/form`，详情 `/{id}/detail`，修改 `/{id}/update`，状态 `/{id}/status`，重置密码 `/{id}/password`；删除批量 `/delete?ids=`，单条 `/{id}/delete`。
+- 新增统一 `POST /add`（不用裸 `POST` 根路径）；列表分页 `GET /page`，下拉 `GET /options`，树/全量列表 `GET` 根。
+- 仅当后半段是 `{id}` 所定位资源的子资源/关联资源时，才使用 `/{id}/子资源`（如 `/api/v1/members/{id}/tags` 会员的标签）。
+- 多级资源（如字典类型 `/dict/types`）的子动作同样 `{id}` 居中：`/types/{id}/form`、`/types/add`、`/types/{id}/update`。
 - 写接口按需 `@PreventDuplicateResubmit`；字典字段 VO 上 `@Dict`，Controller 方法 `@QueryDict`。
 - 常用：`Result.success` / `Result.judge` / `PageResult.success(records, total)`。
 

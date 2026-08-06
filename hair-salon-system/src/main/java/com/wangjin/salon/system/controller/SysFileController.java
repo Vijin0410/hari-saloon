@@ -66,7 +66,7 @@ public class SysFileController {
     }
 
     @Operation(summary = "删除文件（按ID，联动MinIO，限本人/管理员）")
-    @DeleteMapping("/delete/{id}")
+    @DeleteMapping("/{id}/delete")
     @PreAuthorize("isAuthenticated()")
     public Result<Boolean> delete(@Parameter(description = "文件ID") @PathVariable Long id) {
         return Result.success(sysFileService.delete(id));
@@ -85,7 +85,7 @@ public class SysFileController {
     }
 
     @Operation(summary = "获取可访问URL（私有桶统一预签名：公开不校验归属，私有校验归属）")
-    @GetMapping("/url/{id}")
+    @GetMapping("/{id}/url")
     @PreAuthorize("isAuthenticated()")
     public Result<String> accessibleUrl(@Parameter(description = "文件ID") @PathVariable Long id) {
         return Result.success(sysFileService.getAccessibleUrl(id));

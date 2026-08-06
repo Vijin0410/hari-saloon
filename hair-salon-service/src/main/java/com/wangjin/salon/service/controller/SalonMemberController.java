@@ -42,14 +42,14 @@ public class SalonMemberController {
     }
 
     @Operation(summary = "会员详情")
-    @GetMapping("/detail/{id}")
+    @GetMapping("/{id}/detail")
     @PreAuthorize("hasAuthority('biz:member:view')")
     public Result<MemberDetailVO> detail(@PathVariable Long id) {
         return Result.success(memberService.getDetail(id));
     }
 
     @Operation(summary = "新增会员")
-    @PostMapping
+    @PostMapping("/add")
     @PreventDuplicateResubmit
     @PreAuthorize("hasAuthority('biz:member:add')")
     public Result<Long> save(@Valid @RequestBody MemberForm form) {
@@ -57,7 +57,7 @@ public class SalonMemberController {
     }
 
     @Operation(summary = "修改会员")
-    @PutMapping("/update/{id}")
+    @PutMapping("/{id}/update")
     @PreAuthorize("hasAuthority('biz:member:edit')")
     public Result<Void> update(@PathVariable Long id, @Valid @RequestBody MemberForm form) {
         return Result.judge(memberService.updateMember(id, form));

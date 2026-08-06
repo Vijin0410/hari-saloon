@@ -45,7 +45,7 @@ public class SysUserController {
     }
 
     @Operation(summary = "新增用户")
-    @PostMapping
+    @PostMapping("/add")
     @PreventDuplicateResubmit
     @PreAuthorize("hasAuthority('system:user:add')")
     public Result<Void> saveUser(@RequestBody @Valid UserForm userForm) {
@@ -53,14 +53,14 @@ public class SysUserController {
     }
 
     @Operation(summary = "用户表单")
-    @GetMapping("/form/{userId}")
+    @GetMapping("/{userId}/form")
     @PreAuthorize("hasAuthority('system:user:view')")
     public Result<UserForm> getUserForm(@PathVariable Long userId) {
         return Result.success(userService.getUserFormData(userId));
     }
 
     @Operation(summary = "修改用户")
-    @PutMapping("/update/{userId}")
+    @PutMapping("/{userId}/update")
     @PreAuthorize("hasAuthority('system:user:edit')")
     public Result<Void> updateUser(@PathVariable Long userId, @RequestBody @Valid UserForm userForm) {
         return Result.judge(userService.updateUser(userId, userForm));
@@ -74,7 +74,7 @@ public class SysUserController {
     }
 
     @Operation(summary = "重置密码（管理员）")
-    @PatchMapping("/password/{userId}")
+    @PatchMapping("/{userId}/password")
     @PreAuthorize("hasAuthority('system:user:password')")
     public Result<Void> updatePassword(@PathVariable Long userId, @RequestParam String password) {
         return Result.judge(userService.updatePassword(userId, password));
@@ -88,7 +88,7 @@ public class SysUserController {
     }
 
     @Operation(summary = "修改状态")
-    @PatchMapping("/status/{userId}")
+    @PatchMapping("/{userId}/status")
     @PreAuthorize("hasAuthority('system:user:status')")
     public Result<Void> updateUserStatus(@PathVariable Long userId, @RequestParam Integer status) {
         return Result.judge(userService.updateUserStatus(userId, status));

@@ -5,9 +5,13 @@ import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
 import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.salon.service.model.form.MemberForm;
+import com.wangjin.salon.service.model.form.MemberProfileForm;
 import com.wangjin.salon.service.model.query.MemberPageQuery;
 import com.wangjin.salon.service.model.vo.MemberDetailVO;
 import com.wangjin.salon.service.model.vo.MemberPageVO;
+import com.wangjin.salon.service.model.vo.MemberProfileVO;
+import com.wangjin.salon.service.model.vo.MemberTagOptionVO;
+import com.wangjin.salon.service.service.MemberProfileService;
 import com.wangjin.salon.service.service.SalonMemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Tag(name = "11.会员接口")
 @RestController
 @RequestMapping("/api/v1/members")
@@ -31,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SalonMemberController {
 
     private final SalonMemberService memberService;
+    private final MemberProfileService memberProfileService;
 
     @Operation(summary = "会员分页")
     @GetMapping("/page")
@@ -68,5 +75,37 @@ public class SalonMemberController {
     @PreAuthorize("hasAuthority('biz:member:delete')")
     public Result<Void> delete(@RequestParam String ids) {
         return Result.judge(memberService.deleteMembers(ids));
+    }
+
+    @Operation(summary = "会员标签")
+    @GetMapping("/{id}/tags")
+    @PreAuthorize("hasAuthority('biz:member:view')")
+    public Result<List<MemberTagOptionVO>> tags(@PathVariable Long id) {
+        return Result.success(memberService.getMemberTags(id));
+    }
+
+    @Operation(summary = "设置会员标签")
+    @PutMapping("/{id}/tags")
+    @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('biz:member:tag')")
+    public Result<Void> setTags(@PathVariable Long id, @RequestBody List<Long> tagIds) {
+        memberService.setMemberTags(id, tagIds);
+        return Result.success();
+    }
+
+    @Operation(summary = "会员备注")
+    @GetMapping("/{id}/profile")
+    @PreAuthorize("hasAuthority('biz:member:view')")
+    public Result<MemberProfileVO> profile(@PathVariable Long id) {
+        return Result.success(memberProfileService.get(id));
+    }
+
+    @Operation(summary = "编辑会员备注")
+    @PutMapping("/{id}/profile")
+    @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('biz:member:edit')")
+    public Result<Void> updateProfile(@PathVariable Long id, @Valid @RequestBody MemberProfileForm form) {
+        memberProfileService.update(id, form);
+        return Result.success();
     }
 }

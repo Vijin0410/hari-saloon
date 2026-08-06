@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wangjin.salon.service.mapper.SalonMemberPointLogMapper">
+
+    <select id="getLogPage" resultType="com.wangjin.salon.service.model.vo.MemberPointLogVO">
+        SELECT l.id, l.member_id, l.change_type, l.before_points, l.change_points,
+               l.after_points, l.expire_time, l.biz_no, u.nickname AS operator_name, l.remark, l.create_time
+        FROM salon_member_point_log l
+        LEFT JOIN sys_user u ON u.id = l.operator_id AND u.deleted = 0
+        <where>
+            l.deleted = 0
+            <if test="q.memberId != null">
+                AND l.member_id = #{q.memberId}
+            </if>
+            <if test="q.storeId != null">
+                AND l.store_id = #{q.storeId}
+            </if>
+            <if test="q.changeType != null">
+                AND l.change_type = #{q.changeType}
+            </if>
+            <if test="q.startTime != null">
+                AND l.create_time &gt;= #{q.startTime}
+            </if>
+            <if test="q.endTime != null">
+                AND l.create_time &lt;= #{q.endTime}
+            </if>
+        </where>
+        ORDER BY l.create_time DESC
+    </select>
+</mapper>

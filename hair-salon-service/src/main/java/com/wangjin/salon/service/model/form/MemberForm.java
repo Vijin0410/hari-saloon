@@ -29,12 +29,8 @@ public class MemberForm {
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate birthday;
 
-    @Schema(description = "会员等级")
-    private Integer level;
-    @Schema(description = "余额")
-    private BigDecimal balance;
-    @Schema(description = "积分")
-    private Integer points;
+    @Schema(description = "会员等级ID（关联salon_member_level）")
+    private Long levelId;
     @Schema(description = "来源（字典 member_source）")
     private String source;
     @Schema(description = "状态：1启用 0禁用")

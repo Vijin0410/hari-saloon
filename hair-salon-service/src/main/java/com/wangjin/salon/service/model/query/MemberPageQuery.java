@@ -20,6 +20,10 @@ public class MemberPageQuery extends BasePageQuery {
     private Long tenantId;
     @Schema(description = "门店ID（前端按门店筛选）")
     private Long storeId;
+    @Schema(description = "会员等级ID")
+    private Long levelId;
+    @Schema(description = "标签ID")
+    private Long tagId;
 
     @Schema(hidden = true, description = "全部门店范围")
     private Boolean allStoreScope;

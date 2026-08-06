@@ -15,6 +15,8 @@ import {
   ShoppingBag,
   Store,
   Sun,
+  Medal,
+  Tag,
   UserRound,
   Users,
   type LucideIcon,
@@ -71,6 +73,8 @@ const frontendPathByPermission: Record<string, string> = {
   'system:tenant:list': '/system/tenants',
   'biz:store:list': '/biz/stores',
   'biz:member:list': '/biz/members',
+  'biz:memberLevel:list': '/biz/members/level',
+  'biz:memberTag:list': '/biz/members/tag',
 };
 
 const knownFrontendPaths = new Set<string>(Object.values(frontendPathByPermission));
@@ -84,6 +88,8 @@ const iconByPermission: Record<string, IconType> = {
   'system:tenant:list': Building2,
   'biz:store:list': Store,
   'biz:member:list': UserRound,
+  'biz:memberLevel:list': Medal,
+  'biz:memberTag:list': Tag,
 };
 
 const iconByMetaName: Record<string, IconType> = {
@@ -99,6 +105,8 @@ const iconByMetaName: Record<string, IconType> = {
   shop: ShoppingBag,
   store: Store,
   member: UserRound,
+  medal: Medal,
+  tag: Tag,
 };
 
 function isPathActive(path: string, pathname: string): boolean {

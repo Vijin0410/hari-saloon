@@ -34,6 +34,7 @@ export function TenantPage() {
     status: 1,
     adminUsername: 'admin',
     store: { name: '', code: '', phone: '', address: '' },
+    syncModules: ['dict', 'memberLevel', 'memberTag'],
   });
   const [saving, setSaving] = useState(false);
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
@@ -58,7 +59,7 @@ export function TenantPage() {
     try {
       await tenantApi.create(form);
       setOpen(false);
-      setForm({ name: '', code: '', status: 1, adminUsername: 'admin', store: { name: '', code: '', phone: '', address: '' } });
+      setForm({ name: '', code: '', status: 1, adminUsername: 'admin', store: { name: '', code: '', phone: '', address: '' }, syncModules: ['dict', 'memberLevel', 'memberTag'] });
       await load();
     } finally {
       setSaving(false);
@@ -225,6 +226,33 @@ export function TenantPage() {
                 value={form.store?.address ?? ''}
               />
             </Field>
+          </div>
+        </div>
+
+        <div className="space-y-2 border-t border-salon-line pt-3 dark:border-zinc-800">
+          <div className="text-sm font-medium text-salon-ink dark:text-white">同步通用数据（从默认租户复制到新租户）</div>
+          <div className="grid gap-2 md:grid-cols-3">
+            {([['dict', '字典'], ['memberLevel', '会员等级'], ['memberTag', '会员标签']] as const).map(([key, label]) => {
+              const checked = (form.syncModules ?? []).includes(key);
+              return (
+                <label
+                  key={key}
+                  className="flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-salon-line dark:hover:border-zinc-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() =>
+                      setForm((f) => {
+                        const cur = f.syncModules ?? [];
+                        return { ...f, syncModules: checked ? cur.filter((m) => m !== key) : [...cur, key] };
+                      })
+                    }
+                  />
+                  <span>{label}</span>
+                </label>
+              );
+            })}
           </div>
         </div>
       </Modal>

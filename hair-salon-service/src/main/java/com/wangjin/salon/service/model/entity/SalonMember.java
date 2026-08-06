@@ -28,8 +28,8 @@ public class SalonMember extends BaseTenantEntity<Long> {
     /** 生日 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private LocalDate birthday;
-    /** 会员等级 */
-    private Integer level;
+    /** 会员等级ID（关联salon_member_level，空=普通，建档时由service填默认等级） */
+    private Long levelId;
     /** 余额 */
     private BigDecimal balance;
     /** 积分 */

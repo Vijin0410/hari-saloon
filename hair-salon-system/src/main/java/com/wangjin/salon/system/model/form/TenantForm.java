@@ -52,4 +52,8 @@ public class TenantForm {
     /** 开通时联合创建的初始门店（可选；为 null 或 name 空白则不建门店，仅新增生效，编辑不回显） */
     @Schema(description = "开通时联合创建的初始门店（可选，仅新增）")
     private InitialStoreInfo store;
+
+    /** 开通时同步的通用数据模块（仅新增；可选值 dict/memberLevel/memberTag；空则默认全部） */
+    @Schema(description = "开通时同步的通用数据模块（仅新增；dict/memberLevel/memberTag，空则默认全部）")
+    private java.util.List<String> syncModules;
 }

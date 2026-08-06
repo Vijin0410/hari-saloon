@@ -191,6 +191,8 @@ export interface TenantFormPayload {
   adminPassword?: string;
   /** 开通时联合创建的初始门店（可选；name 空则不建门店，仅新增） */
   store?: InitialStoreInfoPayload;
+  /** 开通时同步的通用数据模块（仅新增；dict/memberLevel/memberTag，空则默认全部） */
+  syncModules?: string[];
 }
 
 export const tenantApi = {

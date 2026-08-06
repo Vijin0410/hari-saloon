@@ -331,7 +331,7 @@ CREATE TABLE IF NOT EXISTS salon_member (
     phone           varchar(20),
     gender          int4,
     birthday        date,
-    level           int4         DEFAULT 0,
+    level_id        int8,
     balance         numeric(12, 2) DEFAULT 0,
     points          int4         DEFAULT 0,
     source          varchar(32),
@@ -353,9 +353,9 @@ COMMENT ON COLUMN salon_member.name IS '会员姓名';
 COMMENT ON COLUMN salon_member.phone IS '手机号';
 COMMENT ON COLUMN salon_member.gender IS '性别（1=男 2=女）';
 COMMENT ON COLUMN salon_member.birthday IS '生日';
-COMMENT ON COLUMN salon_member.level IS '会员等级';
-COMMENT ON COLUMN salon_member.balance IS '余额';
-COMMENT ON COLUMN salon_member.points IS '积分';
+COMMENT ON COLUMN salon_member.level_id IS '会员等级ID（关联salon_member_level，空=普通，建档时由service填默认等级）';
+COMMENT ON COLUMN salon_member.balance IS '可用总余额（冗余=本金+赠送-冻结，真源在salon_member_balance）';
+COMMENT ON COLUMN salon_member.points IS '可用总积分（冗余，真源由salon_member_point_log汇总）';
 COMMENT ON COLUMN salon_member.source IS '会员来源';
 COMMENT ON COLUMN salon_member.status IS '状态（1=启用 0=禁用）';
 COMMENT ON COLUMN salon_member.remark IS '备注';
@@ -411,3 +411,269 @@ COMMENT ON COLUMN sys_file.create_time IS '创建时间';
 COMMENT ON COLUMN sys_file.update_by IS '更新人ID';
 COMMENT ON COLUMN sys_file.update_time IS '更新时间';
 COMMENT ON COLUMN sys_file.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- ===== P1 会员资产闭环 =====
+
+-- 会员等级配置（租户级，影响折扣/积分倍率/充值优惠/权益）
+CREATE TABLE IF NOT EXISTS salon_member_level (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    name                varchar(64)   NOT NULL,
+    level_no            int4          NOT NULL,
+    service_discount    numeric(3, 2),
+    goods_discount      numeric(3, 2),
+    point_rate          numeric(3, 2) DEFAULT 1.00,
+    recharge_gift_rate  numeric(5, 2) DEFAULT 0.00,
+    upgrade_threshold   numeric(12, 2),
+    rights              jsonb,
+    sort                int4          DEFAULT 0,
+    status              int4          DEFAULT 1,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_member_level_no ON salon_member_level (tenant_id, level_no) WHERE deleted = 0;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_member_level_name ON salon_member_level (tenant_id, name) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_member_level_sort ON salon_member_level (tenant_id, sort) WHERE deleted = 0;
+COMMENT ON TABLE salon_member_level IS '会员等级配置（租户级）';
+COMMENT ON COLUMN salon_member_level.id IS '等级ID';
+COMMENT ON COLUMN salon_member_level.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_member_level.name IS '等级名称（如普通/银卡/金卡/钻石）';
+COMMENT ON COLUMN salon_member_level.level_no IS '等级序号（0=普通，数值越大等级越高，用于比较）';
+COMMENT ON COLUMN salon_member_level.service_discount IS '服务折扣（0.00-1.00，1=不打折，NULL=不参与折扣）';
+COMMENT ON COLUMN salon_member_level.goods_discount IS '商品折扣（0.00-1.00，1=不打折，NULL=不参与折扣）';
+COMMENT ON COLUMN salon_member_level.point_rate IS '积分倍率（1.00=正常，1.50=1.5倍）';
+COMMENT ON COLUMN salon_member_level.recharge_gift_rate IS '充值赠送率（0.10=充100送10），等级默认值，P4充值活动可叠加';
+COMMENT ON COLUMN salon_member_level.upgrade_threshold IS '升级门槛（累计消费金额），NULL=不自动升级';
+COMMENT ON COLUMN salon_member_level.rights IS '专属权益（JSON，如生日礼包、专属项目）';
+COMMENT ON COLUMN salon_member_level.sort IS '排序';
+COMMENT ON COLUMN salon_member_level.status IS '状态（1=启用 0=禁用）';
+COMMENT ON COLUMN salon_member_level.remark IS '备注';
+COMMENT ON COLUMN salon_member_level.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_member_level.create_time IS '创建时间';
+COMMENT ON COLUMN salon_member_level.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_member_level.update_time IS '更新时间';
+COMMENT ON COLUMN salon_member_level.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 会员余额（1:1 salon_member；本金/赠送/冻结分桶 + 乐观锁）
+CREATE TABLE IF NOT EXISTS salon_member_balance (
+    id                  int8          NOT NULL PRIMARY KEY,
+    member_id           int8          NOT NULL,
+    tenant_id           int8          NOT NULL,
+    principal_balance   numeric(12, 2) DEFAULT 0,
+    gift_balance        numeric(12, 2) DEFAULT 0,
+    frozen_balance      numeric(12, 2) DEFAULT 0,
+    last_recharge_time  timestamp,
+    last_consume_time   timestamp,
+    version             int4          DEFAULT 0,
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_member_balance_member ON salon_member_balance (tenant_id, member_id) WHERE deleted = 0;
+COMMENT ON TABLE salon_member_balance IS '会员余额（1:1 salon_member）';
+COMMENT ON COLUMN salon_member_balance.id IS '余额ID';
+COMMENT ON COLUMN salon_member_balance.member_id IS '会员ID';
+COMMENT ON COLUMN salon_member_balance.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_member_balance.principal_balance IS '本金余额';
+COMMENT ON COLUMN salon_member_balance.gift_balance IS '赠送余额';
+COMMENT ON COLUMN salon_member_balance.frozen_balance IS '冻结金额（可用=本金+赠送-冻结）';
+COMMENT ON COLUMN salon_member_balance.last_recharge_time IS '最近充值时间';
+COMMENT ON COLUMN salon_member_balance.last_consume_time IS '最近消费时间';
+COMMENT ON COLUMN salon_member_balance.version IS '乐观锁版本号';
+COMMENT ON COLUMN salon_member_balance.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_member_balance.create_time IS '创建时间';
+COMMENT ON COLUMN salon_member_balance.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_member_balance.update_time IS '更新时间';
+COMMENT ON COLUMN salon_member_balance.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 会员余额流水（每次变动必记；按桶分行：一次充值产生本金/赠送两条）
+CREATE TABLE IF NOT EXISTS salon_member_balance_log (
+    id              int8          NOT NULL PRIMARY KEY,
+    member_id       int8          NOT NULL,
+    tenant_id       int8          NOT NULL,
+    store_id        int8,
+    balance_type    int4          NOT NULL,
+    change_type     int4          NOT NULL,
+    before_amount   numeric(12, 2) NOT NULL,
+    change_amount   numeric(12, 2) NOT NULL,
+    after_amount    numeric(12, 2) NOT NULL,
+    biz_type        varchar(32),
+    biz_id          int8,
+    biz_no          varchar(64),
+    operator_id     int8,
+    remark          varchar(255),
+    create_by       int8,
+    create_time     timestamp,
+    update_by       int8,
+    update_time     timestamp,
+    deleted         int4          DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_member_balance_log_member ON salon_member_balance_log (tenant_id, member_id, create_time) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_member_balance_log_biz ON salon_member_balance_log (tenant_id, biz_type, biz_id) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_member_balance_log_store ON salon_member_balance_log (tenant_id, store_id, create_time) WHERE deleted = 0;
+COMMENT ON TABLE salon_member_balance_log IS '会员余额流水';
+COMMENT ON COLUMN salon_member_balance_log.id IS '流水ID';
+COMMENT ON COLUMN salon_member_balance_log.member_id IS '会员ID';
+COMMENT ON COLUMN salon_member_balance_log.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_member_balance_log.store_id IS '发生门店ID（冗余，便于门店维度查询）';
+COMMENT ON COLUMN salon_member_balance_log.balance_type IS '余额桶（1=本金 2=赠送 3=冻结）';
+COMMENT ON COLUMN salon_member_balance_log.change_type IS '业务类型（1=充值 2=充值赠送 3=消费扣款 4=退款退回 5=手工调整 6=余额转入 7=余额转出 8=冻结 9=解冻）';
+COMMENT ON COLUMN salon_member_balance_log.before_amount IS '变动前金额（该桶）';
+COMMENT ON COLUMN salon_member_balance_log.change_amount IS '变动金额（正=增加 负=减少）';
+COMMENT ON COLUMN salon_member_balance_log.after_amount IS '变动后金额（该桶）';
+COMMENT ON COLUMN salon_member_balance_log.biz_type IS '关联业务类型（RECHARGE/ORDER/REFUND/MANUAL/TRANSFER）';
+COMMENT ON COLUMN salon_member_balance_log.biz_id IS '关联业务单据ID（充值单/订单/退款单）';
+COMMENT ON COLUMN salon_member_balance_log.biz_no IS '关联业务单号';
+COMMENT ON COLUMN salon_member_balance_log.operator_id IS '操作人ID';
+COMMENT ON COLUMN salon_member_balance_log.remark IS '备注';
+COMMENT ON COLUMN salon_member_balance_log.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_member_balance_log.create_time IS '创建时间';
+COMMENT ON COLUMN salon_member_balance_log.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_member_balance_log.update_time IS '更新时间';
+COMMENT ON COLUMN salon_member_balance_log.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 会员积分流水（获得类带 expire_time/remaining_points 兼作批次，支持过期清零）
+CREATE TABLE IF NOT EXISTS salon_member_point_log (
+    id                int8         NOT NULL PRIMARY KEY,
+    member_id         int8         NOT NULL,
+    tenant_id         int8         NOT NULL,
+    store_id          int8,
+    change_type       int4         NOT NULL,
+    before_points     int4         NOT NULL,
+    change_points     int4         NOT NULL,
+    after_points      int4         NOT NULL,
+    expire_time       timestamp,
+    remaining_points  int4,
+    source_log_id     int8,
+    biz_type          varchar(32),
+    biz_id            int8,
+    biz_no            varchar(64),
+    operator_id       int8,
+    remark            varchar(255),
+    create_by         int8,
+    create_time       timestamp,
+    update_by         int8,
+    update_time       timestamp,
+    deleted           int4         DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_member_point_log_member ON salon_member_point_log (tenant_id, member_id, create_time) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_member_point_log_biz ON salon_member_point_log (tenant_id, biz_type, biz_id) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_member_point_log_expire ON salon_member_point_log (tenant_id, expire_time) WHERE deleted = 0 AND remaining_points > 0;
+COMMENT ON TABLE salon_member_point_log IS '会员积分流水';
+COMMENT ON COLUMN salon_member_point_log.id IS '流水ID';
+COMMENT ON COLUMN salon_member_point_log.member_id IS '会员ID';
+COMMENT ON COLUMN salon_member_point_log.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_member_point_log.store_id IS '发生门店ID（冗余，便于门店维度查询）';
+COMMENT ON COLUMN salon_member_point_log.change_type IS '变动类型（1=消费获得 2=充值获得 3=活动赠送 4=手工调整 5=抵扣消费 6=兑换商品 7=手工扣减 8=过期清零）';
+COMMENT ON COLUMN salon_member_point_log.before_points IS '变动前积分';
+COMMENT ON COLUMN salon_member_point_log.change_points IS '变动积分（正=增加 负=减少）';
+COMMENT ON COLUMN salon_member_point_log.after_points IS '变动后积分';
+COMMENT ON COLUMN salon_member_point_log.expire_time IS '过期时间（仅获得类有效，标识该批次过期点）';
+COMMENT ON COLUMN salon_member_point_log.remaining_points IS '批次剩余可扣积分（仅获得类有效，FIFO消费/过期时递减）';
+COMMENT ON COLUMN salon_member_point_log.source_log_id IS '被扣减的获得批次流水ID（消费/过期类指向源批次）';
+COMMENT ON COLUMN salon_member_point_log.biz_type IS '关联业务类型（ORDER/RECHARGE/ACTIVITY/MANUAL/EXCHANGE）';
+COMMENT ON COLUMN salon_member_point_log.biz_id IS '关联业务单据ID';
+COMMENT ON COLUMN salon_member_point_log.biz_no IS '关联业务单号';
+COMMENT ON COLUMN salon_member_point_log.operator_id IS '操作人ID';
+COMMENT ON COLUMN salon_member_point_log.remark IS '备注';
+COMMENT ON COLUMN salon_member_point_log.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_member_point_log.create_time IS '创建时间';
+COMMENT ON COLUMN salon_member_point_log.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_member_point_log.update_time IS '更新时间';
+COMMENT ON COLUMN salon_member_point_log.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 会员标签字典（租户级）
+CREATE TABLE IF NOT EXISTS salon_member_tag (
+    id              int8          NOT NULL PRIMARY KEY,
+    tenant_id       int8          NOT NULL,
+    name            varchar(32)   NOT NULL,
+    color           varchar(16),
+    sort            int4          DEFAULT 0,
+    status          int4          DEFAULT 1,
+    remark          varchar(255),
+    create_by       int8,
+    create_time     timestamp,
+    update_by       int8,
+    update_time     timestamp,
+    deleted         int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_member_tag_name ON salon_member_tag (tenant_id, name) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_member_tag_sort ON salon_member_tag (tenant_id, sort) WHERE deleted = 0;
+COMMENT ON TABLE salon_member_tag IS '会员标签字典（租户级）';
+COMMENT ON COLUMN salon_member_tag.id IS '标签ID';
+COMMENT ON COLUMN salon_member_tag.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_member_tag.name IS '标签名称';
+COMMENT ON COLUMN salon_member_tag.color IS '标签颜色（前端展示）';
+COMMENT ON COLUMN salon_member_tag.sort IS '排序';
+COMMENT ON COLUMN salon_member_tag.status IS '状态（1=启用 0=禁用）';
+COMMENT ON COLUMN salon_member_tag.remark IS '备注';
+COMMENT ON COLUMN salon_member_tag.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_member_tag.create_time IS '创建时间';
+COMMENT ON COLUMN salon_member_tag.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_member_tag.update_time IS '更新时间';
+COMMENT ON COLUMN salon_member_tag.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 会员-标签关联
+CREATE TABLE IF NOT EXISTS salon_member_tag_rel (
+    id              int8          NOT NULL PRIMARY KEY,
+    member_id       int8          NOT NULL,
+    tag_id          int8          NOT NULL,
+    tenant_id       int8          NOT NULL,
+    create_by       int8,
+    create_time     timestamp,
+    update_by       int8,
+    update_time     timestamp,
+    deleted         int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_member_tag_rel ON salon_member_tag_rel (tenant_id, member_id, tag_id) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_member_tag_rel_tag ON salon_member_tag_rel (tenant_id, tag_id) WHERE deleted = 0;
+COMMENT ON TABLE salon_member_tag_rel IS '会员-标签关联';
+COMMENT ON COLUMN salon_member_tag_rel.id IS '关联ID';
+COMMENT ON COLUMN salon_member_tag_rel.member_id IS '会员ID';
+COMMENT ON COLUMN salon_member_tag_rel.tag_id IS '标签ID';
+COMMENT ON COLUMN salon_member_tag_rel.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_member_tag_rel.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_member_tag_rel.create_time IS '创建时间';
+COMMENT ON COLUMN salon_member_tag_rel.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_member_tag_rel.update_time IS '更新时间';
+COMMENT ON COLUMN salon_member_tag_rel.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 会员结构化备注（1:1 salon_member）
+CREATE TABLE IF NOT EXISTS salon_member_profile (
+    id                  int8          NOT NULL PRIMARY KEY,
+    member_id           int8          NOT NULL,
+    tenant_id           int8          NOT NULL,
+    hair_quality        varchar(64),
+    preferred_style     varchar(128),
+    preferred_stylist_id int8,
+    allergy             varchar(255),
+    taboo               varchar(255),
+    remark              varchar(500),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_member_profile_member ON salon_member_profile (tenant_id, member_id) WHERE deleted = 0;
+COMMENT ON TABLE salon_member_profile IS '会员结构化备注（1:1 salon_member）';
+COMMENT ON COLUMN salon_member_profile.id IS '备注ID';
+COMMENT ON COLUMN salon_member_profile.member_id IS '会员ID';
+COMMENT ON COLUMN salon_member_profile.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_member_profile.hair_quality IS '发质情况';
+COMMENT ON COLUMN salon_member_profile.preferred_style IS '偏好发型';
+COMMENT ON COLUMN salon_member_profile.preferred_stylist_id IS '常用发型师ID（关联sys_user）';
+COMMENT ON COLUMN salon_member_profile.allergy IS '过敏信息';
+COMMENT ON COLUMN salon_member_profile.taboo IS '服务禁忌';
+COMMENT ON COLUMN salon_member_profile.remark IS '扩展备注';
+COMMENT ON COLUMN salon_member_profile.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_member_profile.create_time IS '创建时间';
+COMMENT ON COLUMN salon_member_profile.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_member_profile.update_time IS '更新时间';
+COMMENT ON COLUMN salon_member_profile.deleted IS '逻辑删除（0=未删除 1=已删除）';

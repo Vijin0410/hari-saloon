@@ -7,6 +7,9 @@ import com.wangjin.salon.service.model.form.MemberForm;
 import com.wangjin.salon.service.model.query.MemberPageQuery;
 import com.wangjin.salon.service.model.vo.MemberDetailVO;
 import com.wangjin.salon.service.model.vo.MemberPageVO;
+import com.wangjin.salon.service.model.vo.MemberTagOptionVO;
+
+import java.util.List;
 
 public interface SalonMemberService extends IService<SalonMember> {
 
@@ -19,4 +22,10 @@ public interface SalonMemberService extends IService<SalonMember> {
     boolean updateMember(Long id, MemberForm form);
 
     boolean deleteMembers(String ids);
+
+    /** 查会员已绑标签 */
+    List<MemberTagOptionVO> getMemberTags(Long memberId);
+
+    /** 全量设置会员标签 */
+    void setMemberTags(Long memberId, List<Long> tagIds);
 }

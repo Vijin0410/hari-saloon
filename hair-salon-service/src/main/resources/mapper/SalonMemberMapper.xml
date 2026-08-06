@@ -5,10 +5,12 @@
 
     <select id="getMemberPage" resultType="com.wangjin.salon.service.model.vo.MemberPageVO">
         SELECT
-            m.id, m.name, m.phone, m.gender, m.birthday, m.level, m.balance, m.points,
-            m.source, m.status, m.store_id, s.name AS store_name, m.remark, m.create_time
+            m.id, m.name, m.phone, m.gender, m.birthday, m.level_id, m.balance, m.points,
+            m.source, m.status, m.store_id, s.name AS store_name, l.name AS level_name,
+            m.remark, m.create_time
         FROM salon_member m
         LEFT JOIN salon_store s ON s.id = m.store_id AND s.deleted = 0
+        LEFT JOIN salon_member_level l ON l.id = m.level_id AND l.deleted = 0
         <where>
             m.deleted = 0
             <if test="q.keywords != null and q.keywords != ''">
@@ -26,6 +28,15 @@
             </if>
             <if test="q.storeId != null">
                 AND m.store_id = #{q.storeId}
+            </if>
+            <if test="q.levelId != null">
+                AND m.level_id = #{q.levelId}
+            </if>
+            <if test="q.tagId != null">
+                AND EXISTS (
+                    SELECT 1 FROM salon_member_tag_rel r
+                    WHERE r.member_id = m.id AND r.tag_id = #{q.tagId} AND r.deleted = 0
+                )
             </if>
             <if test="q.allStoreScope == null or q.allStoreScope == false">
                 <choose>

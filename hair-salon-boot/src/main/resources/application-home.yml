@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/hair_salon
+    url: jdbc:postgresql://localhost:5432/hair_salon?stringtype=unspecified
     username: postgres
     password: "vijin0410"
     driver-class-name: org.postgresql.Driver

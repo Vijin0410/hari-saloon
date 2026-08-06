@@ -19,6 +19,8 @@ const DictPage = lazy(() => import('@/pages/DictPage').then((module) => ({ defau
 const TenantPage = lazy(() => import('@/pages/TenantPage').then((module) => ({ default: module.TenantPage })));
 const StorePage = lazy(() => import('@/pages/StorePage').then((module) => ({ default: module.StorePage })));
 const MemberPage = lazy(() => import('@/pages/MemberPage').then((module) => ({ default: module.MemberPage })));
+const MemberLevelPage = lazy(() => import('@/pages/MemberLevelPage').then((module) => ({ default: module.MemberLevelPage })));
+const MemberTagPage = lazy(() => import('@/pages/MemberTagPage').then((module) => ({ default: module.MemberTagPage })));
 const DeptPage = lazy(() => import('@/pages/DeptPage').then((module) => ({ default: module.DeptPage })));
 const ForbiddenPage = lazy(() =>
   import('@/pages/ForbiddenPage').then((module) => ({ default: module.ForbiddenPage })),
@@ -107,6 +109,22 @@ export const router = createBrowserRouter([
             element: (
               <PermissionRoute permission="biz:member:list">
                 <MemberPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/members/level',
+            element: (
+              <PermissionRoute permission="biz:memberLevel:list">
+                <MemberLevelPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/members/tag',
+            element: (
+              <PermissionRoute permission="biz:memberTag:list">
+                <MemberTagPage />
               </PermissionRoute>
             ),
           },

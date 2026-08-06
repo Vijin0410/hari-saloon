@@ -23,6 +23,7 @@ import com.wangjin.salon.system.model.entity.SysUser;
 import com.wangjin.salon.system.model.form.TenantForm;
 import com.wangjin.salon.system.model.query.TenantPageQuery;
 import com.wangjin.salon.system.model.vo.TenantPageVO;
+import com.wangjin.salon.system.service.SalonMemberPort;
 import com.wangjin.salon.system.service.SalonStorePort;
 import com.wangjin.salon.system.service.SysDictService;
 import com.wangjin.salon.system.service.SysRoleMenuService;
@@ -56,6 +57,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
     private final PasswordEncoder passwordEncoder;
     private final SalonProperties salonProperties;
     private final SalonStorePort salonStorePort;
+    private final SalonMemberPort memberPort;
     private final SysDictService dictService;
 
     public SysTenantServiceImpl(TenantConverter tenantConverter,
@@ -67,6 +69,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
                                 PasswordEncoder passwordEncoder,
                                 SalonProperties salonProperties,
                                 SalonStorePort salonStorePort,
+                                SalonMemberPort memberPort,
                                 @Lazy SysDictService dictService) {
         this.tenantConverter = tenantConverter;
         this.roleService = roleService;
@@ -77,6 +80,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         this.passwordEncoder = passwordEncoder;
         this.salonProperties = salonProperties;
         this.salonStorePort = salonStorePort;
+        this.memberPort = memberPort;
         this.dictService = dictService;
     }
 
@@ -136,7 +140,8 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
                 adminUsername,
                 adminNickname,
                 rawPassword,
-                form.getStore()
+                form.getStore(),
+                form.getSyncModules()
         ));
         return true;
     }
@@ -149,7 +154,8 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
      */
     private void bootstrapTenant(Long tenantId,
                                  String adminUsername, String adminNickname, String rawPassword,
-                                 InitialStoreInfo store) {
+                                 InitialStoreInfo store,
+                                 java.util.List<String> syncModules) {
         // 租户内管理员（本租户全部数据，不含租户管理）；ROOT 是系统管理员，仅默认租户，不在开通时创建
         SysRole tenantAdmin = savePresetRole("租户管理员", RoleCodes.TENANT_ADMIN.getCode(), 1, DataScopeEnum.ALL.getValue(), tenantId);
         SysRole manager = savePresetRole("店长", RoleCodes.STORE_MANAGER.getCode(), 2, DataScopeEnum.ALL.getValue(), tenantId);
@@ -186,8 +192,19 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
             salonStorePort.syncUserStores(admin.getId(), List.of(storeId));
         }
 
-        // 复制默认租户的字典作为初始字典（技术字典 + 运营字典模板），新租户开箱即有下拉选项
-        dictService.copyFromTenant(SystemConstants.DEFAULT_TENANT_ID);
+        // 按勾选模块从默认租户复制通用数据（字典 / 会员等级 / 会员标签）；空则默认全部，开箱即用
+        java.util.Set<String> modules = (syncModules == null || syncModules.isEmpty())
+                ? java.util.Set.of("dict", "memberLevel", "memberTag")
+                : new java.util.HashSet<>(syncModules);
+        if (modules.contains("dict")) {
+            dictService.copyFromTenant(SystemConstants.DEFAULT_TENANT_ID);
+        }
+        if (modules.contains("memberLevel")) {
+            memberPort.copyMemberLevel(SystemConstants.DEFAULT_TENANT_ID);
+        }
+        if (modules.contains("memberTag")) {
+            memberPort.copyMemberTag(SystemConstants.DEFAULT_TENANT_ID);
+        }
     }
 
     private SysRole savePresetRole(String name, String code, int sort, Integer dataScope, Long tenantId) {

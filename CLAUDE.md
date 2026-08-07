@@ -76,6 +76,19 @@
 - 前端：有值传值；用户清空可选字段须显式传 `null`（**不是** `undefined` / 省略 key）；不涉及的字段不传 key。`JSON.stringify` 会丢弃 `undefined`、保留 `null`，天然区分"不传"与"清空"。
 - 后端：Java POJO + Jackson **默认无法区分**"未传 key"与"传 `null`"（反序列化后均为 `null`）。严格三态须用 `JsonNullable<T>` 包装可空字段并注册 `jackson-databind-nullable`。现状（全量表单 PUT）：MyBatis-Plus 默认 `FieldStrategy.NOT_NULL`（`null` 不更新）满足"不传保持"；"传 `null` 清空"对可清空字段标注 `@TableField(updateStrategy = FieldStrategy.ALWAYS)` 实现。全量表单下前端总会提交全部字段，"不传保持"不触发；**新增纯 PATCH 部分更新接口前须先引入 `JsonNullable`**，否则 IGNORED 字段在"不传"时会被误清空。`password` / `lastPasswordChangeTime` 等不由前端控制的字段保持默认 `NOT_NULL`，service 置 `null` 跳过更新。
 
+### 2.2 字段校验（jakarta validation，强制）
+
+后端 `model.form` 每个字段须按语义标注 jakarta.validation 注解，Controller `@Valid` 已强制；与前端 zod（见第 11 条）**双层保险**，正则保持一致。
+
+- 必填：字符串用 `@NotBlank`、对象/数字用 `@NotNull`（空字符串 `@NotNull` 不拦截，须 `@NotBlank`）。
+- 格式 `@Pattern(regexp = "...", message = "...")`，常用（Java 字符串转义反斜杠）：
+  - 手机号：`@Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式不正确")`；可空字段不标 `@NotNull`，`@Pattern` 对 `null` 不校验，**空串须在正则放行**（可空手机号用 `^(1[3-9]\\d{9})?$`）或前端空串转 `null`。
+  - 身份证：`@Pattern(regexp = "^[1-9]\\d{5}(18|19|20)\\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])\\d{3}[\\dXx]$", message = "身份证号格式不正确")`。
+  - 邮箱：`@Email(message = "邮箱格式不正确")`。
+- 长度 `@Size(min, max)`；数字范围 `@Min`/`@Max`（或 hibernate-validator `@Range`）；生日等过去日期 `@Past`；起止时间业务校验放 Service。
+- 校验失败由全局异常处理拦截 `MethodArgumentNotValidException` -> 取字段 `message` 返回 `Result.fail`。
+- **禁止**只依赖前端校验；`model.form` 必填字段无 `@NotBlank/@NotNull`、格式字段无 `@Pattern` 视为不合规。
+
 ### 3. `@PreAuthorize`（强制）
 
 - 框架已 `@EnableMethodSecurity`；JWT 把菜单 `perm` 写成 `GrantedAuthority`。
@@ -133,6 +146,37 @@
 - 列表/查询场景的文本搜索框（关键字、名称、路径等）**必须带一键清除**：统一用 `<Input clearable ... />`，由 `frontend/src/shared/ui/Input` 渲染右侧 `X` 图标。
 - **有值才显示** `X`，空值 / `disabled` / `readOnly` 不显示；点击 `X` 触发 `onChange` 置空（等价于置 `''`），由各页面既有 `useDebounce` 或「查询」按钮触发重新查询，**禁止**在清除逻辑里重复发请求。
 - 新增查询框直接加 `clearable`，**禁止**手写清除图标或自行包装清除逻辑。
+
+---
+
+### 10. 前端详情/表单风格规范（强制）
+
+详情页与数量调整弹窗统一「SaaS CRM 档案」风格，复用 `frontend/src/shared/ui`，禁止平铺堆叠；细则见 `react-solo-architect` skill。
+
+- **详情页分区**用 `Card`（`shared/ui/Card`：`rounded-lg`/`p-4`/`hover:shadow-sm`，`title`+`extra` 右上角操作），区域 `space-y-4`。
+- **档案头部**：圆形头像（无 avatar 取姓名首字，紫底白字）+ 姓名（`text-lg font-semibold`）+ 手机（灰 `text-sm`）+ 等级/状态 `Badge`；状态正常绿（`emerald`）、停用红（`danger`）。
+- **核心资产数字**（余额/积分）`text-[28px] font-bold` **独占行**，禁止与按钮并排（长金额会重叠）；操作按钮放标题行右上角，主操作 `primary` / 次操作 `secondary`。
+- **明细多字段**用四宫格/两列子卡片（标题灰小字 + 值深色），禁止「字段：值」平铺。
+- **空数据统一「暂无 / 暂无记录」，禁止显示「-」**。
+- **数量调整弹窗**（余额/积分等）：方向 Tab 单选（选中紫底白字，不动态改字段名）+ 统一「调整数量」+ 右侧 suffix 带符号实时预览（扣除兼容负号，`Math.abs` 后按方向取负）+「调整后」预览卡（不足显红）+「调整原因」必填 + 按钮文案随方向（`确认增加`/`确认扣除`）+ 前端校验就近显示 `Field error`；数量输入用 `type="text"` + `inputMode="numeric"` + 正则承载中间态（受控 `type="number"` 无法输入负号），失焦兜底回 `0`。
+
+---
+
+### 11. 前端表单校验规范（强制）
+
+表单统一用 `react-hook-form` + `zod`（`@hookform/resolvers/zod`），schema 放 `frontend/src/features/<name>/model/xxxSchemas.ts`，组件 `useForm({ resolver: zodResolver(schema) })` + `register` + `<Field error={errors.x?.message}>` + `invalid`。与后端 jakarta validation（见 2.2）**双层保险**，正则保持一致。
+
+- **格式校验用正则**（`z.string().regex(regexp, '消息')`），常用：
+  - 手机号：`/^1[3-9]\d{9}$/`（"手机号格式不正确"）。
+  - 身份证：`/^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/`。
+  - 纯数字：`/^\d+$/`；整数限位：`/^\d{1,9}$/`。
+  - 金额：`/^\d{1,9}(\.\d{1,2})?$/`。
+  - 邮箱：`z.string().email('邮箱格式不正确')`。
+- **可空字段**：空串不触发格式校验，用 `z.string().trim().optional().refine((v) => !v || REG.test(v), '消息')`，或 `z.union([z.literal(''), z.string().regex(REG)])`。
+- **必填** `.min(1, 'xx不能为空')`；枚举 `z.union([z.literal(0), z.literal(1)])` / `z.enum([...])`；跨字段 `.refine(..., { path: ['field'], message })`。
+- **纯数字输入框**：受控输入用 `type="text"` + `inputMode="numeric"` + 正则过滤承载中间态（见第 10 条），提交前 zod 兜底；**禁止**裸 `type="number"`（无法输入负号、`e`/`+` 混入、空值 NaN）。
+- 校验消息用简体中文，与后端 `message` 一致；错误就近显示在 `Field` 的 `error`，提交按钮 `loading={isSubmitting}`。
+- **禁止**只靠后端校验；新增表单字段必须同步加 zod 规则。
 
 ---
 

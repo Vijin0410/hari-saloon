@@ -399,6 +399,20 @@ export interface User {
     - **禁用 `type="datetime-local"`**：其空值占位 `--:--` 不美观。确需"日期+时分秒"的字段，用 `<Input type="date" />` + `<Input type="time" />` 组合提交（后端 `LocalDateTime` / `YYYY-MM-DD HH:mm:ss`），不得用单个 `datetime-local`。
     - 仅时间：`<Input type="time" />`。
     - 禁止为时间字段引入 `dayjs` / `moment` / `react-datepicker` 等库（除非已存在或用户明确要求）；禁止保留 `placeholder="YYYY-MM-DD"` 这类手输提示。
+16. **详情/表单风格（强制）**：详情页与数量调整弹窗按「SaaS CRM 档案」风格，复用 `shared/ui`，禁止平铺堆叠。
+    - **详情页分区**用 `Card`（`shared/ui/Card`：白底 / `rounded-lg` / `p-4` / `hover:shadow-sm`，支持 `title` + `extra` 右上角操作），区域间距 `space-y-4`。
+    - **档案头部**：圆形头像（无 avatar 取姓名首字，`bg-salon-accent` 白字）+ 姓名 `text-lg font-semibold` + 手机灰 `text-sm` + 等级/状态 `Badge`；状态正常 `emerald`、停用 `danger`。
+    - **核心资产**（余额/积分）数字 `text-[28px] font-bold` **独占行**，禁止与按钮并排（长金额溢出会重叠）；按钮放标题行右上角，主操作 `primary`、次操作 `secondary`。
+    - **明细多字段**用四宫格/两列子卡片（标题灰小字 `text-xs text-zinc-500` + 值深色），禁止「字段：值」平铺。
+    - **空数据统一「暂无 / 暂无记录」，禁止显示「-」**。
+    - **数量调整弹窗**（余额/积分等）：方向 Tab 单选（`+ 增加` / `- 扣除`，选中 `bg-salon-accent` 白字、未选白底灰边框），不动态改字段名；统一「调整数量」label + placeholder；输入框右侧 suffix 实时显示带符号数量（`+100` 绿 / `-100` 红）；扣除兼容负号，提交 `Math.abs` 后按方向取负；「调整后」预览卡（调整前 → 后 + 算式，不足显红）；「调整原因」必填（替代「备注」）+ placeholder 示例；按钮文案随方向（`确认增加` `primary` / `确认扣除` `danger`）；前端校验（数量 / 原因 / 余额不足）就近显示 `Field` 的 `error`。
+    - **数量输入**用 `type="text"` + `inputMode="numeric"` + 正则过滤承载字符串中间态（受控 `type="number"` 无法输入负号、Backspace 清空易 NaN），失焦兜底回 `0`；正整数 `/^\d{1,9}$/`，扣除兼容负号 `/^-?\d{1,9}$/`，金额 `/^\d{1,9}(\.\d{0,2})?$/`。
+17. **表单校验（强制，与后端双层保险）**：表单统一 `react-hook-form` + `zod`（`@hookform/resolvers/zod`），schema 放 `features/<name>/model/xxxSchemas.ts`，组件 `useForm({ resolver: zodResolver(schema) })` + `register` + `<Field error={errors.x?.message}>` + `invalid={Boolean(errors.x)}`，提交按钮 `loading={isSubmitting}`。与后端 `model.form` 的 jakarta validation 正则保持一致。
+    - **格式正则**（`z.string().regex(regexp, '消息')`）：手机号 `/^1[3-9]\d{9}$/`、身份证 `/^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/`、纯数字 `/^\d+$/`、整数限位 `/^\d{1,9}$/`、金额 `/^\d{1,9}(\.\d{1,2})?$/`；邮箱 `z.string().email('邮箱格式不正确')`。
+    - **可空字段**空串不校验格式：`z.string().trim().optional().refine((v) => !v || REG.test(v), '消息')` 或 `z.union([z.literal(''), z.string().regex(REG)])`。
+    - **必填** `.min(1, 'xx不能为空')`；**枚举** `z.union([z.literal(0), z.literal(1)])` / `z.enum([...])`；**跨字段** `.refine(..., { path: ['field'], message })`。
+    - **纯数字输入框**用 `type="text"` + `inputMode="numeric"` + 正则过滤承载中间态（见第 16 条），提交前 zod 兜底；**禁止**裸 `type="number"`（无法输入负号、`e`/`+` 混入、空值 NaN）。
+    - 校验消息简体中文，与后端 `message` 一致；**禁止**只靠后端校验，新增表单字段必须同步加 zod 规则。
 
 ---
 

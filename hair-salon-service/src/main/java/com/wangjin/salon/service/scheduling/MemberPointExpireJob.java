@@ -24,7 +24,7 @@ public class MemberPointExpireJob {
 
     private final MemberPointService memberPointService;
 
-    @Scheduled(cron = "${wj.salon.point-expire-cron:0 0 2 * * ?}")
+    @Scheduled(cron = "${wj.salon.point-expire-cron:0 1 0 * * ?}")
     public void expirePoints() {
         int count = memberPointService.expireDuePoints();
         log.info("积分过期清零完成，处理会员数={}", count);

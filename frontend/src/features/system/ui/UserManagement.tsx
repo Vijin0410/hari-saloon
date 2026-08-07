@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Pencil,
-  Plus,
-  Search,
-  Trash2,
-  ToggleLeft,
-  ToggleRight,
-} from 'lucide-react';
+import { Pencil, Plus, Search, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { deptApi, fileApi, roleApi, userApi } from '@/shared/api/modules/systemApi';
 import { Badge } from '@/shared/ui/Badge';
@@ -36,7 +29,11 @@ import type {
   UserPageQuery,
   UserPageVO,
 } from '@/features/system/model/systemTypes';
-import { GENDER_OPTIONS, STATUS_OPTIONS, getStatusLabel } from '@/features/system/model/systemTypes';
+import {
+  GENDER_OPTIONS,
+  STATUS_OPTIONS,
+  getStatusLabel,
+} from '@/features/system/model/systemTypes';
 
 /**
  * 用户管理面板，包含查询、列表、新增、编辑、删除和启停控制。
@@ -96,7 +93,10 @@ function toUserPayload(values: UserFormValues): UserFormPayload {
   };
 }
 
-function flattenDeptOptions(options: DeptOption[], depth = 0): Array<{ value: EntityId; label: string }> {
+function flattenDeptOptions(
+  options: DeptOption[],
+  depth = 0,
+): Array<{ value: EntityId; label: string }> {
   return options.flatMap((option) => {
     const prefix = depth === 0 ? '' : `${'　'.repeat(depth)}└─ `;
     return [
@@ -237,7 +237,11 @@ function UserFormDialog({
 
   return (
     <Modal
-      description={mode === 'create' ? '新建用户后会自动生成默认密码，由后端统一设置。' : '修改用户资料和角色分配。'}
+      description={
+        mode === 'create'
+          ? '新建用户后会自动生成默认密码，由后端统一设置。'
+          : '修改用户资料和角色分配。'
+      }
       footer={
         <>
           <Button onClick={onClose} variant="secondary">
@@ -258,10 +262,18 @@ function UserFormDialog({
         <form className="space-y-4" onSubmit={handleSubmit(handleSave)}>
           <div className="grid gap-4 md:grid-cols-2">
             <Field error={errors.username?.message} label="用户名" required>
-              <Input invalid={Boolean(errors.username)} placeholder="登录用户名" {...register('username')} />
+              <Input
+                invalid={Boolean(errors.username)}
+                placeholder="登录用户名"
+                {...register('username')}
+              />
             </Field>
             <Field error={errors.nickname?.message} label="昵称" required>
-              <Input invalid={Boolean(errors.nickname)} placeholder="显示名称" {...register('nickname')} />
+              <Input
+                invalid={Boolean(errors.nickname)}
+                placeholder="显示名称"
+                {...register('nickname')}
+              />
             </Field>
             <Field error={errors.phone?.message} label="手机号">
               <Input invalid={Boolean(errors.phone)} placeholder="手机号" {...register('phone')} />
@@ -270,7 +282,10 @@ function UserFormDialog({
               <Input invalid={Boolean(errors.email)} placeholder="邮箱" {...register('email')} />
             </Field>
             <Field error={errors.gender?.message} label="性别" required>
-              <Select invalid={Boolean(errors.gender)} {...register('gender', { valueAsNumber: true })}>
+              <Select
+                invalid={Boolean(errors.gender)}
+                {...register('gender', { valueAsNumber: true })}
+              >
                 {GENDER_OPTIONS.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -279,7 +294,10 @@ function UserFormDialog({
               </Select>
             </Field>
             <Field error={errors.status?.message} label="状态" required>
-              <Select invalid={Boolean(errors.status)} {...register('status', { valueAsNumber: true })}>
+              <Select
+                invalid={Boolean(errors.status)}
+                {...register('status', { valueAsNumber: true })}
+              >
                 {STATUS_OPTIONS.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -373,7 +391,9 @@ function UserFormDialog({
                   );
                 })
               ) : (
-                <div className="col-span-full text-sm text-zinc-500 dark:text-zinc-400">暂无可选角色</div>
+                <div className="col-span-full text-sm text-zinc-500 dark:text-zinc-400">
+                  暂无可选角色
+                </div>
               )}
             </div>
           </Field>
@@ -395,7 +415,10 @@ function UserFormDialog({
                           const nextStoreIds = event.target.checked
                             ? Array.from(new Set([...selectedStoreIds, store.value]))
                             : selectedStoreIds.filter((id) => id !== store.value);
-                          setValue('storeIds', nextStoreIds, { shouldValidate: true, shouldDirty: true });
+                          setValue('storeIds', nextStoreIds, {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          });
                         }}
                         type="checkbox"
                       />
@@ -404,7 +427,9 @@ function UserFormDialog({
                   );
                 })
               ) : (
-                <div className="col-span-full text-sm text-zinc-500 dark:text-zinc-400">暂无可选门店</div>
+                <div className="col-span-full text-sm text-zinc-500 dark:text-zinc-400">
+                  暂无可选门店
+                </div>
               )}
             </div>
           </Field>
@@ -533,7 +558,9 @@ export function UserManagement() {
       <div className="flex flex-col gap-3 rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-lg font-semibold">用户管理</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">列表、新增、编辑、删除和启停控制。</p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            列表、新增、编辑、删除和启停控制。
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {hasPermission('system:user:add') ? (
@@ -566,13 +593,18 @@ export function UserManagement() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
             <Input
               className="pl-9"
+              clearable
               placeholder="按用户名、昵称或手机号搜索"
               value={queryKeyword}
               onChange={(event) => setQueryKeyword(event.target.value)}
             />
           </div>
           {showTenant ? (
-            <Select className="md:w-44" value={tenantId} onChange={(event) => changeTenant(event.target.value)}>
+            <Select
+              className="md:w-44"
+              value={tenantId}
+              onChange={(event) => changeTenant(event.target.value)}
+            >
               <option value="">全部租户</option>
               {tenantOptions.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -582,7 +614,11 @@ export function UserManagement() {
             </Select>
           ) : null}
           {showStore ? (
-            <Select className="md:w-44" value={storeId} onChange={(event) => changeStore(event.target.value)}>
+            <Select
+              className="md:w-44"
+              value={storeId}
+              onChange={(event) => changeStore(event.target.value)}
+            >
               <option value="">全部门店</option>
               {storeOptions.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -591,7 +627,15 @@ export function UserManagement() {
               ))}
             </Select>
           ) : null}
-          <Select className="md:w-36" value={queryStatus} onChange={(event) => setQueryStatus(event.target.value === 'all' ? 'all' : (Number(event.target.value) as StatusValue))}>
+          <Select
+            className="md:w-36"
+            value={queryStatus}
+            onChange={(event) =>
+              setQueryStatus(
+                event.target.value === 'all' ? 'all' : (Number(event.target.value) as StatusValue),
+              )
+            }
+          >
             <option value="all">全部状态</option>
             {STATUS_OPTIONS.map((item) => (
               <option key={item.value} value={item.value}>
@@ -615,10 +659,7 @@ export function UserManagement() {
           <PageLoading />
         ) : rows.length === 0 ? (
           <div className="p-4">
-            <EmptyState
-              description="还没有找到符合条件的用户。"
-              title="暂无用户数据"
-            />
+            <EmptyState description="还没有找到符合条件的用户。" title="暂无用户数据" />
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -656,7 +697,9 @@ export function UserManagement() {
                         type="checkbox"
                       />
                     </td>
-                    <td className="px-4 py-3 font-medium text-salon-ink dark:text-white">{row.username}</td>
+                    <td className="px-4 py-3 font-medium text-salon-ink dark:text-white">
+                      {row.username}
+                    </td>
                     <td className="px-4 py-3">{row.nickname || '-'}</td>
                     <td className="px-4 py-3">{row.phone || '-'}</td>
                     <td className="px-4 py-3">
@@ -680,7 +723,13 @@ export function UserManagement() {
                       <div className="flex justify-end gap-2">
                         {hasPermission('system:user:status') ? (
                           <Button
-                            icon={row.status === 1 ? <ToggleLeft className="size-4" /> : <ToggleRight className="size-4" />}
+                            icon={
+                              row.status === 1 ? (
+                                <ToggleLeft className="size-4" />
+                              ) : (
+                                <ToggleRight className="size-4" />
+                              )
+                            }
                             onClick={() => void toggleStatus(row)}
                             size="sm"
                             variant="secondary"

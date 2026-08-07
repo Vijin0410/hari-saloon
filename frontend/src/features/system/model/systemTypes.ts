@@ -87,7 +87,7 @@ export interface RoleFormPayload {
 }
 
 export interface MenuQuery {
-  keywords?: string;
+  title?: string;
   path?: string;
   perm?: string;
 }
@@ -163,7 +163,7 @@ export interface DeptFormPayload {
 }
 
 export interface DeptQuery {
-  keywords?: string;
+  name?: string;
   status?: StatusValue;
   tenantId?: EntityId;
 }

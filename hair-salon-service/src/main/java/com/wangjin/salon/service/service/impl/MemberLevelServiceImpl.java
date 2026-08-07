@@ -32,7 +32,7 @@ public class MemberLevelServiceImpl extends ServiceImpl<SalonMemberLevelMapper, 
         Page<SalonMemberLevel> page = this.page(
                 new Page<>(query.getPageNum(), query.getPageSize()),
                 Wrappers.<SalonMemberLevel>lambdaQuery()
-                        .like(StrUtil.isNotBlank(query.getKeywords()), SalonMemberLevel::getName, query.getKeywords())
+                        .like(StrUtil.isNotBlank(query.getName()), SalonMemberLevel::getName, query.getName())
                         .eq(query.getStatus() != null, SalonMemberLevel::getStatus, query.getStatus())
                         .orderByAsc(SalonMemberLevel::getLevelNo));
         Page<MemberLevelPageVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());

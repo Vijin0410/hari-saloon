@@ -46,7 +46,7 @@ public class SysDeptServiceImpl extends ServiceImpl<SysDeptMapper, SysDept> impl
             queryParams.setTenantId(null);
         }
         List<SysDept> deptList = this.list(new LambdaQueryWrapper<SysDept>()
-                .like(StrUtil.isNotBlank(queryParams.getKeywords()), SysDept::getName, queryParams.getKeywords())
+                .like(StrUtil.isNotBlank(queryParams.getName()), SysDept::getName, queryParams.getName())
                 .eq(queryParams.getStatus() != null, SysDept::getStatus, queryParams.getStatus())
                 .eq(queryParams.getTenantId() != null, SysDept::getTenantId, queryParams.getTenantId())
                 .orderByAsc(SysDept::getSort));

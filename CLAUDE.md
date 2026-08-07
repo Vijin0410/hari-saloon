@@ -126,6 +126,13 @@
   - **禁用 `type="datetime-local"`**：其空值占位 `--:--` 不美观。确需"日期+时分秒"的字段，用 `type="date"` + `type="time"` 组合提交（后端 `LocalDateTime` / `YYYY-MM-DD HH:mm:ss`），不得用单个 `datetime-local`。
   - 仅时间：`type="time"`。
 - 禁止为时间字段引入 `dayjs`/`moment`/`react-datepicker` 等；落地细则见 `react-solo-architect` skill。
+- `type="date"` 空值（未选择）时原生占位 `yyyy/mm/dd` 不美观，由 `Input` 组件统一覆盖为灰色「选择时间」：业务侧正常用 `<Input type="date" value={x ?? ''} />` 即可，**不要**再手写占位；有值或 `disabled` 时回归原生展示。
+
+### 9. 前端查询文本框一键清除（强制）
+
+- 列表/查询场景的文本搜索框（关键字、名称、路径等）**必须带一键清除**：统一用 `<Input clearable ... />`，由 `frontend/src/shared/ui/Input` 渲染右侧 `X` 图标。
+- **有值才显示** `X`，空值 / `disabled` / `readOnly` 不显示；点击 `X` 触发 `onChange` 置空（等价于置 `''`），由各页面既有 `useDebounce` 或「查询」按钮触发重新查询，**禁止**在清除逻辑里重复发请求。
+- 新增查询框直接加 `clearable`，**禁止**手写清除图标或自行包装清除逻辑。
 
 ---
 

@@ -202,7 +202,7 @@ export interface MemberLevelFormPayload {
 export interface MemberLevelPageQuery {
   pageNum: number;
   pageSize: number;
-  keywords?: string;
+  name?: string;
   status?: number;
 }
 
@@ -238,6 +238,6 @@ export interface MemberTagFormPayload {
 export interface MemberTagPageQuery {
   pageNum: number;
   pageSize: number;
-  keywords?: string;
+  name?: string;
   status?: number;
 }

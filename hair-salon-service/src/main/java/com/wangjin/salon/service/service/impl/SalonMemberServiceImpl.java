@@ -80,6 +80,8 @@ public class SalonMemberServiceImpl extends ServiceImpl<SalonMemberMapper, Salon
         Assert.notNull(entity, "Member not found");
         storePermissionService.assertStoreAccessible(entity.getStoreId(), "No permission for this store member");
         MemberDetailVO vo = memberConverter.entity2DetailVo(entity);
+        //会员等级
+        vo.setLevelName(memberLevelService.getForm(entity.getLevelId()).getName());
         vo.setBalanceDetail(memberBalanceService.getDetail(id));
         vo.setTags(getMemberTags(id));
         vo.setProfile(memberProfileService.get(id));

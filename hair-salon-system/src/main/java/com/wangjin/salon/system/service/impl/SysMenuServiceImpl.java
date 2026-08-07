@@ -46,7 +46,9 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     @Override
     public List<MenuVO> listMenus(MenuQuery queryParams) {
         List<SysMenu> menus = this.list(new LambdaQueryWrapper<SysMenu>()
-                .like(StrUtil.isNotBlank(queryParams.getKeywords()), SysMenu::getName, queryParams.getKeywords())
+                // 菜单名称按显示标题（meta.title）模糊匹配；name 存的是英文路由标识（如 systemTenant），与页面展示不一致
+                .and(StrUtil.isNotBlank(queryParams.getTitle()),
+                        w -> w.apply("meta::jsonb ->> 'title' LIKE {0}", "%" + queryParams.getTitle() + "%"))
                 .like(StrUtil.isNotBlank(queryParams.getPath()), SysMenu::getPath, queryParams.getPath())
                 .like(StrUtil.isNotBlank(queryParams.getPerm()), SysMenu::getPerm, queryParams.getPerm()));
         menus.sort(Comparator.comparingInt(this::getMenuRank).thenComparing(SysMenu::getId));

@@ -18,7 +18,12 @@ import { cn } from '@/shared/lib/cn';
 import { normalizeNumber } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useTenantStoreFilter } from '@/features/system/model/useTenantStoreFilter';
-import { dictFormSchema, dictTypeFormSchema, type DictFormValues, type DictTypeFormValues } from '@/features/system/model/dictSchemas';
+import {
+  dictFormSchema,
+  dictTypeFormSchema,
+  type DictFormValues,
+  type DictTypeFormValues,
+} from '@/features/system/model/dictSchemas';
 import type {
   DictFormPayload,
   DictPageVO,
@@ -202,7 +207,11 @@ function DictTypeDialog({
               <Input invalid={Boolean(errors.name)} placeholder="如：性别" {...register('name')} />
             </Field>
             <Field error={errors.code?.message} label="类型编码" required>
-              <Input invalid={Boolean(errors.code)} placeholder="如：gender" {...register('code')} />
+              <Input
+                invalid={Boolean(errors.code)}
+                placeholder="如：gender"
+                {...register('code')}
+              />
             </Field>
             <Field error={errors.groupCode?.message} label="分组编码">
               <Input placeholder="如：system" {...register('groupCode')} />
@@ -366,7 +375,11 @@ export function DictManagement() {
   const debouncedItemKeyword = useDebounce(itemKeyword, 350);
 
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [typeDialog, setTypeDialog] = useState<TypeDialogState>({ mode: 'create', open: false, id: null });
+  const [typeDialog, setTypeDialog] = useState<TypeDialogState>({
+    mode: 'create',
+    open: false,
+    id: null,
+  });
   const [itemDialog, setItemDialog] = useState<ItemDialogState>({
     mode: 'create',
     open: false,
@@ -441,14 +454,26 @@ export function DictManagement() {
     if (!selectedType) {
       return;
     }
-    setItemDialog({ mode: 'create', open: true, id: null, typeCode: selectedType.code, typeName: selectedType.name });
+    setItemDialog({
+      mode: 'create',
+      open: true,
+      id: null,
+      typeCode: selectedType.code,
+      typeName: selectedType.name,
+    });
   }
 
   function openEditItem(row: DictPageVO): void {
     if (!selectedType) {
       return;
     }
-    setItemDialog({ mode: 'edit', open: true, id: row.id, typeCode: selectedType.code, typeName: selectedType.name });
+    setItemDialog({
+      mode: 'edit',
+      open: true,
+      id: row.id,
+      typeCode: selectedType.code,
+      typeName: selectedType.name,
+    });
   }
 
   async function handleDelete(): Promise<void> {
@@ -478,10 +503,16 @@ export function DictManagement() {
             <BookOpen className="size-5 text-salon-accent" />
             字典管理
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">左侧选择字典类型，右侧维护其字典项。</p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            左侧选择字典类型，右侧维护其字典项。
+          </p>
         </div>
         {showTenant ? (
-          <Select className="md:w-48" value={tenantId} onChange={(event) => changeTenant(event.target.value)}>
+          <Select
+            className="md:w-48"
+            value={tenantId}
+            onChange={(event) => changeTenant(event.target.value)}
+          >
             <option value="">全部租户</option>
             {tenantOptions.map((item) => (
               <option key={item.value} value={item.value}>
@@ -503,14 +534,30 @@ export function DictManagement() {
             ) : null}
           </div>
           <div className="border-b border-salon-line p-3 dark:border-zinc-800">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-              <Input
-                className="pl-9"
-                placeholder="搜索类型名称/编码"
-                value={typeKeyword}
-                onChange={(event) => setTypeKeyword(event.target.value)}
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+                <Input
+                  className="pl-9"
+                  clearable
+                  placeholder="搜索类型名称/编码"
+                  value={typeKeyword}
+                  onChange={(event) => setTypeKeyword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      void loadTypes();
+                    }
+                  }}
+                />
+              </div>
+              <Button
+                icon={<Search className="size-4" />}
+                onClick={loadTypes}
+                size="sm"
+                variant="secondary"
+              >
+                查询
+              </Button>
             </div>
           </div>
           <div className="max-h-[60vh] overflow-y-auto p-2">
@@ -537,7 +584,10 @@ export function DictManagement() {
                         }}
                       >
                         <ChevronRight
-                          className={cn('size-4 shrink-0 transition', active && 'rotate-90 text-salon-accent')}
+                          className={cn(
+                            'size-4 shrink-0 transition',
+                            active && 'rotate-90 text-salon-accent',
+                          )}
                         />
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium">{item.name}</p>
@@ -592,7 +642,10 @@ export function DictManagement() {
           <div className="flex flex-col gap-3 border-b border-salon-line px-4 py-3 dark:border-zinc-800 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-sm font-semibold">
-                字典项{selectedType ? <span className="text-zinc-400"> · {selectedType.name}</span> : null}
+                字典项
+                {selectedType ? (
+                  <span className="text-zinc-400"> · {selectedType.name}</span>
+                ) : null}
               </p>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 {selectedType ? `编码：${selectedType.code}` : '请先在左侧选择字典类型'}
@@ -604,14 +657,29 @@ export function DictManagement() {
                 <Input
                   className="pl-9"
                   disabled={!selectedType}
+                  clearable
                   placeholder="搜索字典项名称/值"
                   value={itemKeyword}
                   onChange={(event) => {
                     setItemKeyword(event.target.value);
                     setPageNum(1);
                   }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      void loadItems();
+                    }
+                  }}
                 />
               </div>
+              <Button
+                disabled={!selectedType}
+                icon={<Search className="size-4" />}
+                onClick={loadItems}
+                size="sm"
+                variant="secondary"
+              >
+                查询
+              </Button>
               {hasPermission('system:dict:add') && selectedType ? (
                 <Button icon={<Plus className="size-4" />} onClick={openCreateItem}>
                   新增字典项
@@ -624,7 +692,10 @@ export function DictManagement() {
             <PageLoading />
           ) : !selectedType ? (
             <div className="p-4">
-              <EmptyState description="在左侧选择一个字典类型后查看其字典项。" title="未选择字典类型" />
+              <EmptyState
+                description="在左侧选择一个字典类型后查看其字典项。"
+                title="未选择字典类型"
+              />
             </div>
           ) : items.length === 0 ? (
             <div className="p-4">
@@ -648,11 +719,15 @@ export function DictManagement() {
                       className="border-t border-salon-line text-zinc-700 hover:bg-slate-50/60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900/70"
                       key={row.id}
                     >
-                      <td className="px-4 py-3 font-medium text-salon-ink dark:text-white">{row.name}</td>
+                      <td className="px-4 py-3 font-medium text-salon-ink dark:text-white">
+                        {row.name}
+                      </td>
                       <td className="px-4 py-3 font-mono text-xs">{row.value}</td>
                       <td className="px-4 py-3">{row.sort ?? 0}</td>
                       <td className="px-4 py-3">
-                        <Badge tone={row.status === 1 ? 'success' : 'danger'}>{getStatusLabel(row.status)}</Badge>
+                        <Badge tone={row.status === 1 ? 'success' : 'danger'}>
+                          {getStatusLabel(row.status)}
+                        </Badge>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-2">
@@ -724,7 +799,13 @@ export function DictManagement() {
       />
       <DictItemDialog
         onClose={() =>
-          setItemDialog({ mode: 'create', open: false, id: null, typeCode: selectedType?.code ?? '', typeName: selectedType?.name ?? '' })
+          setItemDialog({
+            mode: 'create',
+            open: false,
+            id: null,
+            typeCode: selectedType?.code ?? '',
+            typeName: selectedType?.name ?? '',
+          })
         }
         onSaved={() => void loadItems()}
         state={itemDialog}

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import { memberLevelApi } from '@/shared/api/modules/memberApi';
-import type { MemberLevelFormPayload, MemberLevelPageVO } from '@/features/member/model/memberTypes';
+import type {
+  MemberLevelFormPayload,
+  MemberLevelPageVO,
+} from '@/features/member/model/memberTypes';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
@@ -35,7 +38,11 @@ export function MemberLevelPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await memberLevelApi.list({ pageNum, pageSize: 10, keywords: debounced || undefined });
+      const data = await memberLevelApi.list({
+        pageNum,
+        pageSize: 10,
+        name: debounced || undefined,
+      });
       setRows(data.list ?? []);
       setTotal(data.total ?? 0);
     } finally {
@@ -94,9 +101,32 @@ export function MemberLevelPage() {
         ) : null}
       </div>
 
-      <div className="relative min-w-[200px] flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-        <Input className="pl-9" onChange={(e) => setKeyword(e.target.value)} placeholder="等级名称" value={keyword} />
+      <div className="rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+            <Input
+              className="pl-9"
+              onChange={(e) => setKeyword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void load();
+                }
+              }}
+              clearable
+              placeholder="等级名称"
+              value={keyword}
+            />
+          </div>
+          <Button
+            className="lg:w-24"
+            icon={<Search className="size-4" />}
+            onClick={load}
+            variant="secondary"
+          >
+            查询
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -128,7 +158,9 @@ export function MemberLevelPage() {
                   <td className="px-4 py-3">{row.pointRate ?? '-'}</td>
                   <td className="px-4 py-3">{row.rechargeGiftRate ?? '-'}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={row.status === 1 ? 'success' : 'danger'}>{row.status === 1 ? '启用' : '禁用'}</Badge>
+                    <Badge tone={row.status === 1 ? 'success' : 'danger'}>
+                      {row.status === 1 ? '启用' : '禁用'}
+                    </Badge>
                   </td>
                   <td className="space-x-2 px-4 py-3 text-right">
                     {hasPermission('biz:memberLevel:edit') ? (
@@ -137,7 +169,12 @@ export function MemberLevelPage() {
                       </Button>
                     ) : null}
                     {hasPermission('biz:memberLevel:delete') ? (
-                      <Button icon={<Trash2 className="size-4" />} onClick={() => setConfirmIds([row.id])} size="sm" variant="secondary">
+                      <Button
+                        icon={<Trash2 className="size-4" />}
+                        onClick={() => setConfirmIds([row.id])}
+                        size="sm"
+                        variant="secondary"
+                      >
                         删除
                       </Button>
                     ) : null}
@@ -152,10 +189,20 @@ export function MemberLevelPage() {
       <div className="flex items-center justify-between text-sm text-zinc-500">
         <span>共 {total} 条</span>
         <div className="flex gap-2">
-          <Button disabled={pageNum <= 1} onClick={() => setPageNum((p) => p - 1)} size="sm" variant="secondary">
+          <Button
+            disabled={pageNum <= 1}
+            onClick={() => setPageNum((p) => p - 1)}
+            size="sm"
+            variant="secondary"
+          >
             上一页
           </Button>
-          <Button disabled={pageNum * 10 >= total} onClick={() => setPageNum((p) => p + 1)} size="sm" variant="secondary">
+          <Button
+            disabled={pageNum * 10 >= total}
+            onClick={() => setPageNum((p) => p + 1)}
+            size="sm"
+            variant="secondary"
+          >
             下一页
           </Button>
         </div>
@@ -178,37 +225,79 @@ export function MemberLevelPage() {
       >
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="等级名称" required>
-            <Input onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} value={form.name} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              value={form.name}
+            />
           </Field>
           <Field label="等级序号" required>
-            <Input onChange={(e) => setNum('levelNo', e.target.value)} type="number" value={form.levelNo ?? 0} />
+            <Input
+              onChange={(e) => setNum('levelNo', e.target.value)}
+              type="number"
+              value={form.levelNo ?? 0}
+            />
           </Field>
           <Field label="服务折扣(0-1)">
-            <Input onChange={(e) => setNum('serviceDiscount', e.target.value)} type="number" step="0.01" value={form.serviceDiscount ?? ''} />
+            <Input
+              onChange={(e) => setNum('serviceDiscount', e.target.value)}
+              type="number"
+              step="0.01"
+              value={form.serviceDiscount ?? ''}
+            />
           </Field>
           <Field label="商品折扣(0-1)">
-            <Input onChange={(e) => setNum('goodsDiscount', e.target.value)} type="number" step="0.01" value={form.goodsDiscount ?? ''} />
+            <Input
+              onChange={(e) => setNum('goodsDiscount', e.target.value)}
+              type="number"
+              step="0.01"
+              value={form.goodsDiscount ?? ''}
+            />
           </Field>
           <Field label="积分倍率">
-            <Input onChange={(e) => setNum('pointRate', e.target.value)} type="number" step="0.01" value={form.pointRate ?? 1} />
+            <Input
+              onChange={(e) => setNum('pointRate', e.target.value)}
+              type="number"
+              step="0.01"
+              value={form.pointRate ?? 1}
+            />
           </Field>
           <Field label="充值赠送率">
-            <Input onChange={(e) => setNum('rechargeGiftRate', e.target.value)} type="number" step="0.01" value={form.rechargeGiftRate ?? 0} />
+            <Input
+              onChange={(e) => setNum('rechargeGiftRate', e.target.value)}
+              type="number"
+              step="0.01"
+              value={form.rechargeGiftRate ?? 0}
+            />
           </Field>
           <Field label="升级门槛">
-            <Input onChange={(e) => setNum('upgradeThreshold', e.target.value)} type="number" step="0.01" value={form.upgradeThreshold ?? ''} />
+            <Input
+              onChange={(e) => setNum('upgradeThreshold', e.target.value)}
+              type="number"
+              step="0.01"
+              value={form.upgradeThreshold ?? ''}
+            />
           </Field>
           <Field label="排序">
-            <Input onChange={(e) => setNum('sort', e.target.value)} type="number" value={form.sort ?? 0} />
+            <Input
+              onChange={(e) => setNum('sort', e.target.value)}
+              type="number"
+              value={form.sort ?? 0}
+            />
           </Field>
           <Field label="状态">
-            <Select onChange={(e) => setForm((f) => ({ ...f, status: Number(e.target.value) }))} value={form.status ?? 1}>
+            <Select
+              onChange={(e) => setForm((f) => ({ ...f, status: Number(e.target.value) }))}
+              value={form.status ?? 1}
+            >
               <option value={1}>启用</option>
               <option value={0}>禁用</option>
             </Select>
           </Field>
           <Field label="专属权益(JSON)">
-            <Input onChange={(e) => setForm((f) => ({ ...f, rights: e.target.value }))} value={form.rights ?? ''} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, rights: e.target.value }))}
+              value={form.rights ?? ''}
+            />
           </Field>
         </div>
       </Modal>

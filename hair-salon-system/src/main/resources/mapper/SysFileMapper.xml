@@ -11,7 +11,7 @@
         <where>
             f.deleted = 0
             <if test="q.keywords != null and q.keywords != ''">
-                AND f.original_name LIKE CONCAT('%', #{q.keywords}, '%')
+                AND f.original_name LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
             </if>
             <if test="q.biz != null and q.biz != ''">
                 AND f.biz = #{q.biz}

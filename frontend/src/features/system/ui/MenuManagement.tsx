@@ -299,7 +299,11 @@ function MenuFormDialog({
               </Select>
             </Field>
             <Field error={errors.name?.message} label="菜单名称" required>
-              <Input invalid={Boolean(errors.name)} placeholder="例如：系统管理" {...register('name')} />
+              <Input
+                invalid={Boolean(errors.name)}
+                placeholder="例如：系统管理"
+                {...register('name')}
+              />
             </Field>
             <Field error={errors.type?.message} label="菜单类型" required>
               <Select invalid={Boolean(errors.type)} {...register('type')}>
@@ -311,28 +315,52 @@ function MenuFormDialog({
               </Select>
             </Field>
             <Field error={errors.metaRank?.message} label="排序" required>
-              <Input invalid={Boolean(errors.metaRank)} type="number" {...register('metaRank', { valueAsNumber: true })} />
+              <Input
+                invalid={Boolean(errors.metaRank)}
+                type="number"
+                {...register('metaRank', { valueAsNumber: true })}
+              />
             </Field>
             <Field error={errors.path?.message} label="路由路径">
               <Input invalid={Boolean(errors.path)} placeholder="/system" {...register('path')} />
             </Field>
             <Field error={errors.component?.message} label="组件路径">
-              <Input invalid={Boolean(errors.component)} placeholder="Layout / system/user/index" {...register('component')} />
+              <Input
+                invalid={Boolean(errors.component)}
+                placeholder="Layout / system/user/index"
+                {...register('component')}
+              />
             </Field>
             <Field error={errors.redirect?.message} label="重定向">
-              <Input invalid={Boolean(errors.redirect)} placeholder="/system/user" {...register('redirect')} />
+              <Input
+                invalid={Boolean(errors.redirect)}
+                placeholder="/system/user"
+                {...register('redirect')}
+              />
             </Field>
             <Field error={errors.perm?.message} label="权限编码">
-              <Input invalid={Boolean(errors.perm)} placeholder="system:user:list" {...register('perm')} />
+              <Input
+                invalid={Boolean(errors.perm)}
+                placeholder="system:user:list"
+                {...register('perm')}
+              />
             </Field>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <Field error={errors.apiPath?.message} label="接口路径">
-              <Input invalid={Boolean(errors.apiPath)} placeholder="/api/v1/users" {...register('apiPath')} />
+              <Input
+                invalid={Boolean(errors.apiPath)}
+                placeholder="/api/v1/users"
+                {...register('apiPath')}
+              />
             </Field>
             <Field error={errors.metaTitle?.message} label="显示标题" required>
-              <Input invalid={Boolean(errors.metaTitle)} placeholder="菜单标题" {...register('metaTitle')} />
+              <Input
+                invalid={Boolean(errors.metaTitle)}
+                placeholder="菜单标题"
+                {...register('metaTitle')}
+              />
             </Field>
             <Field error={errors.metaIcon?.message} label="图标">
               <IconPicker
@@ -342,51 +370,83 @@ function MenuFormDialog({
               />
             </Field>
             <Field error={errors.metaFrameSrc?.message} label="外链地址">
-              <Input invalid={Boolean(errors.metaFrameSrc)} placeholder="https://..." {...register('metaFrameSrc')} />
+              <Input
+                invalid={Boolean(errors.metaFrameSrc)}
+                placeholder="https://..."
+                {...register('metaFrameSrc')}
+              />
             </Field>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="显示链接">
               <label className="flex items-center gap-2 text-sm">
-                <input className="size-4 rounded border-salon-line text-salon-accent" type="checkbox" {...register('metaShowLink')} />
+                <input
+                  className="size-4 rounded border-salon-line text-salon-accent"
+                  type="checkbox"
+                  {...register('metaShowLink')}
+                />
                 <span>在侧边栏显示</span>
               </label>
             </Field>
             <Field label="显示父级">
               <label className="flex items-center gap-2 text-sm">
-                <input className="size-4 rounded border-salon-line text-salon-accent" type="checkbox" {...register('metaShowParent')} />
+                <input
+                  className="size-4 rounded border-salon-line text-salon-accent"
+                  type="checkbox"
+                  {...register('metaShowParent')}
+                />
                 <span>保留父级菜单</span>
               </label>
             </Field>
             <Field label="隐藏菜单">
               <label className="flex items-center gap-2 text-sm">
-                <input className="size-4 rounded border-salon-line text-salon-accent" type="checkbox" {...register('metaHidden')} />
+                <input
+                  className="size-4 rounded border-salon-line text-salon-accent"
+                  type="checkbox"
+                  {...register('metaHidden')}
+                />
                 <span>不在菜单栏显示</span>
               </label>
             </Field>
             <Field label="缓存页面">
               <label className="flex items-center gap-2 text-sm">
-                <input className="size-4 rounded border-salon-line text-salon-accent" type="checkbox" {...register('metaKeepAlive')} />
+                <input
+                  className="size-4 rounded border-salon-line text-salon-accent"
+                  type="checkbox"
+                  {...register('metaKeepAlive')}
+                />
                 <span>启用 keepAlive</span>
               </label>
             </Field>
             <Field label="总是显示">
               <label className="flex items-center gap-2 text-sm">
-                <input className="size-4 rounded border-salon-line text-salon-accent" type="checkbox" {...register('metaAlwaysShow')} />
+                <input
+                  className="size-4 rounded border-salon-line text-salon-accent"
+                  type="checkbox"
+                  {...register('metaAlwaysShow')}
+                />
                 <span>多级菜单始终展开</span>
               </label>
             </Field>
             <Field label="外链加载态">
               <label className="flex items-center gap-2 text-sm">
-                <input className="size-4 rounded border-salon-line text-salon-accent" type="checkbox" {...register('metaFrameLoading')} />
+                <input
+                  className="size-4 rounded border-salon-line text-salon-accent"
+                  type="checkbox"
+                  {...register('metaFrameLoading')}
+                />
                 <span>iframe 加载提示</span>
               </label>
             </Field>
           </div>
 
           <Field error={errors.remark?.message} label="备注">
-            <Textarea invalid={Boolean(errors.remark)} placeholder="可选备注" {...register('remark')} />
+            <Textarea
+              invalid={Boolean(errors.remark)}
+              placeholder="可选备注"
+              {...register('remark')}
+            />
           </Field>
           <button className="hidden" type="submit" />
         </form>
@@ -413,7 +473,7 @@ export function MenuManagement() {
     setLoading(true);
     try {
       const menuList = await menuApi.list({
-        keywords: queryKeyword.trim() || undefined,
+        title: queryKeyword.trim() || undefined,
         path: queryPath.trim() || undefined,
         perm: queryPerm.trim() || undefined,
       });
@@ -452,73 +512,79 @@ export function MenuManagement() {
       const hasChildren = children.length > 0;
       const collapsed = collapsedIds.has(id);
       return [
-        (
-          <tr
-            className="border-t border-salon-line text-zinc-700 hover:bg-slate-50/60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900/70"
-            key={id}
-          >
-            <td className="px-4 py-3">
-              {hasChildren ? (
-                <button
-                  className="flex items-center gap-2 text-left transition hover:text-salon-accent"
-                  onClick={() => toggleCollapse(id)}
-                  style={{ paddingLeft: depth * 18 }}
-                  type="button"
-                >
-                  {collapsed ? <ChevronRight className="size-4 text-zinc-400" /> : <ChevronDown className="size-4 text-zinc-400" />}
-                  <FolderTree className="size-4 text-zinc-400" />
-                  <div className="font-medium text-salon-ink dark:text-white">{getMenuTitle(node)}</div>
-                </button>
-              ) : (
-                <div className="flex items-center gap-2" style={{ paddingLeft: depth * 18 }}>
-                  <span className="inline-block w-4" />
-                  <FolderTree className="size-4 text-zinc-400" />
-                  <div className="font-medium text-salon-ink dark:text-white">{getMenuTitle(node)}</div>
+        <tr
+          className="border-t border-salon-line text-zinc-700 hover:bg-slate-50/60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900/70"
+          key={id}
+        >
+          <td className="px-4 py-3">
+            {hasChildren ? (
+              <button
+                className="flex items-center gap-2 text-left transition hover:text-salon-accent"
+                onClick={() => toggleCollapse(id)}
+                style={{ paddingLeft: depth * 18 }}
+                type="button"
+              >
+                {collapsed ? (
+                  <ChevronRight className="size-4 text-zinc-400" />
+                ) : (
+                  <ChevronDown className="size-4 text-zinc-400" />
+                )}
+                <FolderTree className="size-4 text-zinc-400" />
+                <div className="font-medium text-salon-ink dark:text-white">
+                  {getMenuTitle(node)}
                 </div>
-              )}
-            </td>
-            <td className="px-4 py-3">
-              <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
-            </td>
-            <td className="px-4 py-3 tabular-nums">{getMenuRank(node)}</td>
-            <td className="px-4 py-3">{node.path || '-'}</td>
-            <td className="px-4 py-3">{node.perm || '-'}</td>
-            <td className="px-4 py-3">
-              <div className="flex justify-end gap-2">
-                {hasPermission('system:menu:add') ? (
-                  <Button
-                    icon={<Plus className="size-4" />}
-                    onClick={() => openCreate(node.id)}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    新增子项
-                  </Button>
-                ) : null}
-                {hasPermission('system:menu:edit') ? (
-                  <Button
-                    icon={<Pencil className="size-4" />}
-                    onClick={() => openEdit(node.id)}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    编辑
-                  </Button>
-                ) : null}
-                {hasPermission('system:menu:delete') ? (
-                  <Button
-                    icon={<Trash2 className="size-4" />}
-                    onClick={() => void handleRowDelete(node)}
-                    size="sm"
-                    variant="danger"
-                  >
-                    删除
-                  </Button>
-                ) : null}
+              </button>
+            ) : (
+              <div className="flex items-center gap-2" style={{ paddingLeft: depth * 18 }}>
+                <span className="inline-block w-4" />
+                <FolderTree className="size-4 text-zinc-400" />
+                <div className="font-medium text-salon-ink dark:text-white">
+                  {getMenuTitle(node)}
+                </div>
               </div>
-            </td>
-          </tr>
-        ),
+            )}
+          </td>
+          <td className="px-4 py-3">
+            <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
+          </td>
+          <td className="px-4 py-3 tabular-nums">{getMenuRank(node)}</td>
+          <td className="px-4 py-3">{node.path || '-'}</td>
+          <td className="px-4 py-3">{node.perm || '-'}</td>
+          <td className="px-4 py-3">
+            <div className="flex justify-end gap-2">
+              {hasPermission('system:menu:add') ? (
+                <Button
+                  icon={<Plus className="size-4" />}
+                  onClick={() => openCreate(node.id)}
+                  size="sm"
+                  variant="secondary"
+                >
+                  新增子项
+                </Button>
+              ) : null}
+              {hasPermission('system:menu:edit') ? (
+                <Button
+                  icon={<Pencil className="size-4" />}
+                  onClick={() => openEdit(node.id)}
+                  size="sm"
+                  variant="secondary"
+                >
+                  编辑
+                </Button>
+              ) : null}
+              {hasPermission('system:menu:delete') ? (
+                <Button
+                  icon={<Trash2 className="size-4" />}
+                  onClick={() => void handleRowDelete(node)}
+                  size="sm"
+                  variant="danger"
+                >
+                  删除
+                </Button>
+              ) : null}
+            </div>
+          </td>
+        </tr>,
         ...(hasChildren && !collapsed ? renderRows(children, depth + 1) : []),
       ];
     });
@@ -569,7 +635,9 @@ export function MenuManagement() {
       <div className="flex flex-col gap-3 rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-lg font-semibold">菜单管理</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">树形菜单、按钮权限和路由元信息维护。</p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            树形菜单、按钮权限和路由元信息维护。
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {hasPermission('system:menu:add') ? (
@@ -589,6 +657,7 @@ export function MenuManagement() {
                 void loadMenus();
               }
             }}
+            clearable
             placeholder="菜单名称"
             value={queryKeyword}
           />
@@ -599,6 +668,7 @@ export function MenuManagement() {
                 void loadMenus();
               }
             }}
+            clearable
             placeholder="路由路径"
             value={queryPath}
           />
@@ -609,6 +679,7 @@ export function MenuManagement() {
                 void loadMenus();
               }
             }}
+            clearable
             placeholder="权限编码"
             value={queryPerm}
           />

@@ -10,8 +10,9 @@ import lombok.EqualsAndHashCode;
 @Schema(description = "会员标签分页查询")
 public class MemberTagPageQuery extends BasePageQuery {
 
-    @Schema(description = "关键词")
-    private String keywords;
+    /** 标签名称，模糊匹配 */
+    @Schema(description = "标签名称（模糊匹配）")
+    private String name;
     @Schema(description = "状态：1启用 0禁用")
     private Integer status;
 }

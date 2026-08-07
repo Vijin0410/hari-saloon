@@ -31,7 +31,7 @@ public class MemberTagServiceImpl extends ServiceImpl<SalonMemberTagMapper, Salo
         Page<SalonMemberTag> page = this.page(
                 new Page<>(query.getPageNum(), query.getPageSize()),
                 Wrappers.<SalonMemberTag>lambdaQuery()
-                        .like(StrUtil.isNotBlank(query.getKeywords()), SalonMemberTag::getName, query.getKeywords())
+                        .like(StrUtil.isNotBlank(query.getName()), SalonMemberTag::getName, query.getName())
                         .eq(query.getStatus() != null, SalonMemberTag::getStatus, query.getStatus())
                         .orderByAsc(SalonMemberTag::getSort));
         Page<MemberTagVO> result = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());

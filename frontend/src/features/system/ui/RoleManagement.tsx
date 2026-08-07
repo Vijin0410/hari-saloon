@@ -36,7 +36,12 @@ import {
   ROLE_MENU_TYPE_WEB,
 } from '@/features/system/model/systemTypes';
 import { roleFormSchema, type RoleFormValues } from '@/features/system/model/systemSchemas';
-import type { EntityId, MenuVO, RolePageVO, StatusValue } from '@/features/system/model/systemTypes';
+import type {
+  EntityId,
+  MenuVO,
+  RolePageVO,
+  StatusValue,
+} from '@/features/system/model/systemTypes';
 import type { RoleFormPayload } from '@/features/system/model/systemTypes';
 import { DATA_SCOPE_OPTIONS, STATUS_OPTIONS } from '@/features/system/model/systemTypes';
 
@@ -189,7 +194,11 @@ function RoleFormDialog({
         <form className="space-y-4" onSubmit={handleSubmit(handleSave)}>
           <div className="grid gap-4 md:grid-cols-2">
             <Field error={errors.name?.message} label="角色名称" required>
-              <Input invalid={Boolean(errors.name)} placeholder="例如：门店管理员" {...register('name')} />
+              <Input
+                invalid={Boolean(errors.name)}
+                placeholder="例如：门店管理员"
+                {...register('name')}
+              />
             </Field>
             <Field error={errors.code?.message} label="角色编码" required>
               <>
@@ -200,7 +209,9 @@ function RoleFormDialog({
                   {...register('code')}
                 />
                 {isPreset ? (
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">系统预置角色编码不可修改。</span>
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                    系统预置角色编码不可修改。
+                  </span>
                 ) : null}
               </>
             </Field>
@@ -212,7 +223,10 @@ function RoleFormDialog({
               />
             </Field>
             <Field error={errors.status?.message} label="状态" required>
-              <Select invalid={Boolean(errors.status)} {...register('status', { valueAsNumber: true })}>
+              <Select
+                invalid={Boolean(errors.status)}
+                {...register('status', { valueAsNumber: true })}
+              >
                 {STATUS_OPTIONS.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -223,7 +237,10 @@ function RoleFormDialog({
           </div>
 
           <Field error={errors.dataScope?.message} label="数据范围" required>
-            <Select invalid={Boolean(errors.dataScope)} {...register('dataScope', { valueAsNumber: true })}>
+            <Select
+              invalid={Boolean(errors.dataScope)}
+              {...register('dataScope', { valueAsNumber: true })}
+            >
               {DATA_SCOPE_OPTIONS.map((item) => (
                 <option key={item.value} value={item.value}>
                   {item.label}
@@ -302,7 +319,7 @@ function MenuPermissionDialog({
     setLoading(true);
     menuApi
       .list({
-        keywords: queryKeyword.trim() || undefined,
+        title: queryKeyword.trim() || undefined,
         path: queryPath.trim() || undefined,
         perm: queryPerm.trim() || undefined,
       })
@@ -345,42 +362,46 @@ function MenuPermissionDialog({
       const hasChildren = children.length > 0;
       const collapsed = collapsedIds.has(id);
       return [
-        (
-          <div
-            className="flex items-start gap-2 rounded-md border border-salon-line bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-950"
-            key={id}
-            style={{ marginLeft: depth * 14 }}
-          >
-            <div className="flex items-center gap-1">
-              {hasChildren ? (
-                <button
-                  className="text-zinc-400 transition hover:text-salon-accent"
-                  onClick={() => toggleCollapse(id)}
-                  type="button"
-                >
-                  {collapsed ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
-                </button>
-              ) : (
-                <span className="inline-block w-4" />
-              )}
-              <input
-                checked={checked}
-                className="mt-0.5 size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
-                onChange={(event) => updateSelection(node, event.target.checked)}
-                type="checkbox"
-              />
+        <div
+          className="flex items-start gap-2 rounded-md border border-salon-line bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+          key={id}
+          style={{ marginLeft: depth * 14 }}
+        >
+          <div className="flex items-center gap-1">
+            {hasChildren ? (
+              <button
+                className="text-zinc-400 transition hover:text-salon-accent"
+                onClick={() => toggleCollapse(id)}
+                type="button"
+              >
+                {collapsed ? (
+                  <ChevronRight className="size-4" />
+                ) : (
+                  <ChevronDown className="size-4" />
+                )}
+              </button>
+            ) : (
+              <span className="inline-block w-4" />
+            )}
+            <input
+              checked={checked}
+              className="mt-0.5 size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
+              onChange={(event) => updateSelection(node, event.target.checked)}
+              type="checkbox"
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-salon-ink dark:text-zinc-100">
+                {getMenuTitle(node)}
+              </span>
+              <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
             </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-salon-ink dark:text-zinc-100">{getMenuTitle(node)}</span>
-                <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
-              </div>
-              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                {node.perm || node.path || '未配置权限标识'}
-              </div>
+            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              {node.perm || node.path || '未配置权限标识'}
             </div>
           </div>
-        ),
+        </div>,
         ...(hasChildren && !collapsed ? renderMenuNodes(children, depth + 1) : []),
       ];
     });
@@ -430,6 +451,7 @@ function MenuPermissionDialog({
                   loadMenuTree();
                 }
               }}
+              clearable
               placeholder="菜单名称"
               value={queryKeyword}
             />
@@ -440,6 +462,7 @@ function MenuPermissionDialog({
                   loadMenuTree();
                 }
               }}
+              clearable
               placeholder="路由路径"
               value={queryPath}
             />
@@ -450,6 +473,7 @@ function MenuPermissionDialog({
                   loadMenuTree();
                 }
               }}
+              clearable
               placeholder="权限编码"
               value={queryPerm}
             />
@@ -564,7 +588,9 @@ export function RoleManagement() {
       <div className="flex flex-col gap-3 rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-lg font-semibold">角色管理</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">管理角色、数据范围和菜单权限。</p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            管理角色、数据范围和菜单权限。
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {hasPermission('system:role:add') ? (
@@ -597,13 +623,18 @@ export function RoleManagement() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
             <Input
               className="pl-9"
+              clearable
               placeholder="按角色名称或编码搜索"
               value={queryKeyword}
               onChange={(event) => setQueryKeyword(event.target.value)}
             />
           </div>
           {showTenant ? (
-            <Select className="md:w-44" value={tenantId} onChange={(event) => changeTenant(event.target.value)}>
+            <Select
+              className="md:w-44"
+              value={tenantId}
+              onChange={(event) => changeTenant(event.target.value)}
+            >
               <option value="">全部租户</option>
               {tenantOptions.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -665,7 +696,9 @@ export function RoleManagement() {
                         type="checkbox"
                       />
                     </td>
-                    <td className="px-4 py-3 font-medium text-salon-ink dark:text-white">{row.name}</td>
+                    <td className="px-4 py-3 font-medium text-salon-ink dark:text-white">
+                      {row.name}
+                    </td>
                     <td className="px-4 py-3">{row.code}</td>
                     <td className="px-4 py-3">{row.sort ?? '-'}</td>
                     <td className="px-4 py-3">
@@ -680,7 +713,13 @@ export function RoleManagement() {
                       <div className="flex justify-end gap-2">
                         {hasPermission('system:role:status') ? (
                           <Button
-                            icon={row.status === 1 ? <ToggleLeft className="size-4" /> : <ToggleRight className="size-4" />}
+                            icon={
+                              row.status === 1 ? (
+                                <ToggleLeft className="size-4" />
+                              ) : (
+                                <ToggleRight className="size-4" />
+                              )
+                            }
                             onClick={() => void toggleStatus(row)}
                             size="sm"
                             variant="secondary"

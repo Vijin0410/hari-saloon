@@ -76,7 +76,12 @@ export function StorePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await storeApi.list({ pageNum, pageSize: 10, keywords: debounced || undefined, tenantId: isRoot ? tenantId || undefined : undefined });
+      const data = await storeApi.list({
+        pageNum,
+        pageSize: 10,
+        keywords: debounced || undefined,
+        tenantId: isRoot ? tenantId || undefined : undefined,
+      });
       setRows(data.list ?? []);
       setTotal(data.total ?? 0);
     } finally {
@@ -157,21 +162,46 @@ export function StorePage() {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-          <Input className="pl-9" onChange={(e) => setKeyword(e.target.value)} placeholder="名称/编码/电话" value={keyword} />
+      <div className="rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+            <Input
+              className="pl-9"
+              onChange={(e) => setKeyword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void load();
+                }
+              }}
+              clearable
+              placeholder="名称/编码/电话"
+              value={keyword}
+            />
+          </div>
+          {showTenant ? (
+            <Select
+              className="md:w-44"
+              value={tenantId}
+              onChange={(e) => changeTenant(e.target.value)}
+            >
+              <option value="">全部租户</option>
+              {tenantOptions.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+          <Button
+            className="lg:w-24"
+            icon={<Search className="size-4" />}
+            onClick={load}
+            variant="secondary"
+          >
+            查询
+          </Button>
         </div>
-        {showTenant ? (
-          <Select className="md:w-44" value={tenantId} onChange={(e) => changeTenant(e.target.value)}>
-            <option value="">全部租户</option>
-            {tenantOptions.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </Select>
-        ) : null}
       </div>
 
       {loading ? (
@@ -196,10 +226,14 @@ export function StorePage() {
                 <tr key={row.id}>
                   <td className="px-4 py-3">{row.name}</td>
                   <td className="px-4 py-3 font-mono text-xs">{row.code || '-'}</td>
-                  <td className="px-4 py-3">{row.businessHours || `${row.openTime || ''}-${row.closeTime || ''}`}</td>
+                  <td className="px-4 py-3">
+                    {row.businessHours || `${row.openTime || ''}-${row.closeTime || ''}`}
+                  </td>
                   <td className="px-4 py-3">{row.phone || '-'}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={row.status === 1 ? 'success' : 'danger'}>{row.status === 1 ? '营业' : '停用'}</Badge>
+                    <Badge tone={row.status === 1 ? 'success' : 'danger'}>
+                      {row.status === 1 ? '营业' : '停用'}
+                    </Badge>
                   </td>
                   <td className="space-x-2 px-4 py-3 text-right">
                     {hasPermission('biz:store:edit') ? (
@@ -208,7 +242,12 @@ export function StorePage() {
                       </Button>
                     ) : null}
                     {hasPermission('biz:store:delete') ? (
-                      <Button icon={<Trash2 className="size-4" />} onClick={() => setConfirmIds([row.id])} size="sm" variant="secondary">
+                      <Button
+                        icon={<Trash2 className="size-4" />}
+                        onClick={() => setConfirmIds([row.id])}
+                        size="sm"
+                        variant="secondary"
+                      >
                         删除
                       </Button>
                     ) : null}
@@ -223,10 +262,20 @@ export function StorePage() {
       <div className="flex items-center justify-between text-sm text-zinc-500">
         <span>共 {total} 条</span>
         <div className="flex gap-2">
-          <Button disabled={pageNum <= 1} onClick={() => setPageNum((p) => p - 1)} size="sm" variant="secondary">
+          <Button
+            disabled={pageNum <= 1}
+            onClick={() => setPageNum((p) => p - 1)}
+            size="sm"
+            variant="secondary"
+          >
             上一页
           </Button>
-          <Button disabled={pageNum * 10 >= total} onClick={() => setPageNum((p) => p + 1)} size="sm" variant="secondary">
+          <Button
+            disabled={pageNum * 10 >= total}
+            onClick={() => setPageNum((p) => p + 1)}
+            size="sm"
+            variant="secondary"
+          >
             下一页
           </Button>
         </div>
@@ -249,22 +298,42 @@ export function StorePage() {
       >
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="门店名称" required>
-            <Input onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} value={form.name} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              value={form.name}
+            />
           </Field>
           <Field label="编码">
-            <Input onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} value={form.code ?? ''} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+              value={form.code ?? ''}
+            />
           </Field>
           <Field label="电话">
-            <Input onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} value={form.phone ?? ''} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              value={form.phone ?? ''}
+            />
           </Field>
           <Field label="地址">
-            <Input onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} value={form.address ?? ''} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              value={form.address ?? ''}
+            />
           </Field>
           <Field label="开门时间">
-            <Input onChange={(e) => setForm((f) => ({ ...f, openTime: e.target.value }))} placeholder="09:00" value={form.openTime ?? ''} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, openTime: e.target.value }))}
+              placeholder="09:00"
+              value={form.openTime ?? ''}
+            />
           </Field>
           <Field label="关门时间">
-            <Input onChange={(e) => setForm((f) => ({ ...f, closeTime: e.target.value }))} placeholder="21:00" value={form.closeTime ?? ''} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, closeTime: e.target.value }))}
+              placeholder="21:00"
+              value={form.closeTime ?? ''}
+            />
           </Field>
           <Field label="营业时间文案">
             <Input
@@ -302,7 +371,9 @@ export function StorePage() {
                 );
               })
             ) : (
-              <div className="col-span-full text-sm text-zinc-500 dark:text-zinc-400">暂无可选用户</div>
+              <div className="col-span-full text-sm text-zinc-500 dark:text-zinc-400">
+                暂无可选用户
+              </div>
             )}
           </div>
           {invisibleSelectedCount > 0 ? (

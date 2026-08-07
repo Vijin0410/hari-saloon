@@ -42,7 +42,11 @@ export function TenantPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await tenantApi.list({ pageNum, pageSize: 10, keywords: debounced || undefined });
+      const data = await tenantApi.list({
+        pageNum,
+        pageSize: 10,
+        keywords: debounced || undefined,
+      });
       setRows(data.list ?? []);
       setTotal(data.total ?? 0);
     } finally {
@@ -59,7 +63,14 @@ export function TenantPage() {
     try {
       await tenantApi.create(form);
       setOpen(false);
-      setForm({ name: '', code: '', status: 1, adminUsername: 'admin', store: { name: '', code: '', phone: '', address: '' }, syncModules: ['dict', 'memberLevel', 'memberTag'] });
+      setForm({
+        name: '',
+        code: '',
+        status: 1,
+        adminUsername: 'admin',
+        store: { name: '', code: '', phone: '', address: '' },
+        syncModules: ['dict', 'memberLevel', 'memberTag'],
+      });
       await load();
     } finally {
       setSaving(false);
@@ -71,7 +82,9 @@ export function TenantPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">租户管理</h1>
-          <p className="text-sm text-zinc-500">开通租户会自动创建预置角色与管理员账号，可选联合创建初始门店。</p>
+          <p className="text-sm text-zinc-500">
+            开通租户会自动创建预置角色与管理员账号，可选联合创建初始门店。
+          </p>
         </div>
         {hasPermission('system:tenant:add') ? (
           <Button icon={<Plus className="size-4" />} onClick={() => setOpen(true)}>
@@ -80,10 +93,31 @@ export function TenantPage() {
         ) : null}
       </div>
 
-      <div className="flex gap-2">
-        <div className="relative max-w-xs flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-          <Input className="pl-9" onChange={(e) => setKeyword(e.target.value)} placeholder="名称/编码" value={keyword} />
+      <div className="rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+            <Input
+              className="pl-9"
+              onChange={(e) => setKeyword(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void load();
+                }
+              }}
+              clearable
+              placeholder="名称/编码"
+              value={keyword}
+            />
+          </div>
+          <Button
+            className="lg:w-24"
+            icon={<Search className="size-4" />}
+            onClick={load}
+            variant="secondary"
+          >
+            查询
+          </Button>
         </div>
       </div>
 
@@ -110,14 +144,24 @@ export function TenantPage() {
                   <td className="px-4 py-3 font-mono text-xs">{row.code}</td>
                   <td className="px-4 py-3">{row.contact || '-'}</td>
                   <td className="px-4 py-3">
-                    <Badge tone={row.status === 1 ? 'success' : 'danger'}>{row.status === 1 ? '启用' : '禁用'}</Badge>
+                    <Badge tone={row.status === 1 ? 'success' : 'danger'}>
+                      {row.status === 1 ? '启用' : '禁用'}
+                    </Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
                     {hasPermission('system:tenant:status') ? (
                       <Button
                         className="mr-2"
-                        icon={row.status === 1 ? <ToggleRight className="size-4" /> : <ToggleLeft className="size-4" />}
-                        onClick={() => void tenantApi.updateStatus(row.id, row.status === 1 ? 0 : 1).then(load)}
+                        icon={
+                          row.status === 1 ? (
+                            <ToggleRight className="size-4" />
+                          ) : (
+                            <ToggleLeft className="size-4" />
+                          )
+                        }
+                        onClick={() =>
+                          void tenantApi.updateStatus(row.id, row.status === 1 ? 0 : 1).then(load)
+                        }
                         size="sm"
                         variant="secondary"
                       >
@@ -145,10 +189,20 @@ export function TenantPage() {
       <div className="flex items-center justify-between text-sm text-zinc-500">
         <span>共 {total} 条</span>
         <div className="flex gap-2">
-          <Button disabled={pageNum <= 1} onClick={() => setPageNum((p) => p - 1)} size="sm" variant="secondary">
+          <Button
+            disabled={pageNum <= 1}
+            onClick={() => setPageNum((p) => p - 1)}
+            size="sm"
+            variant="secondary"
+          >
             上一页
           </Button>
-          <Button disabled={pageNum * 10 >= total} onClick={() => setPageNum((p) => p + 1)} size="sm" variant="secondary">
+          <Button
+            disabled={pageNum * 10 >= total}
+            onClick={() => setPageNum((p) => p + 1)}
+            size="sm"
+            variant="secondary"
+          >
             下一页
           </Button>
         </div>
@@ -172,16 +226,28 @@ export function TenantPage() {
       >
         <div className="grid gap-3 md:grid-cols-2">
           <Field label="租户名称" required>
-            <Input onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} value={form.name} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              value={form.name}
+            />
           </Field>
           <Field label="租户编码" required>
-            <Input onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} value={form.code} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
+              value={form.code}
+            />
           </Field>
           <Field label="联系人">
-            <Input onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))} value={form.contact ?? ''} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))}
+              value={form.contact ?? ''}
+            />
           </Field>
           <Field label="电话">
-            <Input onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} value={form.phone ?? ''} />
+            <Input
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              value={form.phone ?? ''}
+            />
           </Field>
           <Field label="管理员用户名">
             <Input
@@ -200,29 +266,39 @@ export function TenantPage() {
         </div>
 
         <div className="space-y-3 border-t border-salon-line pt-3 dark:border-zinc-800">
-          <div className="text-sm font-medium text-salon-ink dark:text-white">初始门店（可选，门店名称留空则不开通门店）</div>
+          <div className="text-sm font-medium text-salon-ink dark:text-white">
+            初始门店（可选，门店名称留空则不开通门店）
+          </div>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="门店名称">
               <Input
-                onChange={(e) => setForm((f) => ({ ...f, store: { ...(f.store ?? {}), name: e.target.value } }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, store: { ...(f.store ?? {}), name: e.target.value } }))
+                }
                 value={form.store?.name ?? ''}
               />
             </Field>
             <Field label="门店编码">
               <Input
-                onChange={(e) => setForm((f) => ({ ...f, store: { ...(f.store ?? {}), code: e.target.value } }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, store: { ...(f.store ?? {}), code: e.target.value } }))
+                }
                 value={form.store?.code ?? ''}
               />
             </Field>
             <Field label="门店电话">
               <Input
-                onChange={(e) => setForm((f) => ({ ...f, store: { ...(f.store ?? {}), phone: e.target.value } }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, store: { ...(f.store ?? {}), phone: e.target.value } }))
+                }
                 value={form.store?.phone ?? ''}
               />
             </Field>
             <Field label="门店地址">
               <Input
-                onChange={(e) => setForm((f) => ({ ...f, store: { ...(f.store ?? {}), address: e.target.value } }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, store: { ...(f.store ?? {}), address: e.target.value } }))
+                }
                 value={form.store?.address ?? ''}
               />
             </Field>
@@ -230,9 +306,17 @@ export function TenantPage() {
         </div>
 
         <div className="space-y-2 border-t border-salon-line pt-3 dark:border-zinc-800">
-          <div className="text-sm font-medium text-salon-ink dark:text-white">同步通用数据（从默认租户复制到新租户）</div>
+          <div className="text-sm font-medium text-salon-ink dark:text-white">
+            同步通用数据（从默认租户复制到新租户）
+          </div>
           <div className="grid gap-2 md:grid-cols-3">
-            {([['dict', '字典'], ['memberLevel', '会员等级'], ['memberTag', '会员标签']] as const).map(([key, label]) => {
+            {(
+              [
+                ['dict', '字典'],
+                ['memberLevel', '会员等级'],
+                ['memberTag', '会员标签'],
+              ] as const
+            ).map(([key, label]) => {
               const checked = (form.syncModules ?? []).includes(key);
               return (
                 <label
@@ -245,7 +329,10 @@ export function TenantPage() {
                     onChange={() =>
                       setForm((f) => {
                         const cur = f.syncModules ?? [];
-                        return { ...f, syncModules: checked ? cur.filter((m) => m !== key) : [...cur, key] };
+                        return {
+                          ...f,
+                          syncModules: checked ? cur.filter((m) => m !== key) : [...cur, key],
+                        };
                       })
                     }
                   />

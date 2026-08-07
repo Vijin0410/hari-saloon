@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { deptApi } from '@/shared/api/modules/systemApi';
 import { Badge } from '@/shared/ui/Badge';
@@ -63,7 +63,10 @@ function toDeptPayload(values: DeptFormValues): DeptFormPayload {
   };
 }
 
-function flattenDeptOptions(options: DeptOption[], depth = 0): Array<{ value: EntityId; label: string }> {
+function flattenDeptOptions(
+  options: DeptOption[],
+  depth = 0,
+): Array<{ value: EntityId; label: string }> {
   return options.flatMap((option) => {
     const prefix = depth === 0 ? '' : `${'　'.repeat(depth)}└─ `;
     return [
@@ -190,10 +193,17 @@ function DeptFormDialog({
               </Select>
             </Field>
             <Field error={errors.sort?.message} label="排序" required>
-              <Input invalid={Boolean(errors.sort)} type="number" {...register('sort', { valueAsNumber: true })} />
+              <Input
+                invalid={Boolean(errors.sort)}
+                type="number"
+                {...register('sort', { valueAsNumber: true })}
+              />
             </Field>
             <Field error={errors.status?.message} label="状态" required>
-              <Select invalid={Boolean(errors.status)} {...register('status', { valueAsNumber: true })}>
+              <Select
+                invalid={Boolean(errors.status)}
+                {...register('status', { valueAsNumber: true })}
+              >
                 {STATUS_OPTIONS.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
@@ -226,7 +236,10 @@ export function DeptPage() {
     setLoading(true);
     try {
       const [list, options] = await Promise.all([
-        deptApi.list({ keywords: debounced.trim() || undefined, tenantId: isRoot ? tenantId || undefined : undefined }),
+        deptApi.list({
+          name: debounced.trim() || undefined,
+          tenantId: isRoot ? tenantId || undefined : undefined,
+        }),
         deptApi.options(),
       ]);
       setTree(list ?? []);
@@ -261,7 +274,9 @@ export function DeptPage() {
       <div className="flex flex-col gap-3 rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-lg font-semibold">部门管理</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">维护租户内部门树，用于用户归属与数据权限。</p>
+          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            维护租户内部门树，用于用户归属与数据权限。
+          </p>
         </div>
         {hasPermission('system:dept:add') ? (
           <Button
@@ -278,14 +293,27 @@ export function DeptPage() {
 
       <div className="rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <div className="flex flex-wrap items-center gap-3">
-          <Input
-            className="min-w-[200px] flex-1"
-            placeholder="按部门名称搜索"
-            value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
-          />
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+            <Input
+              className="pl-9"
+              clearable
+              placeholder="按部门名称搜索"
+              value={keyword}
+              onChange={(event) => setKeyword(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  void load();
+                }
+              }}
+            />
+          </div>
           {showTenant ? (
-            <Select className="md:w-44" value={tenantId} onChange={(event) => changeTenant(event.target.value)}>
+            <Select
+              className="md:w-44"
+              value={tenantId}
+              onChange={(event) => changeTenant(event.target.value)}
+            >
               <option value="">全部租户</option>
               {tenantOptions.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -294,6 +322,14 @@ export function DeptPage() {
               ))}
             </Select>
           ) : null}
+          <Button
+            className="lg:w-24"
+            icon={<Search className="size-4" />}
+            onClick={load}
+            variant="secondary"
+          >
+            查询
+          </Button>
         </div>
       </div>
 
@@ -329,7 +365,9 @@ export function DeptPage() {
                     </td>
                     <td className="px-4 py-3">{node.sort ?? '-'}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={node.status === 1 ? 'success' : 'danger'}>{getStatusLabel(node.status)}</Badge>
+                      <Badge tone={node.status === 1 ? 'success' : 'danger'}>
+                        {getStatusLabel(node.status)}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">

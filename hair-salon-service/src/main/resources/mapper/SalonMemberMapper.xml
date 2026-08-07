@@ -15,9 +15,9 @@
             m.deleted = 0
             <if test="q.keywords != null and q.keywords != ''">
                 AND (
-                    m.name LIKE CONCAT('%', #{q.keywords}, '%')
-                    OR m.phone LIKE CONCAT('%', #{q.keywords}, '%')
-                    OR s.name LIKE CONCAT('%', #{q.keywords}, '%')
+                    m.name LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
+                    OR m.phone LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
+                    OR s.name LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
                 )
             </if>
             <if test="q.status != null">

@@ -322,3 +322,125 @@ FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM salon_member_tag t WHERE t.id = v.id);
 
 -- 字典已全局共享（sys_dict/sys_dict_type 走 ignore-tables），第二租户不再单独种子
+
+-- ===== P2 服务项目与商品主数据 =====
+
+-- 菜单：服务分类/服务项目/商品分类/商品（type=1，挂业务目录 8 下）
+INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, v.parent_id, v.name, v.type, v.path, v.component, NULL, v.tree_path, v.meta, NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (13::int8, 8::int8, 'serviceCategory', 1, 'service-category', 'biz/service-category/index', '0,8', '{"title":"服务分类","icon":"folder-tree","rank":5,"showLink":true}'),
+  (14::int8, 8::int8, 'serviceItem',      1, 'service',         'biz/service/index',         '0,8', '{"title":"服务项目","icon":"scissors","rank":6,"showLink":true}'),
+  (15::int8, 8::int8, 'goodsCategory',    1, 'goods-category',  'biz/goods-category/index',  '0,8', '{"title":"商品分类","icon":"folder-tree","rank":7,"showLink":true}'),
+  (16::int8, 8::int8, 'goods',            1, 'goods',           'biz/goods/index',           '0,8', '{"title":"商品管理","icon":"shopping-bag","rank":8,"showLink":true}')
+) AS v(id, parent_id, name, type, path, component, tree_path, meta)
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
+
+-- 按钮（type=4）
+INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, v.parent_id, v.name, 4, NULL, NULL, NULL, v.tree_path, v.meta, v.perm, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (131::int8, 13::int8, 'serviceCategoryList',   '0,8,13', '{"title":"查看列表"}', 'biz:serviceCategory:list'),
+  (132::int8, 13::int8, 'serviceCategoryView',   '0,8,13', '{"title":"查看详情"}', 'biz:serviceCategory:view'),
+  (133::int8, 13::int8, 'serviceCategoryAdd',    '0,8,13', '{"title":"新增分类"}', 'biz:serviceCategory:add'),
+  (134::int8, 13::int8, 'serviceCategoryEdit',   '0,8,13', '{"title":"编辑分类"}', 'biz:serviceCategory:edit'),
+  (135::int8, 13::int8, 'serviceCategoryDelete', '0,8,13', '{"title":"删除分类"}', 'biz:serviceCategory:delete'),
+  (141::int8, 14::int8, 'serviceItemList',   '0,8,14', '{"title":"查看列表"}', 'biz:serviceItem:list'),
+  (142::int8, 14::int8, 'serviceItemView',   '0,8,14', '{"title":"查看详情"}', 'biz:serviceItem:view'),
+  (143::int8, 14::int8, 'serviceItemAdd',    '0,8,14', '{"title":"新增项目"}', 'biz:serviceItem:add'),
+  (144::int8, 14::int8, 'serviceItemEdit',   '0,8,14', '{"title":"编辑项目"}', 'biz:serviceItem:edit'),
+  (145::int8, 14::int8, 'serviceItemDelete', '0,8,14', '{"title":"删除项目"}', 'biz:serviceItem:delete'),
+  (151::int8, 15::int8, 'goodsCategoryList',   '0,8,15', '{"title":"查看列表"}', 'biz:goodsCategory:list'),
+  (152::int8, 15::int8, 'goodsCategoryView',   '0,8,15', '{"title":"查看详情"}', 'biz:goodsCategory:view'),
+  (153::int8, 15::int8, 'goodsCategoryAdd',    '0,8,15', '{"title":"新增分类"}', 'biz:goodsCategory:add'),
+  (154::int8, 15::int8, 'goodsCategoryEdit',   '0,8,15', '{"title":"编辑分类"}', 'biz:goodsCategory:edit'),
+  (155::int8, 15::int8, 'goodsCategoryDelete', '0,8,15', '{"title":"删除分类"}', 'biz:goodsCategory:delete'),
+  (161::int8, 16::int8, 'goodsList',   '0,8,16', '{"title":"查看列表"}', 'biz:goods:list'),
+  (162::int8, 16::int8, 'goodsView',   '0,8,16', '{"title":"查看详情"}', 'biz:goods:view'),
+  (163::int8, 16::int8, 'goodsAdd',    '0,8,16', '{"title":"新增商品"}', 'biz:goods:add'),
+  (164::int8, 16::int8, 'goodsEdit',   '0,8,16', '{"title":"编辑商品"}', 'biz:goods:edit'),
+  (165::int8, 16::int8, 'goodsDelete', '0,8,16', '{"title":"删除商品"}', 'biz:goods:delete')
+) AS v(id, parent_id, name, tree_path, meta, perm)
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
+
+-- 店长(role 2)：P2 全部
+INSERT INTO sys_role_menu (role_id, menu_id, type)
+SELECT 2, m.id, 1 FROM sys_menu m
+WHERE m.id IN (13, 131, 132, 133, 134, 135,
+               14, 141, 142, 143, 144, 145,
+               15, 151, 152, 153, 154, 155,
+               16, 161, 162, 163, 164, 165)
+  AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 2 AND rm.menu_id = m.id AND rm.type = 1);
+
+-- 店员(role 3)：仅查看（开单选服务/商品）
+INSERT INTO sys_role_menu (role_id, menu_id, type)
+SELECT 3, m.id, 1 FROM sys_menu m
+WHERE m.id IN (13, 131, 132, 14, 141, 142, 15, 151, 152, 16, 161, 162)
+  AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 3 AND rm.menu_id = m.id AND rm.type = 1);
+
+-- 默认服务分类（租户1）
+INSERT INTO salon_service_category (id, tenant_id, name, sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 1, v.name, v.sort, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (3001::int8, '剪发', 1),
+  (3002::int8, '烫发', 2),
+  (3003::int8, '染发', 3),
+  (3004::int8, '护理', 4),
+  (3005::int8, '洗护', 5),
+  (3006::int8, '造型', 6)
+) AS v(id, name, sort)
+WHERE NOT EXISTS (SELECT 1 FROM salon_service_category c WHERE c.id = v.id);
+
+-- 默认商品分类（租户1）
+INSERT INTO salon_goods_category (id, tenant_id, name, sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 1, v.name, v.sort, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (4001::int8, '洗护用品', 1),
+  (4002::int8, '造型用品', 2),
+  (4003::int8, '染护产品', 3),
+  (4004::int8, '日用周边', 4)
+) AS v(id, name, sort)
+WHERE NOT EXISTS (SELECT 1 FROM salon_goods_category c WHERE c.id = v.id);
+
+-- 示例服务项目（租户1）
+INSERT INTO salon_service (id, tenant_id, name, category_id, standard_price, member_price, duration, discountable, commissionable, sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 1, v.name, v.category_id, v.standard_price, v.member_price, v.duration, 1, 1, v.sort, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (5001::int8, '男士洗剪吹', 3001::int8, 45.00, 40.00, 40, 1),
+  (5002::int8, '女士洗剪吹', 3001::int8, 68.00, 60.00, 50, 2),
+  (5003::int8, '冷烫',       3002::int8, 188.00, 168.00, 120, 3)
+) AS v(id, name, category_id, standard_price, member_price, duration, sort)
+WHERE NOT EXISTS (SELECT 1 FROM salon_service s WHERE s.id = v.id);
+
+-- 示例商品（租户1）
+INSERT INTO salon_goods (id, tenant_id, name, category_id, barcode, sale_price, cost_price, stock_quantity, discountable, commissionable, sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 1, v.name, v.category_id, v.barcode, v.sale_price, v.cost_price, v.stock_quantity, 1, 1, v.sort, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (6001::int8, '丝蓓绮洗发水 500ml', 4001::int8, '6901234567890', 58.00, 32.00, 50, 1),
+  (6002::int8, '发蜡 100g',           4002::int8, '6901234567891', 38.00, 18.00, 80, 2)
+) AS v(id, name, category_id, barcode, sale_price, cost_price, stock_quantity, sort)
+WHERE NOT EXISTS (SELECT 1 FROM salon_goods g WHERE g.id = v.id);
+
+-- 租户2 默认服务分类（与租户1一致，id 段 3007-3012）
+INSERT INTO salon_service_category (id, tenant_id, name, sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 2084880957290426370, v.name, v.sort, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (3007::int8, '剪发', 1),
+  (3008::int8, '烫发', 2),
+  (3009::int8, '染发', 3),
+  (3010::int8, '护理', 4),
+  (3011::int8, '洗护', 5),
+  (3012::int8, '造型', 6)
+) AS v(id, name, sort)
+WHERE NOT EXISTS (SELECT 1 FROM salon_service_category c WHERE c.id = v.id);
+
+-- 租户2 默认商品分类（id 段 4005-4008）
+INSERT INTO salon_goods_category (id, tenant_id, name, sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 2084880957290426370, v.name, v.sort, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (4005::int8, '洗护用品', 1),
+  (4006::int8, '造型用品', 2),
+  (4007::int8, '染护产品', 3),
+  (4008::int8, '日用周边', 4)
+) AS v(id, name, sort)
+WHERE NOT EXISTS (SELECT 1 FROM salon_goods_category c WHERE c.id = v.id);

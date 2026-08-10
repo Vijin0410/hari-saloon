@@ -75,6 +75,10 @@ const frontendPathByPermission: Record<string, string> = {
   'biz:member:list': '/biz/members',
   'biz:memberLevel:list': '/biz/members/level',
   'biz:memberTag:list': '/biz/members/tag',
+  'biz:serviceCategory:list': '/biz/service-categories',
+  'biz:serviceItem:list': '/biz/services',
+  'biz:goodsCategory:list': '/biz/goods-categories',
+  'biz:goods:list': '/biz/goods',
 };
 
 const knownFrontendPaths = new Set<string>(Object.values(frontendPathByPermission));
@@ -90,6 +94,10 @@ const iconByPermission: Record<string, IconType> = {
   'biz:member:list': UserRound,
   'biz:memberLevel:list': Medal,
   'biz:memberTag:list': Tag,
+  'biz:serviceCategory:list': FolderTree,
+  'biz:serviceItem:list': Scissors,
+  'biz:goodsCategory:list': FolderTree,
+  'biz:goods:list': ShoppingBag,
 };
 
 const iconByMetaName: Record<string, IconType> = {
@@ -107,6 +115,9 @@ const iconByMetaName: Record<string, IconType> = {
   member: UserRound,
   medal: Medal,
   tag: Tag,
+  'folder-tree': FolderTree,
+  scissors: Scissors,
+  'shopping-bag': ShoppingBag,
 };
 
 function isPathActive(path: string, pathname: string): boolean {

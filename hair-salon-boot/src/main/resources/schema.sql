@@ -677,3 +677,148 @@ COMMENT ON COLUMN salon_member_profile.create_time IS '创建时间';
 COMMENT ON COLUMN salon_member_profile.update_by IS '更新人ID';
 COMMENT ON COLUMN salon_member_profile.update_time IS '更新时间';
 COMMENT ON COLUMN salon_member_profile.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- ===== P2 服务项目与商品主数据 =====
+
+-- 服务项目分类（租户级）
+CREATE TABLE IF NOT EXISTS salon_service_category (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    name                varchar(64)   NOT NULL,
+    sort                int4          DEFAULT 0,
+    status              int4          DEFAULT 1,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_service_category_name ON salon_service_category (tenant_id, name) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_service_category_sort ON salon_service_category (tenant_id, sort) WHERE deleted = 0;
+COMMENT ON TABLE salon_service_category IS '服务项目分类（租户级）';
+COMMENT ON COLUMN salon_service_category.id IS '分类ID';
+COMMENT ON COLUMN salon_service_category.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_service_category.name IS '分类名称';
+COMMENT ON COLUMN salon_service_category.sort IS '排序';
+COMMENT ON COLUMN salon_service_category.status IS '状态（1=启用 0=禁用）';
+COMMENT ON COLUMN salon_service_category.remark IS '备注';
+COMMENT ON COLUMN salon_service_category.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_service_category.create_time IS '创建时间';
+COMMENT ON COLUMN salon_service_category.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_service_category.update_time IS '更新时间';
+COMMENT ON COLUMN salon_service_category.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 服务项目（租户级，收银开单可选）
+CREATE TABLE IF NOT EXISTS salon_service (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    name                varchar(64)   NOT NULL,
+    category_id         int8,
+    standard_price      numeric(12, 2) NOT NULL,
+    member_price        numeric(12, 2),
+    duration            int4,
+    discountable        int4          DEFAULT 1,
+    commissionable      int4          DEFAULT 1,
+    sort                int4          DEFAULT 0,
+    status              int4          DEFAULT 1,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_service_category_id ON salon_service (tenant_id, category_id) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_service_sort ON salon_service (tenant_id, sort) WHERE deleted = 0;
+COMMENT ON TABLE salon_service IS '服务项目（租户级，收银开单可选）';
+COMMENT ON COLUMN salon_service.id IS '项目ID';
+COMMENT ON COLUMN salon_service.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_service.name IS '项目名称';
+COMMENT ON COLUMN salon_service.category_id IS '项目分类ID（关联salon_service_category）';
+COMMENT ON COLUMN salon_service.standard_price IS '标准价格';
+COMMENT ON COLUMN salon_service.member_price IS '会员价格（NULL=无会员价，按标准价）';
+COMMENT ON COLUMN salon_service.duration IS '服务时长（分钟）';
+COMMENT ON COLUMN salon_service.discountable IS '是否参与折扣（1=是 0=否）';
+COMMENT ON COLUMN salon_service.commissionable IS '是否计算提成（1=是 0=否）';
+COMMENT ON COLUMN salon_service.sort IS '排序';
+COMMENT ON COLUMN salon_service.status IS '状态（1=启用 0=禁用）';
+COMMENT ON COLUMN salon_service.remark IS '备注';
+COMMENT ON COLUMN salon_service.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_service.create_time IS '创建时间';
+COMMENT ON COLUMN salon_service.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_service.update_time IS '更新时间';
+COMMENT ON COLUMN salon_service.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 商品分类（租户级）
+CREATE TABLE IF NOT EXISTS salon_goods_category (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    name                varchar(64)   NOT NULL,
+    sort                int4          DEFAULT 0,
+    status              int4          DEFAULT 1,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_goods_category_name ON salon_goods_category (tenant_id, name) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_goods_category_sort ON salon_goods_category (tenant_id, sort) WHERE deleted = 0;
+COMMENT ON TABLE salon_goods_category IS '商品分类（租户级）';
+COMMENT ON COLUMN salon_goods_category.id IS '分类ID';
+COMMENT ON COLUMN salon_goods_category.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_goods_category.name IS '分类名称';
+COMMENT ON COLUMN salon_goods_category.sort IS '排序';
+COMMENT ON COLUMN salon_goods_category.status IS '状态（1=启用 0=禁用）';
+COMMENT ON COLUMN salon_goods_category.remark IS '备注';
+COMMENT ON COLUMN salon_goods_category.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_goods_category.create_time IS '创建时间';
+COMMENT ON COLUMN salon_goods_category.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_goods_category.update_time IS '更新时间';
+COMMENT ON COLUMN salon_goods_category.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 商品（租户级，收银开单可选；库存数量为冗余，P5销售扣减，完整进销存见P17）
+CREATE TABLE IF NOT EXISTS salon_goods (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    name                varchar(64)   NOT NULL,
+    category_id         int8,
+    barcode             varchar(64),
+    sale_price          numeric(12, 2) NOT NULL,
+    cost_price          numeric(12, 2),
+    stock_quantity      int4          DEFAULT 0,
+    discountable        int4          DEFAULT 1,
+    commissionable      int4          DEFAULT 1,
+    sort                int4          DEFAULT 0,
+    status              int4          DEFAULT 1,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_goods_category_id ON salon_goods (tenant_id, category_id) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_goods_sort ON salon_goods (tenant_id, sort) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_goods_barcode ON salon_goods (tenant_id, barcode) WHERE deleted = 0;
+COMMENT ON TABLE salon_goods IS '商品（租户级，收银开单可选）';
+COMMENT ON COLUMN salon_goods.id IS '商品ID';
+COMMENT ON COLUMN salon_goods.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_goods.name IS '商品名称';
+COMMENT ON COLUMN salon_goods.category_id IS '商品分类ID（关联salon_goods_category）';
+COMMENT ON COLUMN salon_goods.barcode IS '商品条码';
+COMMENT ON COLUMN salon_goods.sale_price IS '销售价格';
+COMMENT ON COLUMN salon_goods.cost_price IS '成本价';
+COMMENT ON COLUMN salon_goods.stock_quantity IS '库存数量（冗余，P5销售扣减；完整进销存见P17）';
+COMMENT ON COLUMN salon_goods.discountable IS '是否参与折扣（1=是 0=否）';
+COMMENT ON COLUMN salon_goods.commissionable IS '是否计算提成（1=是 0=否）';
+COMMENT ON COLUMN salon_goods.sort IS '排序';
+COMMENT ON COLUMN salon_goods.status IS '状态（1=启用 0=禁用）';
+COMMENT ON COLUMN salon_goods.remark IS '备注';
+COMMENT ON COLUMN salon_goods.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_goods.create_time IS '创建时间';
+COMMENT ON COLUMN salon_goods.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_goods.update_time IS '更新时间';
+COMMENT ON COLUMN salon_goods.deleted IS '逻辑删除（0=未删除 1=已删除）';

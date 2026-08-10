@@ -21,6 +21,10 @@ const StorePage = lazy(() => import('@/pages/StorePage').then((module) => ({ def
 const MemberPage = lazy(() => import('@/pages/MemberPage').then((module) => ({ default: module.MemberPage })));
 const MemberLevelPage = lazy(() => import('@/pages/MemberLevelPage').then((module) => ({ default: module.MemberLevelPage })));
 const MemberTagPage = lazy(() => import('@/pages/MemberTagPage').then((module) => ({ default: module.MemberTagPage })));
+const ServiceCategoryPage = lazy(() => import('@/pages/ServiceCategoryPage').then((module) => ({ default: module.ServiceCategoryPage })));
+const ServiceItemPage = lazy(() => import('@/pages/ServiceItemPage').then((module) => ({ default: module.ServiceItemPage })));
+const GoodsCategoryPage = lazy(() => import('@/pages/GoodsCategoryPage').then((module) => ({ default: module.GoodsCategoryPage })));
+const GoodsPage = lazy(() => import('@/pages/GoodsPage').then((module) => ({ default: module.GoodsPage })));
 const DeptPage = lazy(() => import('@/pages/DeptPage').then((module) => ({ default: module.DeptPage })));
 const ForbiddenPage = lazy(() =>
   import('@/pages/ForbiddenPage').then((module) => ({ default: module.ForbiddenPage })),
@@ -125,6 +129,38 @@ export const router = createBrowserRouter([
             element: (
               <PermissionRoute permission="biz:memberTag:list">
                 <MemberTagPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/service-categories',
+            element: (
+              <PermissionRoute permission="biz:serviceCategory:list">
+                <ServiceCategoryPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/services',
+            element: (
+              <PermissionRoute permission="biz:serviceItem:list">
+                <ServiceItemPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/goods-categories',
+            element: (
+              <PermissionRoute permission="biz:goodsCategory:list">
+                <GoodsCategoryPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/goods',
+            element: (
+              <PermissionRoute permission="biz:goods:list">
+                <GoodsPage />
               </PermissionRoute>
             ),
           },

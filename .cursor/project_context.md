@@ -1,6 +1,6 @@
 # 项目上下文记忆
 
-> 最后更新: 2026-07-30
+> 最后更新: 2026-08-07
 
 ## 模块与包
 
@@ -40,6 +40,10 @@
 ### 业务
 - `GET|POST|PUT|DELETE /api/v1/stores` / `GET /api/v1/stores/options` - 门店；`biz:store:*`；列表/下拉按 `salon_store_user` 门店范围过滤（options 也允许会员相关权限 + `system:user:list` 调用，供用户表单选门店）
 - `GET|POST|PUT|DELETE /api/v1/members` - 会员；`biz:member:*`；分页按 `store_id` 门店范围过滤 + `@QueryDict`
+- `GET|POST|PUT|DELETE /api/v1/service-categories` / `GET /options` - 服务项目分类；`biz:serviceCategory:*`（租户级，无门店隔离）
+- `GET|POST|PUT|DELETE /api/v1/services` / `GET /options` - 服务项目；`biz:serviceItem:*`（标准价/会员价/时长/discountable/commissionable）
+- `GET|POST|PUT|DELETE /api/v1/goods-categories` / `GET /options` - 商品分类；`biz:goodsCategory:*`
+- `GET|POST|PUT|DELETE /api/v1/goods` / `GET /options` - 商品；`biz:goods:*`（条码/销售价/成本价/stock_quantity 供 P5 扣减）
 
 ## 可复用的后端方法/组件
 
@@ -62,7 +66,7 @@
 - 模型：目录/菜单 type=1/2 `perm=NULL`（只存 path/component）；按钮 type=4 挂 perm
 - 按钮 perm（每资源）：`:list` 查看列表 / `:view` 查看详情 / `:add` / `:edit` / `:delete` / `:status` 改状态 / `:password` 重置密码 / `:assign` 角色分配菜单
 - 公用接口 `isAuthenticated()`（不挂 perm）：各 `options` 下拉、`/me`、`/me/password`、`/menus/routes`
-- 按钮 id：用户 21-27、角色 31-37、菜单 41-45、部门 51-55、字典 61-65、租户 71-76、门店 91-95、会员 101-105
+- 按钮 id：用户 21-27、角色 31-37、菜单 41-45、部门 51-55、字典 61-65、租户 71-76、门店 91-95、会员 101-105、会员等级 111-115、会员标签 121-125、服务分类 131-135、服务项目 141-145、商品分类 151-155、商品 161-165；目录/菜单 id：服务分类 13、服务项目 14、商品分类 15、商品 16（均挂 biz 目录 8）
 - 预置角色菜单：ROOT 全量；店长（data_scope=1）用户全+部门(查/增/改)+门店(查/增/改)+会员(查/增/改/删)；店员会员(查/增/改)
 - 默认 `sql.init.mode=never`：重置跑 `sql/truncate-all.sql` 再 `data.sql`
 
@@ -76,6 +80,7 @@
 - 文件字段约定：业务表（如 `sys_user.avatar`）存 `object_key`；`UserPageVO` 返回时转预签名 URL；表单回显给 object_key，预览调 `GET /files/url?objectKey=`
 
 ## 最近更新
+- 2026-08-07: P2 服务项目与商品主数据落地。4 表 `salon_service_category`/`salon_service`/`salon_goods_category`/`salon_goods`（租户级 `BaseTenantEntity`，无门店隔离）。服务项目 entity `SalonServiceItem`（@TableName("salon_service")，避开 `ServiceService` 叠词，service/controller 命名 `ServiceItem`）；商品 `SalonGoods`->`GoodsService`。各全套 CRUD（page/{id}/form/add/{id}/update/delete/options）复用 MemberLevel 模板 + `@PreAuthorize` + MapStruct。字段：服务（standardPrice/memberPrice/duration/discountable/commissionable）、商品（barcode/salePrice/costPrice/stockQuantity 供 P5 扣减，完整进销存见 P17）。菜单 13-16 + 按钮 131-165（biz:serviceCategory:*/biz:serviceItem:*/biz:goodsCategory:*/biz:goods:*），店长全权限、店员仅 list/view。schema.sql + data.sql（租户1 默认分类6+4+示例服务3+商品2，租户2 默认分类）+ `sql/migrate-p2-service-goods.sql`（存量库）。前端 features/service+goods types、serviceApi/goodsApi、4 Page（复用 MemberLevelPage）、router 4 路由、MainLayout perm/icon 映射（folder-tree/scissors/shopping-bag）。服务人员绑定/商品销售规则属 P5 未做。计划文档 P1✅/P2🔄，四功能（等级升级/消费送积分/充值赠送档位/充值冻结）归入 P4/P5 明细 + §5.1 加升级口径决策。
 - 2026-08-06: 积分过期时间改为按天。Java 层 `expireTime` 由 `LocalDateTime` 改为 `LocalDate`（`SalonMemberPointLog`/`MemberPointLogVO`/`MemberPointAdjustForm`/`MemberAssetService.changePoints` 参数）；**DB 列 `expire_time` 保持 `timestamp` 不变**（`LocalDate` 映射 timestamp 列：按天存当天 00:00:00、读取取日期部分，未来需要时分秒时无需改列）；过期判定改 `expireDate < today`（**选当天则在当天24:00后过期**，定时任务次日扫到即清零）；前端积分过期选择改 `type="date"`（去掉 `datetime-local`），提交无需转换。规范（CLAUDE/AGENTS §8 + react-solo-architect 第15条）：时间字段**优先按天** `type="date"`，**禁用 `type="datetime-local"`**（空值占位 `--:--` 丑），确需时分秒用 `type="date"`+`type="time"` 组合。
 - 2026-08-06: 会员积分过期清零定时任务。`SalonMemberPointLog` 批次模型（remainingPoints/expireTime/sourceLogId）已就绪、changeType=8=过期清零已预留，补齐到期执行逻辑：`MemberPointExpireJob`（`@Scheduled`，`wj.salon.point-expire-enabled` 默认开 / `point-expire-cron` 默认 `0 0 2 * * ?` 每天 02:00；启动类加 `@EnableScheduling`）-> `MemberPointService.expireDuePoints()`（查启用租户逐个 `TenantContextRunner.run` 切上下文——**定时任务无登录态，`WjTenantLineHandler` 会把非忽略表回落到默认租户1，故必须逐租户切换**）-> `MemberAssetService.expireMemberPoints(memberId, now)`（单会员事务：扫 `expireTime<=now` 且 `remainingPoints>0` 的获得类批次，条件置零 `SET remaining_points=0 WHERE id=? AND remaining_points=?` 幂等防并发/重复执行，逐批写 changeType=8 流水 `sourceLogId` 指向源批次、`remark="积分到期清零"`，`member.points` 用 `setSql("points = points - ?")` 原子扣减；不引分布式锁，靠条件置零+原子扣减天然幂等）。前端积分流水 changeType 数字改中文映射（8=过期清零 可见）。
 - 2026-08-06: 多租户通用数据同步。补齐租户 2084880957290426370 的 P1 通用数据（会员等级 1005-1008 / 标签 2007-2012 / 4类字典 dict_type 103-106 / dict 105-129）到 data.sql + migrate；约定后续通用数据 SQL 同步两租户（1 + 2084880957290426370）。开通租户同步机制：TenantForm.syncModules（dict/memberLevel/memberTag，空默认全部），bootstrapTenant 按勾选从默认租户复制（字典 dictService.copyFromTenant；等级/标签走新 SPI SalonMemberPort--system 定义/service 实现，TenantContextRunner 切源租户读+当前租户写，幂等）；前端 TenantPage 表单加“同步通用数据”多选。

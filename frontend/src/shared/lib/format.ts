@@ -40,3 +40,19 @@ export function normalizeStringArray(value: unknown): string[] {
   }
   return [];
 }
+
+/**
+ * 金额格式化：千分位 + 两位小数 + ¥ 前缀。
+ * 统一财务/余额/价格展示，禁止内联 `¥${x.toFixed(2)}` 散落各处。
+ * null/undefined/非有限数字返回 ¥0.00。
+ */
+export function formatCurrency(value: number | string | null | undefined): string {
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return '¥0.00';
+  }
+  return `¥${numeric.toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}

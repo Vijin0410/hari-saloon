@@ -11,7 +11,9 @@ import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
 import { PageLoading } from '@/shared/ui/PageLoading';
+import { Pagination } from '@/shared/ui/Pagination';
 import { Select } from '@/shared/ui/Select';
+import { Table, type TableColumn } from '@/shared/ui/Table';
 import { Textarea } from '@/shared/ui/Textarea';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { cn } from '@/shared/lib/cn';
@@ -495,6 +497,63 @@ export function DictManagement() {
     }
   }
 
+  const itemColumns: TableColumn<DictPageVO>[] = [
+    {
+      title: '名称',
+      render: (r) => <span className="font-medium text-salon-ink dark:text-white">{r.name}</span>,
+    },
+    {
+      title: '值',
+      render: (r) => <span className="font-mono text-xs">{r.value}</span>,
+    },
+    {
+      title: '排序',
+      align: 'right',
+      render: (r) => r.sort ?? 0,
+    },
+    {
+      title: '状态',
+      render: (r) => (
+        <Badge tone={r.status === 1 ? 'success' : 'danger'}>{getStatusLabel(r.status)}</Badge>
+      ),
+    },
+    {
+      title: '操作',
+      align: 'right',
+      render: (r) => (
+        <div className="flex justify-end gap-2">
+          {hasPermission('system:dict:edit') ? (
+            <Button
+              icon={<Pencil className="size-4" />}
+              onClick={() => openEditItem(r)}
+              size="sm"
+              variant="secondary"
+            >
+              编辑
+            </Button>
+          ) : null}
+          {hasPermission('system:dict:delete') ? (
+            <Button
+              icon={<Trash2 className="size-4" />}
+              onClick={() =>
+                setConfirm({
+                  title: '删除字典项',
+                  description: `确定删除字典项「${r.name}」吗？`,
+                  ids: [r.id],
+                  kind: 'item',
+                })
+              }
+              size="sm"
+              variant="danger"
+            >
+              删除
+            </Button>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-3 rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between">
@@ -688,106 +747,32 @@ export function DictManagement() {
             </div>
           </div>
 
-          {itemLoading ? (
-            <PageLoading />
-          ) : !selectedType ? (
+          {!selectedType ? (
             <div className="p-4">
               <EmptyState
                 description="在左侧选择一个字典类型后查看其字典项。"
                 title="未选择字典类型"
               />
             </div>
-          ) : items.length === 0 ? (
-            <div className="p-4">
-              <EmptyState description="点击「新增字典项」创建第一条数据。" title="暂无字典项" />
-            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">名称</th>
-                    <th className="px-4 py-3 font-medium">值</th>
-                    <th className="px-4 py-3 font-medium">排序</th>
-                    <th className="px-4 py-3 font-medium">状态</th>
-                    <th className="px-4 py-3 text-right font-medium">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((row) => (
-                    <tr
-                      className="border-t border-salon-line text-zinc-700 hover:bg-slate-50/60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900/70"
-                      key={row.id}
-                    >
-                      <td className="px-4 py-3 font-medium text-salon-ink dark:text-white">
-                        {row.name}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">{row.value}</td>
-                      <td className="px-4 py-3">{row.sort ?? 0}</td>
-                      <td className="px-4 py-3">
-                        <Badge tone={row.status === 1 ? 'success' : 'danger'}>
-                          {getStatusLabel(row.status)}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          {hasPermission('system:dict:edit') ? (
-                            <Button
-                              icon={<Pencil className="size-4" />}
-                              onClick={() => openEditItem(row)}
-                              size="sm"
-                              variant="secondary"
-                            >
-                              编辑
-                            </Button>
-                          ) : null}
-                          {hasPermission('system:dict:delete') ? (
-                            <Button
-                              icon={<Trash2 className="size-4" />}
-                              onClick={() =>
-                                setConfirm({
-                                  title: '删除字典项',
-                                  description: `确定删除字典项「${row.name}」吗？`,
-                                  ids: [row.id],
-                                  kind: 'item',
-                                })
-                              }
-                              size="sm"
-                              variant="danger"
-                            >
-                              删除
-                            </Button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table
+              columns={itemColumns}
+              data={items}
+              empty={
+                <EmptyState description="点击「新增字典项」创建第一条数据。" title="暂无字典项" />
+              }
+              loading={itemLoading}
+              rowKey={(r) => r.id}
+            />
           )}
 
-          <div className="flex items-center justify-between border-t border-salon-line px-4 py-3 text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-            <span>共 {itemTotal} 条</span>
-            <div className="flex items-center gap-2">
-              <Button
-                disabled={pageNum <= 1}
-                onClick={() => setPageNum((current) => Math.max(1, current - 1))}
-                size="sm"
-                variant="secondary"
-              >
-                上一页
-              </Button>
-              <span className="min-w-12 text-center">{pageNum}</span>
-              <Button
-                disabled={pageNum * pageSize >= itemTotal}
-                onClick={() => setPageNum((current) => current + 1)}
-                size="sm"
-                variant="secondary"
-              >
-                下一页
-              </Button>
-            </div>
+          <div className="border-t border-salon-line px-4 py-3 dark:border-zinc-800">
+            <Pagination
+              onChange={setPageNum}
+              pageNum={pageNum}
+              pageSize={pageSize}
+              total={itemTotal}
+            />
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { Moon, Scissors, Sun } from 'lucide-react';
-import heroImage from '@/assets/hari-salon-login-hero.png';
+import heroImage from '@/assets/hair-salon-login-hero.png';
 import { PageLoading } from '@/shared/ui/PageLoading';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -61,7 +61,7 @@ function BrandMark({ variant }: { variant: AuthLayoutProps['variant'] }): ReactN
         </span>
       </div>
       <div className="leading-tight">
-        <p className="text-base font-semibold text-salon-ink">Hari Salon</p>
+        <p className="text-base font-semibold text-salon-ink">Hair Salon</p>
         <p className="text-xs text-zinc-500">
           {variant === 'admin' ? '平台管理控制台' : '门店工作台'}
         </p>
@@ -93,7 +93,7 @@ export function AuthLayout({ variant }: AuthLayoutProps) {
             <div className="relative w-full max-w-[28rem]">
               <div className="absolute inset-6 rounded-full bg-white/50 blur-2xl dark:bg-violet-400/10" />
               <img
-                alt="Hari Salon"
+                alt="Hair Salon"
                 className="relative mx-auto w-full max-w-md drop-shadow-xl select-none"
                 draggable={false}
                 src={heroImage}
@@ -122,13 +122,13 @@ export function AuthLayout({ variant }: AuthLayoutProps) {
           {/* 移动端品牌头 */}
           <div className="absolute left-5 top-6 flex items-center gap-3 lg:hidden">
             <div className="flex size-10 items-center justify-center overflow-hidden rounded-full ring-2 ring-salon-accent/20">
-              <img alt="Hari Salon" className="size-10 object-cover" src={heroImage} />
+              <img alt="Hair Salon" className="size-10 object-cover" src={heroImage} />
             </div>
             <div className="leading-tight">
               <p className="text-sm font-semibold">
                 {variant === 'admin' ? '平台管理' : '门店工作台'}
               </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">Hari Salon</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">Hair Salon</p>
             </div>
           </div>
           <Suspense fallback={<PageLoading />}>

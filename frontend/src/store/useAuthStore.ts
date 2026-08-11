@@ -49,7 +49,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'hari-salon-auth',
+      name: 'hair-salon-auth',
       partialize: (state) => ({
         token: state.token,
         user: state.user,

@@ -38,7 +38,7 @@ interface ConfirmState {
   ids: EntityId[];
 }
 
-const MENU_TREE_COLLAPSED_CACHE_KEY = 'hari-salon-menu-management-collapsed-ids';
+const MENU_TREE_COLLAPSED_CACHE_KEY = 'hair-salon-menu-management-collapsed-ids';
 
 function defaultMenuValues(): MenuFormValues {
   return {

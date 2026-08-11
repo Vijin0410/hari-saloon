@@ -11,7 +11,9 @@ import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
 import { PageLoading } from '@/shared/ui/PageLoading';
+import { Pagination } from '@/shared/ui/Pagination';
 import { Select } from '@/shared/ui/Select';
+import { Table, type TableColumn } from '@/shared/ui/Table';
 import { Textarea } from '@/shared/ui/Textarea';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { normalizeNumber, normalizeStringArray } from '@/shared/lib/format';
@@ -553,6 +555,109 @@ export function UserManagement() {
     await loadUsers();
   }
 
+  const columns: TableColumn<UserPageVO>[] = [
+    {
+      title: (
+        <input
+          checked={allChecked}
+          className="size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
+          onChange={(event) => toggleSelectAll(event.target.checked)}
+          type="checkbox"
+        />
+      ),
+      width: '40px',
+      render: (row) => (
+        <input
+          checked={selectedIds.includes(row.id)}
+          className="size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
+          onChange={() => toggleSelection(row.id)}
+          type="checkbox"
+        />
+      ),
+    },
+    {
+      title: '用户名',
+      render: (row) => (
+        <span className="font-medium text-salon-ink dark:text-white">{row.username}</span>
+      ),
+    },
+    { title: '昵称', render: (row) => row.nickname || '暂无' },
+    { title: '手机号', render: (row) => row.phone || '暂无' },
+    {
+      title: '角色',
+      render: (row) => (
+        <div className="flex flex-wrap gap-1">
+          {row.roleNames
+            ? row.roleNames.split(',').map((roleName) => (
+                <Badge key={roleName} tone="info">
+                  {roleName}
+                </Badge>
+              ))
+            : '暂无'}
+        </div>
+      ),
+    },
+    {
+      title: '状态',
+      render: (row) => (
+        <Badge tone={row.status === 1 ? 'success' : 'danger'}>
+          {getStatusLabel(row.status)}
+        </Badge>
+      ),
+    },
+    { title: '创建时间', render: (row) => row.createTime || '暂无' },
+    {
+      title: '操作',
+      align: 'right',
+      render: (row) => (
+        <div className="flex justify-end gap-2">
+          {hasPermission('system:user:status') ? (
+            <Button
+              icon={
+                row.status === 1 ? (
+                  <ToggleLeft className="size-4" />
+                ) : (
+                  <ToggleRight className="size-4" />
+                )
+              }
+              onClick={() => void toggleStatus(row)}
+              size="sm"
+              variant="secondary"
+            >
+              {row.status === 1 ? '禁用' : '启用'}
+            </Button>
+          ) : null}
+          {hasPermission('system:user:edit') ? (
+            <Button
+              icon={<Pencil className="size-4" />}
+              onClick={() => openEdit(row.id)}
+              size="sm"
+              variant="secondary"
+            >
+              编辑
+            </Button>
+          ) : null}
+          {hasPermission('system:user:delete') ? (
+            <Button
+              icon={<Trash2 className="size-4" />}
+              onClick={() =>
+                setConfirm({
+                  title: '删除用户',
+                  description: `确定删除用户「${row.nickname || row.username}」吗？`,
+                  ids: [row.id],
+                })
+              }
+              size="sm"
+              variant="danger"
+            >
+              删除
+            </Button>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-3 rounded-lg border border-salon-line bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 lg:flex-row lg:items-center lg:justify-between">
@@ -654,145 +759,15 @@ export function UserManagement() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-salon-line bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        {loading ? (
-          <PageLoading />
-        ) : rows.length === 0 ? (
-          <div className="p-4">
-            <EmptyState description="还没有找到符合条件的用户。" title="暂无用户数据" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
-                <tr>
-                  <th className="w-10 px-4 py-3">
-                    <input
-                      checked={allChecked}
-                      className="size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
-                      onChange={(event) => toggleSelectAll(event.target.checked)}
-                      type="checkbox"
-                    />
-                  </th>
-                  <th className="px-4 py-3 font-medium">用户名</th>
-                  <th className="px-4 py-3 font-medium">昵称</th>
-                  <th className="px-4 py-3 font-medium">手机号</th>
-                  <th className="px-4 py-3 font-medium">角色</th>
-                  <th className="px-4 py-3 font-medium">状态</th>
-                  <th className="px-4 py-3 font-medium">创建时间</th>
-                  <th className="px-4 py-3 text-right font-medium">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    className="border-t border-salon-line text-zinc-700 hover:bg-slate-50/60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900/70"
-                    key={row.id}
-                  >
-                    <td className="px-4 py-3">
-                      <input
-                        checked={selectedIds.includes(row.id)}
-                        className="size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
-                        onChange={() => toggleSelection(row.id)}
-                        type="checkbox"
-                      />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-salon-ink dark:text-white">
-                      {row.username}
-                    </td>
-                    <td className="px-4 py-3">{row.nickname || '-'}</td>
-                    <td className="px-4 py-3">{row.phone || '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {row.roleNames
-                          ? row.roleNames.split(',').map((roleName) => (
-                              <Badge key={roleName} tone="info">
-                                {roleName}
-                              </Badge>
-                            ))
-                          : '-'}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge tone={row.status === 1 ? 'success' : 'danger'}>
-                        {getStatusLabel(row.status)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">{row.createTime || '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {hasPermission('system:user:status') ? (
-                          <Button
-                            icon={
-                              row.status === 1 ? (
-                                <ToggleLeft className="size-4" />
-                              ) : (
-                                <ToggleRight className="size-4" />
-                              )
-                            }
-                            onClick={() => void toggleStatus(row)}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            {row.status === 1 ? '禁用' : '启用'}
-                          </Button>
-                        ) : null}
-                        {hasPermission('system:user:edit') ? (
-                          <Button
-                            icon={<Pencil className="size-4" />}
-                            onClick={() => openEdit(row.id)}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            编辑
-                          </Button>
-                        ) : null}
-                        {hasPermission('system:user:delete') ? (
-                          <Button
-                            icon={<Trash2 className="size-4" />}
-                            onClick={() =>
-                              setConfirm({
-                                title: '删除用户',
-                                description: `确定删除用户「${row.nickname || row.username}」吗？`,
-                                ids: [row.id],
-                              })
-                            }
-                            size="sm"
-                            variant="danger"
-                          >
-                            删除
-                          </Button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <Table
+        columns={columns}
+        data={rows}
+        rowKey={(r) => r.id}
+        loading={loading}
+        empty={<EmptyState description="还没有找到符合条件的用户。" title="暂无用户数据" />}
+      />
 
-      <div className="flex items-center justify-between text-sm text-zinc-500 dark:text-zinc-400">
-        <span>共 {total} 条</span>
-        <div className="flex items-center gap-2">
-          <Button
-            disabled={pageNum <= 1}
-            onClick={() => setPageNum((current) => Math.max(1, current - 1))}
-            variant="secondary"
-          >
-            上一页
-          </Button>
-          <span className="min-w-16 text-center">{pageNum}</span>
-          <Button
-            disabled={pageNum * pageSize >= total}
-            onClick={() => setPageNum((current) => current + 1)}
-            variant="secondary"
-          >
-            下一页
-          </Button>
-        </div>
-      </div>
+      <Pagination pageNum={pageNum} pageSize={pageSize} total={total} onChange={setPageNum} />
 
       {modalMode ? (
         <UserFormDialog

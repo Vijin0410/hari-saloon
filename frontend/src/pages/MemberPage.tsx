@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Search, Trash2 } from 'lucide-react';
+import { useForm } from 'react-hook-form';
 import {
   memberApi,
   memberBalanceApi,
@@ -20,26 +22,231 @@ import type {
   MemberProfilePayload,
   MemberTagOption,
 } from '@/features/member/model/memberTypes';
+import { memberFormSchema, type MemberFormValues } from '@/features/member/model/memberSchemas';
 import { dictApi } from '@/shared/api/modules/systemApi';
 import type { DictOption } from '@/features/system/model/dictTypes';
+import type { StoreOption } from '@/features/system/model/systemTypes';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
+import { Drawer } from '@/shared/ui/Drawer';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
 import { PageLoading } from '@/shared/ui/PageLoading';
+import { Pagination } from '@/shared/ui/Pagination';
 import { Select } from '@/shared/ui/Select';
+import { StatCard } from '@/shared/ui/StatCard';
 import { Textarea } from '@/shared/ui/Textarea';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { formatCurrency } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useTenantStoreFilter } from '@/features/system/model/useTenantStoreFilter';
 import { cn } from '@/shared/lib/cn';
 
-function defaultMemberForm(storeId = ''): MemberFormPayload {
-  return { name: '', storeId, status: 1, gender: 0 };
+type MemberFormMode = 'create' | 'edit';
+
+function defaultMemberValues(storeId = ''): MemberFormValues {
+  return {
+    name: '',
+    phone: '',
+    gender: 0,
+    birthday: '',
+    levelId: '',
+    source: '',
+    storeId,
+    status: 1,
+    remark: '',
+  };
+}
+
+function toMemberFormValues(d: MemberDetailVO): MemberFormValues {
+  return {
+    name: d.name ?? '',
+    phone: d.phone ?? '',
+    gender: (d.gender ?? 0) as 0 | 1 | 2,
+    birthday: d.birthday ?? '',
+    levelId: d.levelId != null ? String(d.levelId) : '',
+    source: d.source ?? '',
+    storeId: d.storeId != null ? String(d.storeId) : '',
+    status: (d.status ?? 1) as 0 | 1,
+    remark: d.remark ?? '',
+  };
+}
+
+function toMemberPayload(v: MemberFormValues): MemberFormPayload {
+  return {
+    name: v.name.trim(),
+    phone: v.phone?.trim() || undefined,
+    gender: v.gender,
+    birthday: v.birthday || undefined,
+    levelId: v.levelId || undefined,
+    source: v.source || undefined,
+    storeId: v.storeId,
+    status: v.status,
+    remark: v.remark?.trim() || undefined,
+  };
+}
+
+function MemberFormDialog({
+  mode,
+  open,
+  memberId,
+  levelOptions,
+  sourceOptions,
+  storeOptions,
+  onClose,
+  onSaved,
+}: {
+  mode: MemberFormMode;
+  open: boolean;
+  memberId: string | null;
+  levelOptions: MemberLevelOption[];
+  sourceOptions: DictOption[];
+  storeOptions: StoreOption[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [loadingForm, setLoadingForm] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const {
+    formState: { errors },
+    handleSubmit,
+    register,
+    reset,
+  } = useForm<MemberFormValues>({
+    resolver: zodResolver(memberFormSchema),
+    defaultValues: defaultMemberValues(),
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    if (mode === 'create') {
+      reset(defaultMemberValues(storeOptions[0]?.value ?? ''));
+      return;
+    }
+    if (!memberId) {
+      return;
+    }
+    let active = true;
+    setLoadingForm(true);
+    memberApi
+      .detail(memberId)
+      .then((d) => {
+        if (active) {
+          reset(toMemberFormValues(d));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingForm(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [mode, open, memberId, reset, storeOptions]);
+
+  async function handleSave(values: MemberFormValues): Promise<void> {
+    setSubmitLoading(true);
+    try {
+      const payload = toMemberPayload(values);
+      if (mode === 'create') {
+        await memberApi.create(payload);
+      } else if (memberId) {
+        await memberApi.update(memberId, payload);
+      }
+      onSaved();
+      onClose();
+    } finally {
+      setSubmitLoading(false);
+    }
+  }
+
+  return (
+    <Modal
+      footer={
+        <>
+          <Button onClick={onClose} variant="secondary">
+            取消
+          </Button>
+          <Button loading={submitLoading} onClick={handleSubmit(handleSave)}>
+            保存
+          </Button>
+        </>
+      }
+      onClose={onClose}
+      open={open}
+      title={mode === 'create' ? '新增会员' : '编辑会员'}
+    >
+      {loadingForm ? (
+        <PageLoading />
+      ) : (
+        <form className="grid gap-3 md:grid-cols-2" onSubmit={handleSubmit(handleSave)}>
+          <Field error={errors.name?.message} label="姓名" required>
+            <Input invalid={Boolean(errors.name)} placeholder="会员姓名" {...register('name')} />
+          </Field>
+          <Field error={errors.phone?.message} label="手机">
+            <Input invalid={Boolean(errors.phone)} placeholder="11 位手机号" {...register('phone')} />
+          </Field>
+          <Field label="性别">
+            <Select {...register('gender', { valueAsNumber: true })}>
+              <option value={0}>未知</option>
+              <option value={1}>男</option>
+              <option value={2}>女</option>
+            </Select>
+          </Field>
+          <Field label="生日">
+            <Input type="date" {...register('birthday')} />
+          </Field>
+          <Field label="会员等级">
+            <Select {...register('levelId')}>
+              <option value="">请选择等级</option>
+              {levelOptions.map((l) => (
+                <option key={l.id} value={String(l.id)}>
+                  {l.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="来源">
+            <Select {...register('source')}>
+              <option value="">请选择来源</option>
+              {sourceOptions.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field error={errors.storeId?.message} label="所属门店" required>
+            <Select invalid={Boolean(errors.storeId)} {...register('storeId')}>
+              <option value="">请选择所属门店</option>
+              {storeOptions.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="状态">
+            <Select {...register('status', { valueAsNumber: true })}>
+              <option value={1}>正常</option>
+              <option value={0}>停用</option>
+            </Select>
+          </Field>
+          <Field className="md:col-span-2" label="备注">
+            <Input placeholder="会员备注（可选）" {...register('remark')} />
+          </Field>
+          <button className="hidden" type="submit" />
+        </form>
+      )}
+    </Modal>
+  );
 }
 
 /** 积分变动类型中文标签（与后端 SalonMemberPointLog.changeType 对应） */
@@ -80,10 +287,8 @@ export function MemberPage() {
   const [filterTagId, setFilterTagId] = useState('');
 
   // 编辑表单
-  const [open, setOpen] = useState(false);
+  const [editMode, setEditMode] = useState<MemberFormMode | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<MemberFormPayload>(() => defaultMemberForm());
-  const [saving, setSaving] = useState(false);
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
 
   // 详情
@@ -167,46 +372,19 @@ export function MemberPage() {
     setDetailOpen(true);
   }
 
-  async function openEdit(id: string): Promise<void> {
-    const d = await memberApi.detail(id);
+  function openEdit(id: string): void {
+    setEditMode('edit');
     setEditId(id);
-    setForm({
-      name: d.name,
-      phone: d.phone,
-      gender: d.gender ?? 0,
-      birthday: d.birthday,
-      levelId: d.levelId,
-      source: d.source,
-      status: d.status ?? 1,
-      remark: d.remark,
-      storeId: String(d.storeId ?? ''),
-    });
-    setOpen(true);
-  }
-
-  async function handleSave(): Promise<void> {
-    if (!form.storeId) {
-      return;
-    }
-    setSaving(true);
-    try {
-      if (editId) {
-        await memberApi.update(editId, form);
-      } else {
-        await memberApi.create(form);
-      }
-      setOpen(false);
-      setEditId(null);
-      await load();
-    } finally {
-      setSaving(false);
-    }
   }
 
   function openCreate(): void {
+    setEditMode('create');
     setEditId(null);
-    setForm(defaultMemberForm(storeOptions[0]?.value ?? ''));
-    setOpen(true);
+  }
+
+  function closeEdit(): void {
+    setEditMode(null);
+    setEditId(null);
   }
 
   async function refreshDetail(): Promise<void> {
@@ -542,136 +720,26 @@ export function MemberPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between text-sm text-zinc-500">
-        <span>共 {total} 条</span>
-        <div className="flex gap-2">
-          <Button
-            disabled={pageNum <= 1}
-            onClick={() => setPageNum((p) => p - 1)}
-            size="sm"
-            variant="secondary"
-          >
-            上一页
-          </Button>
-          <Button
-            disabled={pageNum * 10 >= total}
-            onClick={() => setPageNum((p) => p + 1)}
-            size="sm"
-            variant="secondary"
-          >
-            下一页
-          </Button>
-        </div>
-      </div>
+      <Pagination pageNum={pageNum} pageSize={10} total={total} onChange={setPageNum} />
 
       {/* 新增/编辑表单 */}
-      <Modal
-        footer={
-          <>
-            <Button onClick={() => setOpen(false)} variant="secondary">
-              取消
-            </Button>
-            <Button loading={saving} onClick={() => void handleSave()}>
-              保存
-            </Button>
-          </>
-        }
-        onClose={() => setOpen(false)}
-        open={open}
-        title={editId ? '编辑会员' : '新增会员'}
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="姓名" required>
-            <Input
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              value={form.name}
-            />
-          </Field>
-          <Field label="手机">
-            <Input
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-              value={form.phone ?? ''}
-            />
-          </Field>
-          <Field label="性别">
-            <Select
-              onChange={(e) => setForm((f) => ({ ...f, gender: Number(e.target.value) }))}
-              value={form.gender ?? 0}
-            >
-              <option value={0}>未知</option>
-              <option value={1}>男</option>
-              <option value={2}>女</option>
-            </Select>
-          </Field>
-          <Field label="生日">
-            <Input
-              type="date"
-              onChange={(e) => setForm((f) => ({ ...f, birthday: e.target.value }))}
-              value={form.birthday ?? ''}
-            />
-          </Field>
-          <Field label="会员等级">
-            <Select
-              onChange={(e) => setForm((f) => ({ ...f, levelId: e.target.value || undefined }))}
-              value={form.levelId ? String(form.levelId) : ''}
-            >
-              <option value="">请选择等级</option>
-              {levelOptions.map((l) => (
-                <option key={l.id} value={String(l.id)}>
-                  {l.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="来源">
-            <Select
-              onChange={(e) => setForm((f) => ({ ...f, source: e.target.value || undefined }))}
-              value={form.source ?? ''}
-            >
-              <option value="">请选择来源</option>
-              {sourceOptions.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="所属门店" required>
-            <Select
-              onChange={(e) => setForm((f) => ({ ...f, storeId: e.target.value }))}
-              value={form.storeId}
-            >
-              <option value="">请选择所属门店</option>
-              {storeOptions.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="状态">
-            <Select
-              onChange={(e) => setForm((f) => ({ ...f, status: Number(e.target.value) }))}
-              value={form.status ?? 1}
-            >
-              <option value={1}>正常</option>
-              <option value={0}>停用</option>
-            </Select>
-          </Field>
-          <Field className="md:col-span-2" label="备注">
-            <Input
-              onChange={(e) => setForm((f) => ({ ...f, remark: e.target.value }))}
-              value={form.remark ?? ''}
-            />
-          </Field>
-        </div>
-      </Modal>
+      <MemberFormDialog
+        levelOptions={levelOptions}
+        memberId={editId}
+        mode={editMode ?? 'create'}
+        onClose={closeEdit}
+        onSaved={() => void load()}
+        open={editMode !== null}
+        sourceOptions={sourceOptions}
+        storeOptions={storeOptions}
+      />
 
       {/* 详情 */}
-      <Modal
+      <Drawer
         onClose={() => setDetailOpen(false)}
         open={detailOpen}
         title="会员详情"
+        width="560px"
         footer={
           <Button onClick={() => setDetailOpen(false)} variant="secondary">
             关闭
@@ -712,9 +780,12 @@ export function MemberPage() {
 
             {/* 账户资产：余额 + 积分两大卡片 */}
             <div className="grid grid-cols-2 gap-4">
-              <Card>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">账户余额</div>
+              <StatCard
+                label="账户余额"
+                value={formatCurrency(balance.availableBalance ?? detail.balance ?? 0)}
+                tone="accent"
+                hint="可用余额"
+                extra={
                   <div className="flex shrink-0 gap-2">
                     {hasPermission('biz:memberBalance:adjust') ? (
                       <Button
@@ -737,12 +808,9 @@ export function MemberPage() {
                       </Button>
                     ) : null}
                   </div>
-                </div>
-                <div className="mt-2 text-[28px] font-bold leading-none text-salon-ink dark:text-zinc-100">
-                  ¥{(balance.availableBalance ?? detail.balance ?? 0).toFixed(2)}
-                </div>
-                <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">可用余额</div>
-                <div className="mt-3 grid grid-cols-2 gap-3 border-t border-salon-line pt-3 text-xs dark:border-zinc-800">
+                }
+              >
+                <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <div className="text-zinc-500 dark:text-zinc-400">最近充值</div>
                     <div className="mt-0.5 text-zinc-700 dark:text-zinc-200">
@@ -756,11 +824,14 @@ export function MemberPage() {
                     </div>
                   </div>
                 </div>
-              </Card>
+              </StatCard>
 
-              <Card>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">积分账户</div>
+              <StatCard
+                label="积分账户"
+                value={detail.points ?? 0}
+                tone="accent"
+                hint="当前积分"
+                extra={
                   <div className="flex shrink-0 gap-2">
                     {hasPermission('biz:memberPoint:adjust') ? (
                       <Button
@@ -783,15 +854,12 @@ export function MemberPage() {
                       </Button>
                     ) : null}
                   </div>
-                </div>
-                <div className="mt-2 text-[28px] font-bold leading-none text-salon-ink dark:text-zinc-100">
-                  {detail.points ?? 0}
-                </div>
-                <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">当前积分</div>
-                <div className="mt-3 border-t border-salon-line pt-3 text-xs text-zinc-400 dark:border-zinc-800 dark:text-zinc-500">
+                }
+              >
+                <div className="text-xs text-zinc-400 dark:text-zinc-500">
                   积分按批次过期，变动记录详见流水
                 </div>
-              </Card>
+              </StatCard>
             </div>
 
             {/* 余额明细四宫格 */}
@@ -806,7 +874,7 @@ export function MemberPage() {
                   <div key={s.label} className="rounded-md bg-stone-50 p-3 dark:bg-zinc-900">
                     <div className="text-xs text-zinc-500 dark:text-zinc-400">{s.label}</div>
                     <div className="mt-1 text-lg font-semibold text-salon-ink dark:text-zinc-100">
-                      ¥{(s.value ?? 0).toFixed(2)}
+                      {formatCurrency(s.value)}
                     </div>
                   </div>
                 ))}
@@ -873,7 +941,7 @@ export function MemberPage() {
             </Card>
           </div>
         ) : null}
-      </Modal>
+      </Drawer>
 
       {/* 余额调整 */}
       <Modal
@@ -1214,17 +1282,18 @@ export function MemberPage() {
       </Modal>
 
       {/* 余额流水 */}
-      <Modal
+      <Drawer
         onClose={() => setBalanceLogOpen(false)}
         open={balanceLogOpen}
         title="余额流水"
+        width="640px"
         footer={
           <Button onClick={() => setBalanceLogOpen(false)} variant="secondary">
             关闭
           </Button>
         }
       >
-        <div className="max-h-96 overflow-auto">
+        <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-salon-line text-xs dark:divide-zinc-800">
             <thead className="bg-slate-50 dark:bg-zinc-900/60">
               <tr>
@@ -1243,32 +1312,37 @@ export function MemberPage() {
                     {l.balanceType_text ?? l.balanceType}/{l.changeType_text ?? l.changeType}
                   </td>
                   <td
-                    className="px-2 py-2 text-right"
-                    style={{ color: (l.changeAmount ?? 0) >= 0 ? 'green' : 'red' }}
+                    className={cn(
+                      'px-2 py-2 text-right',
+                      (l.changeAmount ?? 0) >= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400',
+                    )}
                   >
                     {l.changeAmount}
                   </td>
                   <td className="px-2 py-2 text-right">{l.afterAmount}</td>
-                  <td className="px-2 py-2">{l.operatorName || '-'}</td>
+                  <td className="px-2 py-2">{l.operatorName || '暂无'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </Modal>
+      </Drawer>
 
       {/* 积分流水 */}
-      <Modal
+      <Drawer
         onClose={() => setPointLogOpen(false)}
         open={pointLogOpen}
         title="积分流水"
+        width="640px"
         footer={
           <Button onClick={() => setPointLogOpen(false)} variant="secondary">
             关闭
           </Button>
         }
       >
-        <div className="max-h-96 overflow-auto">
+        <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-salon-line text-xs dark:divide-zinc-800">
             <thead className="bg-slate-50 dark:bg-zinc-900/60">
               <tr>
@@ -1287,19 +1361,23 @@ export function MemberPage() {
                     {POINT_CHANGE_TYPE_LABEL[l.changeType ?? 0] ?? l.changeType}
                   </td>
                   <td
-                    className="px-2 py-2 text-right"
-                    style={{ color: (l.changePoints ?? 0) >= 0 ? 'green' : 'red' }}
+                    className={cn(
+                      'px-2 py-2 text-right',
+                      (l.changePoints ?? 0) >= 0
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-rose-600 dark:text-rose-400',
+                    )}
                   >
                     {l.changePoints}
                   </td>
                   <td className="px-2 py-2 text-right">{l.afterPoints}</td>
-                  <td className="px-2 py-2">{l.operatorName || '-'}</td>
+                  <td className="px-2 py-2">{l.operatorName || '暂无'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </Modal>
+      </Drawer>
 
       {/* 标签编辑 */}
       <Modal

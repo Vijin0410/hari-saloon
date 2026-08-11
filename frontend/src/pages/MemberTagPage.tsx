@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Controller, useForm } from 'react-hook-form';
 import { memberTagApi } from '@/shared/api/modules/memberApi';
 import type { MemberTagFormPayload, MemberTagVO } from '@/features/member/model/memberTypes';
+import { memberTagFormSchema, type MemberTagFormValues } from '@/features/member/model/memberSchemas';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
+import { Card } from '@/shared/ui/Card';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { Field } from '@/shared/ui/Field';
@@ -12,71 +16,261 @@ import { Modal } from '@/shared/ui/Modal';
 import { PageLoading } from '@/shared/ui/PageLoading';
 import { Select } from '@/shared/ui/Select';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { normalizeNumber } from '@/shared/lib/format';
+import { cn } from '@/shared/lib/cn';
 import { useAuthStore } from '@/store/useAuthStore';
 
-const COLOR_OPTIONS = ['red', 'orange', 'amber', 'green', 'blue', 'purple', 'pink', 'gray'];
+const INT_RE = /^\d{1,9}$/;
 
-function defaultForm(): MemberTagFormPayload {
-  return { name: '', color: 'blue', sort: 0, status: 1 };
+/** 标签颜色选项：key 为 CSS 颜色名（兼容存量数据），name 为中文 */
+const COLOR_OPTIONS: Array<{ key: string; name: string }> = [
+  { key: 'red', name: '红色' },
+  { key: 'orange', name: '橙色' },
+  { key: 'amber', name: '琥珀' },
+  { key: 'green', name: '绿色' },
+  { key: 'blue', name: '蓝色' },
+  { key: 'purple', name: '紫色' },
+  { key: 'pink', name: '粉色' },
+  { key: 'gray', name: '灰色' },
+];
+
+function defaultValues(): MemberTagFormValues {
+  return { name: '', color: 'blue', sort: '0', status: 1, remark: '' };
+}
+
+function toFormValues(p: MemberTagFormPayload): MemberTagFormValues {
+  return {
+    name: p.name ?? '',
+    color: p.color ?? 'blue',
+    sort: p.sort != null ? String(p.sort) : '0',
+    status: normalizeNumber(p.status, 1) as 0 | 1,
+    remark: p.remark ?? '',
+  };
+}
+
+function toPayload(v: MemberTagFormValues): MemberTagFormPayload {
+  return {
+    name: v.name.trim(),
+    color: v.color?.trim() || undefined,
+    sort: v.sort ? Number(v.sort) : 0,
+    status: v.status,
+    remark: v.remark?.trim() || undefined,
+  };
+}
+
+type FormMode = 'create' | 'edit';
+
+function MemberTagFormDialog({
+  mode,
+  open,
+  tagId,
+  onClose,
+  onSaved,
+}: {
+  mode: FormMode;
+  open: boolean;
+  tagId: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [loadingForm, setLoadingForm] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const {
+    control,
+    formState: { errors },
+    handleSubmit,
+    register,
+    reset,
+  } = useForm<MemberTagFormValues>({
+    resolver: zodResolver(memberTagFormSchema),
+    defaultValues: defaultValues(),
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    if (mode === 'create') {
+      reset(defaultValues());
+      return;
+    }
+    if (!tagId) {
+      return;
+    }
+    let active = true;
+    setLoadingForm(true);
+    memberTagApi
+      .form(tagId)
+      .then((p) => {
+        if (active) {
+          reset(toFormValues(p));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingForm(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [mode, open, tagId, reset]);
+
+  async function handleSave(values: MemberTagFormValues): Promise<void> {
+    setSubmitLoading(true);
+    try {
+      const payload = toPayload(values);
+      if (mode === 'create') {
+        await memberTagApi.create(payload);
+      } else if (tagId) {
+        await memberTagApi.update(tagId, payload);
+      }
+      onSaved();
+      onClose();
+    } finally {
+      setSubmitLoading(false);
+    }
+  }
+
+  return (
+    <Modal
+      description={mode === 'create' ? '新建会员标签。' : '修改标签信息。'}
+      footer={
+        <>
+          <Button onClick={onClose} variant="secondary">
+            取消
+          </Button>
+          <Button loading={submitLoading} onClick={handleSubmit(handleSave)}>
+            保存
+          </Button>
+        </>
+      }
+      onClose={onClose}
+      open={open}
+      title={mode === 'create' ? '新增标签' : '编辑标签'}
+    >
+      {loadingForm ? (
+        <PageLoading />
+      ) : (
+        <form className="space-y-3" onSubmit={handleSubmit(handleSave)}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field error={errors.name?.message} label="标签名称" required>
+              <Input invalid={Boolean(errors.name)} placeholder="如：高价值客户" {...register('name')} />
+            </Field>
+            <Field error={errors.sort?.message} label="排序">
+              <Controller
+                control={control}
+                name="sort"
+                render={({ field }) => (
+                  <Input
+                    inputMode="numeric"
+                    invalid={Boolean(errors.sort)}
+                    placeholder="数字越小越靠前"
+                    value={field.value ?? ''}
+                    onBlur={field.onBlur}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === '' || INT_RE.test(v)) {
+                        field.onChange(v);
+                      }
+                    }}
+                  />
+                )}
+              />
+            </Field>
+            <Field label="状态">
+              <Select {...register('status', { valueAsNumber: true })}>
+                <option value={1}>启用</option>
+                <option value={0}>禁用</option>
+              </Select>
+            </Field>
+          </div>
+          <Field label="颜色">
+            <Controller
+              control={control}
+              name="color"
+              render={({ field }) => (
+                <div className="grid grid-cols-4 gap-2">
+                  {COLOR_OPTIONS.map((c) => {
+                    const selected = field.value === c.key;
+                    return (
+                      <button
+                        className={cn(
+                          'flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm transition',
+                          selected
+                            ? 'border-salon-accent ring-1 ring-salon-accent'
+                            : 'border-salon-line hover:bg-stone-50 dark:border-zinc-700 dark:hover:bg-zinc-800',
+                        )}
+                        key={c.key}
+                        onClick={() => field.onChange(c.key)}
+                        type="button"
+                      >
+                        <span
+                          className="size-3 rounded-full"
+                          style={{ backgroundColor: c.key }}
+                        />
+                        <span>{c.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            />
+          </Field>
+          <Field label="备注">
+            <Input placeholder="标签备注（可选）" {...register('remark')} />
+          </Field>
+          <button className="hidden" type="submit" />
+        </form>
+      )}
+    </Modal>
+  );
 }
 
 export function MemberTagPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const [rows, setRows] = useState<MemberTagVO[]>([]);
   const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [pageNum, setPageNum] = useState(1);
   const [keyword, setKeyword] = useState('');
   const debounced = useDebounce(keyword, 300);
-  const [open, setOpen] = useState(false);
+  const [editMode, setEditMode] = useState<FormMode | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<MemberTagFormPayload>(() => defaultForm());
-  const [saving, setSaving] = useState(false);
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await memberTagApi.list({ pageNum, pageSize: 10, name: debounced || undefined });
+      const data = await memberTagApi.list({
+        pageNum: 1,
+        pageSize: 100,
+        name: debounced || undefined,
+      });
       setRows(data.list ?? []);
-      setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [pageNum, debounced]);
+  }, [debounced]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function openEdit(id: string): Promise<void> {
-    const detail = await memberTagApi.form(id);
-    setEditId(id);
-    setForm({ ...detail });
-    setOpen(true);
-  }
-
-  async function handleSave(): Promise<void> {
-    setSaving(true);
-    try {
-      if (editId) {
-        await memberTagApi.update(editId, form);
-      } else {
-        await memberTagApi.create(form);
-      }
-      setOpen(false);
-      setEditId(null);
-      await load();
-    } finally {
-      setSaving(false);
-    }
-  }
-
   function openCreate(): void {
+    setEditMode('create');
     setEditId(null);
-    setForm(defaultForm());
-    setOpen(true);
   }
+
+  function openEdit(id: string): void {
+    setEditMode('edit');
+    setEditId(id);
+  }
+
+  function closeEdit(): void {
+    setEditMode(null);
+    setEditId(null);
+  }
+
+  const sortedRows = [...rows].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
 
   return (
     <div className="space-y-4">
@@ -122,148 +316,68 @@ export function MemberTagPage() {
 
       {loading ? (
         <PageLoading />
-      ) : rows.length === 0 ? (
+      ) : sortedRows.length === 0 ? (
         <EmptyState title="暂无标签" description="还未创建任何会员标签。" />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-salon-line dark:border-zinc-800">
-          <table className="min-w-full divide-y divide-salon-line text-sm dark:divide-zinc-800">
-            <thead className="bg-slate-50 dark:bg-zinc-900/60">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">标签名称</th>
-                <th className="px-4 py-3 text-left font-medium">颜色</th>
-                <th className="px-4 py-3 text-left font-medium">排序</th>
-                <th className="px-4 py-3 text-left font-medium">状态</th>
-                <th className="px-4 py-3 text-right font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-salon-line dark:divide-zinc-800">
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-3">{row.name}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-2">
-                      <span
-                        className="size-3 rounded-full"
-                        style={{ backgroundColor: row.color }}
-                      />
-                      {row.color || '-'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">{row.sort ?? 0}</td>
-                  <td className="px-4 py-3">
-                    <Badge tone={row.status === 1 ? 'success' : 'danger'}>
-                      {row.status === 1 ? '启用' : '禁用'}
-                    </Badge>
-                  </td>
-                  <td className="space-x-2 px-4 py-3 text-right">
-                    {hasPermission('biz:memberTag:edit') ? (
-                      <Button onClick={() => void openEdit(row.id)} size="sm" variant="secondary">
-                        编辑
-                      </Button>
-                    ) : null}
-                    {hasPermission('biz:memberTag:delete') ? (
-                      <Button
-                        icon={<Trash2 className="size-4" />}
-                        onClick={() => setConfirmIds([row.id])}
-                        size="sm"
-                        variant="secondary"
-                      >
-                        删除
-                      </Button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {sortedRows.map((tag) => (
+            <Card key={tag.id} hover={false}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="size-4 shrink-0 rounded-full"
+                    style={{ backgroundColor: tag.color || 'blue' }}
+                  />
+                  <span className="truncate font-medium text-salon-ink dark:text-zinc-100">
+                    {tag.name}
+                  </span>
+                </div>
+                <Badge tone={tag.status === 1 ? 'success' : 'danger'}>
+                  {tag.status === 1 ? '启用' : '禁用'}
+                </Badge>
+              </div>
+              <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                排序：{tag.sort ?? 0}
+              </div>
+              {tag.remark ? (
+                <div className="mt-1 line-clamp-2 text-xs text-zinc-400 dark:text-zinc-500">
+                  {tag.remark}
+                </div>
+              ) : null}
+              <div className="mt-3 flex justify-end gap-2 border-t border-salon-line pt-3 dark:border-zinc-800">
+                {hasPermission('biz:memberTag:edit') ? (
+                  <Button
+                    icon={<Pencil className="size-4" />}
+                    onClick={() => openEdit(String(tag.id))}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    编辑
+                  </Button>
+                ) : null}
+                {hasPermission('biz:memberTag:delete') ? (
+                  <Button
+                    icon={<Trash2 className="size-4" />}
+                    onClick={() => setConfirmIds([String(tag.id)])}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    删除
+                  </Button>
+                ) : null}
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 
-      <div className="flex items-center justify-between text-sm text-zinc-500">
-        <span>共 {total} 条</span>
-        <div className="flex gap-2">
-          <Button
-            disabled={pageNum <= 1}
-            onClick={() => setPageNum((p) => p - 1)}
-            size="sm"
-            variant="secondary"
-          >
-            上一页
-          </Button>
-          <Button
-            disabled={pageNum * 10 >= total}
-            onClick={() => setPageNum((p) => p + 1)}
-            size="sm"
-            variant="secondary"
-          >
-            下一页
-          </Button>
-        </div>
-      </div>
-
-      <Modal
-        footer={
-          <>
-            <Button onClick={() => setOpen(false)} variant="secondary">
-              取消
-            </Button>
-            <Button loading={saving} onClick={() => void handleSave()}>
-              保存
-            </Button>
-          </>
-        }
-        onClose={() => setOpen(false)}
-        open={open}
-        title={editId ? '编辑标签' : '新增标签'}
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="标签名称" required>
-            <Input
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              value={form.name}
-            />
-          </Field>
-          <Field label="颜色">
-            <Select
-              onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
-              value={form.color ?? 'blue'}
-            >
-              {COLOR_OPTIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="排序">
-            <Input
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  sort: e.target.value === '' ? undefined : Number(e.target.value),
-                }))
-              }
-              type="number"
-              value={form.sort ?? 0}
-            />
-          </Field>
-          <Field label="状态">
-            <Select
-              onChange={(e) => setForm((f) => ({ ...f, status: Number(e.target.value) }))}
-              value={form.status ?? 1}
-            >
-              <option value={1}>启用</option>
-              <option value={0}>禁用</option>
-            </Select>
-          </Field>
-          <Field className="md:col-span-2" label="备注">
-            <Input
-              onChange={(e) => setForm((f) => ({ ...f, remark: e.target.value }))}
-              value={form.remark ?? ''}
-            />
-          </Field>
-        </div>
-      </Modal>
+      <MemberTagFormDialog
+        mode={editMode ?? 'create'}
+        onClose={closeEdit}
+        onSaved={() => void load()}
+        open={editMode !== null}
+        tagId={editId}
+      />
 
       <ConfirmDialog
         danger

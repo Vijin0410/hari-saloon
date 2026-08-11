@@ -79,3 +79,38 @@ export const menuFormSchema = z.object({
 });
 
 export type MenuFormValues = z.infer<typeof menuFormSchema>;
+
+export const storeFormSchema = z.object({
+  name: z.string().trim().min(1, '门店名称不能为空'),
+  code: z.string().trim().optional(),
+  phone: z.string().trim().optional(),
+  address: z.string().trim().optional(),
+  businessHours: z.string().trim().optional(),
+  openTime: z.string().trim().optional(),
+  closeTime: z.string().trim().optional(),
+  restDays: z.string().trim().optional(),
+  status: statusSchema,
+  remark: z.string().trim().optional(),
+  userIds: z.array(z.string()).optional(),
+});
+
+export type StoreFormValues = z.infer<typeof storeFormSchema>;
+
+export const tenantFormSchema = z.object({
+  name: z.string().trim().min(1, '租户名称不能为空'),
+  code: z.string().trim().min(1, '租户编码不能为空'),
+  status: statusSchema,
+  adminUsername: z.string().trim().min(1, '管理员用户名不能为空'),
+  adminPassword: z.string().trim().optional(),
+  contact: z.string().trim().optional(),
+  phone: z.string().trim().optional(),
+  store: z.object({
+    name: z.string(),
+    code: z.string(),
+    phone: z.string(),
+    address: z.string(),
+  }),
+  syncModules: z.array(z.string()).optional(),
+});
+
+export type TenantFormValues = z.infer<typeof tenantFormSchema>;

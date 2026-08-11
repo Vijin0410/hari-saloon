@@ -213,6 +213,7 @@ java -jar hair-salon-boot/target/hair-salon-boot-1.0.0-SNAPSHOT.jar
 | Skill | 路径 | 何时使用 |
 |-------|------|----------|
 | react-solo-architect | `.claude/skills/react-solo-architect/SKILL.md` | React+Vite+TS+Tailwind v4+Zustand 管理端 |
+| hair-salon-ui | `.claude/skills/hair-salon-ui/SKILL.md` | 美业 SaaS 业务化 UI 设计方法论（业务驱动 / 页面类型选择 / 标杆模式复用 / 反模式） |
 | controller-api-audit | 用户级 `~/.claude/skills/controller-api-audit/SKILL.md` | 审 Controller 调用与鉴权 |
 | lazy-senior-dev | 用户级 `~/.claude/skills/lazy-senior-dev/SKILL.md` | 最小改动 / 根因修复（实现类任务可参考） |
 | form-sensitive-mask | 用户级（若存在） | 仅当本仓已接 Mask/SM4；**默认未接则不用** |

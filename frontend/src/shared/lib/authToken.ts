@@ -1,4 +1,4 @@
-const ACCESS_TOKEN_KEY = 'hari-salon-access-token';
+const ACCESS_TOKEN_KEY = 'hair-salon-access-token';
 
 let memoryToken = readStoredToken();
 

@@ -1,52 +1,81 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MenuSquare, ShieldCheck, Users, Workflow } from 'lucide-react';
-import { menuApi, roleApi, userApi } from '@/shared/api/modules/systemApi';
+import { ArrowRight, Package, Scissors, ShoppingBag, Store, TriangleAlert, UserRound } from 'lucide-react';
+import { goodsApi } from '@/shared/api/modules/goodsApi';
+import { memberApi } from '@/shared/api/modules/memberApi';
+import { serviceItemApi } from '@/shared/api/modules/serviceApi';
+import { storeApi } from '@/shared/api/modules/systemApi';
+import type { GoodsPageVO } from '@/features/goods/model/goodsTypes';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
+import { Card } from '@/shared/ui/Card';
 import { PageLoading } from '@/shared/ui/PageLoading';
+import { StatCard } from '@/shared/ui/StatCard';
 import { formatDateTime } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
-import { flattenMenuTree } from '@/features/system/model/systemTypes';
 
-/**
- * 工作台首页，展示当前登录用户、核心统计和系统管理入口。
- */
+/** 库存预警阈值：与 GoodsPage 保持一致，低于等于该值视为低库存 */
+const LOW_STOCK_THRESHOLD = 5;
+
 interface DashboardStats {
-  userCount: number;
-  roleCount: number;
-  menuCount: number;
-  permCount: number;
+  memberCount: number;
+  goodsCount: number;
+  serviceCount: number;
+  storeCount: number;
 }
 
+interface QuickLink {
+  label: string;
+  to: string;
+  icon: typeof UserRound;
+  permission: string;
+}
+
+const QUICK_LINKS: QuickLink[] = [
+  { label: '会员管理', to: '/biz/members', icon: UserRound, permission: 'biz:member:list' },
+  { label: '服务项目', to: '/biz/services', icon: Scissors, permission: 'biz:serviceItem:list' },
+  { label: '商品管理', to: '/biz/goods', icon: ShoppingBag, permission: 'biz:goods:list' },
+  { label: '门店管理', to: '/biz/stores', icon: Store, permission: 'biz:store:list' },
+];
+
+/**
+ * 工作台首页：经营资产指标 + 快捷入口 + 低库存预警。
+ * 营业额/订单/充值等经营业绩数据待 P5 收银、P8 财务模块接入后补齐。
+ */
 export function HomePage() {
-  const user = useAuthStore((state) => state.user);
-  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const user = useAuthStore((s) => s.user);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+  const permKey = user?.perms?.length ?? 0;
   const [stats, setStats] = useState<DashboardStats>({
-    userCount: 0,
-    roleCount: 0,
-    menuCount: 0,
-    permCount: 0,
+    memberCount: 0,
+    goodsCount: 0,
+    serviceCount: 0,
+    storeCount: 0,
   });
+  const [lowStockGoods, setLowStockGoods] = useState<GoodsPageVO[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    Promise.all([
-      userApi.list({ pageNum: 1, pageSize: 1 }),
-      roleApi.list({ pageNum: 1, pageSize: 1 }),
-      menuApi.list(),
-    ])
-      .then(([userPage, rolePage, menuTree]) => {
+    const tasks: Promise<number>[] = [
+      hasPermission('biz:member:list')
+        ? memberApi.list({ pageNum: 1, pageSize: 1 }).then((d) => d.total ?? 0).catch(() => 0)
+        : Promise.resolve(0),
+      hasPermission('biz:goods:list')
+        ? goodsApi.list({ pageNum: 1, pageSize: 1 }).then((d) => d.total ?? 0).catch(() => 0)
+        : Promise.resolve(0),
+      hasPermission('biz:serviceItem:list')
+        ? serviceItemApi.list({ pageNum: 1, pageSize: 1 }).then((d) => d.total ?? 0).catch(() => 0)
+        : Promise.resolve(0),
+      hasPermission('biz:store:list')
+        ? storeApi.list({ pageNum: 1, pageSize: 1 }).then((d) => d.total ?? 0).catch(() => 0)
+        : Promise.resolve(0),
+    ];
+    Promise.all(tasks)
+      .then(([memberCount, goodsCount, serviceCount, storeCount]) => {
         if (active) {
-          const menuCount = flattenMenuTree(menuTree).length;
-          setStats({
-            userCount: userPage.total,
-            roleCount: rolePage.total,
-            menuCount,
-            permCount: user?.perms?.length ?? 0,
-          });
+          setStats({ memberCount, goodsCount, serviceCount, storeCount });
         }
       })
       .finally(() => {
@@ -54,107 +83,146 @@ export function HomePage() {
           setLoading(false);
         }
       });
-
     return () => {
       active = false;
     };
-  }, [user?.perms?.length]);
+  }, [hasPermission, permKey]);
 
-  const quickLinks = useMemo(
-    () =>
-      [
-      { label: '用户管理', to: '/system/users', icon: Users },
-      { label: '角色管理', to: '/system/roles', icon: ShieldCheck },
-      { label: '菜单管理', to: '/system/menus', icon: MenuSquare },
-      ].filter((item) => {
-        if (item.to.endsWith('users')) {
-          return hasPermission('system:user:list');
+  useEffect(() => {
+    if (!hasPermission('biz:goods:list')) {
+      setLowStockGoods([]);
+      return;
+    }
+    let active = true;
+    goodsApi
+      .list({ pageNum: 1, pageSize: 50 })
+      .then((data) => {
+        if (active) {
+          setLowStockGoods(
+            (data.list ?? [])
+              .filter((g) => (g.stockQuantity ?? 0) <= LOW_STOCK_THRESHOLD)
+              .slice(0, 5),
+          );
         }
-        if (item.to.endsWith('roles')) {
-          return hasPermission('system:role:list');
+      })
+      .catch(() => {
+        if (active) {
+          setLowStockGoods([]);
         }
-        return hasPermission('system:menu:list');
-      }),
-    [hasPermission],
-  );
+      });
+    return () => {
+      active = false;
+    };
+  }, [hasPermission, permKey]);
+
+  const quickLinks = QUICK_LINKS.filter((item) => hasPermission(item.permission));
 
   if (loading) {
     return <PageLoading />;
   }
 
   return (
-    <section className="space-y-4">
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-lg border border-salon-line bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">当前登录</p>
-          <div className="mt-3 flex flex-wrap items-end gap-3">
-            <h1 className="text-2xl font-semibold">{user?.nickname || user?.username || '未命名用户'}</h1>
-            <Badge tone="success">已登录</Badge>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-lg border border-salon-line bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-              <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">用户名</p>
-              <p className="mt-2 text-sm font-medium">{user?.username || '-'}</p>
+    <div className="space-y-4">
+      {/* 欢迎区 */}
+      <Card hover={false}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">欢迎回来</p>
+            <h1 className="mt-1 text-2xl font-semibold text-salon-ink dark:text-zinc-100">
+              {user?.nickname || user?.username || '当前用户'}
+            </h1>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(user?.roles ?? []).map((role) => (
+                <Badge key={role} tone="info">
+                  {role}
+                </Badge>
+              ))}
             </div>
-            <div className="rounded-lg border border-salon-line bg-slate-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
-              <p className="text-xs uppercase tracking-wide text-zinc-500 dark:text-zinc-400">部门ID</p>
-              <p className="mt-2 text-sm font-medium">{user?.deptId || '-'}</p>
-            </div>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {(user?.roles || []).map((role) => (
-              <Badge key={role}>{role}</Badge>
-            ))}
-          </div>
-          <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             当前时间 {formatDateTime(new Date().toISOString())}
           </p>
         </div>
+      </Card>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[
-            { label: '用户数量', value: stats.userCount, icon: Users },
-            { label: '角色数量', value: stats.roleCount, icon: ShieldCheck },
-            { label: '菜单节点', value: stats.menuCount, icon: MenuSquare },
-            { label: '权限点', value: stats.permCount, icon: Workflow },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <div
-                className="rounded-lg border border-salon-line bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-                key={item.label}
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-zinc-500 dark:text-zinc-400">{item.label}</p>
-                  <Icon className="size-4 text-salon-accent" />
-                </div>
-                <p className="mt-4 text-3xl font-semibold">{item.value}</p>
-              </div>
-            );
-          })}
+      {/* 经营资产指标 */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400">经营资产</h2>
+          <span className="text-xs text-zinc-400 dark:text-zinc-500">
+            营业数据待收银财务模块接入
+          </span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="会员总数" value={stats.memberCount} hint="建档会员" tone="accent" />
+          <StatCard label="服务项目" value={stats.serviceCount} hint="在售项目" tone="accent" />
+          <StatCard label="商品种类" value={stats.goodsCount} hint="在售商品" tone="accent" />
+          <StatCard label="门店数量" value={stats.storeCount} hint="营业门店" tone="accent" />
         </div>
       </div>
 
-      <div className="rounded-lg border border-salon-line bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold">快捷入口</h2>
-            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">直接进入常用系统管理页面。</p>
+      {/* 快捷入口 */}
+      {quickLinks.length > 0 ? (
+        <Card title="快捷入口" hover={false}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {quickLinks.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className="flex items-center justify-between rounded-md border border-salon-line bg-white px-4 py-2.5 text-sm transition hover:bg-stone-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                >
+                  <span className="flex items-center gap-2 font-medium text-salon-ink dark:text-zinc-100">
+                    <Icon className="size-4 text-salon-accent" />
+                    {item.label}
+                  </span>
+                  <ArrowRight className="size-4 text-zinc-400" />
+                </Link>
+              );
+            })}
           </div>
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {quickLinks.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link key={item.to} to={item.to}>
-                <Button className="w-full justify-between" icon={<Icon className="size-4" />} variant="secondary">
-                  {item.label}
-                </Button>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-    </section>
+        </Card>
+      ) : null}
+
+      {/* 低库存预警 */}
+      {hasPermission('biz:goods:list') ? (
+        <Card
+          title="低库存预警"
+          hover={false}
+          extra={
+            <Link to="/biz/goods">
+              <Button size="sm" variant="secondary">
+                查看全部 <ArrowRight className="size-4" />
+              </Button>
+            </Link>
+          }
+        >
+          {lowStockGoods.length > 0 ? (
+            <div className="space-y-2">
+              {lowStockGoods.map((g) => (
+                <div
+                  key={g.id}
+                  className="flex items-center justify-between rounded-md bg-stone-50 px-3 py-2 dark:bg-zinc-900"
+                >
+                  <div className="flex items-center gap-2">
+                    <Package className="size-4 text-zinc-400" />
+                    <span className="text-sm font-medium text-salon-ink dark:text-zinc-100">
+                      {g.name}
+                    </span>
+                  </div>
+                  <Badge tone="warning">库存 {g.stockQuantity ?? 0}</Badge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+              <TriangleAlert className="size-4 text-emerald-500" />
+              暂无低库存商品
+            </div>
+          )}
+        </Card>
+      ) : null}
+    </div>
   );
 }

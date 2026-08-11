@@ -41,7 +41,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: 'hari-salon-app',
+      name: 'hair-salon-app',
       partialize: (state) => ({ theme: state.theme }),
       onRehydrateStorage: () => (state) => {
         if (state) {

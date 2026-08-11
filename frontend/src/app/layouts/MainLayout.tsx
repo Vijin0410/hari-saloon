@@ -403,7 +403,7 @@ export function MainLayout() {
             <Scissors className="size-5" />
           </div>
           <div>
-            <p className="text-sm font-semibold">Hari Salon</p>
+            <p className="text-sm font-semibold">Hair Salon</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">管理控制台</p>
           </div>
         </div>

@@ -1,4 +1,4 @@
-# Hari Salon Frontend
+# Hair Salon Frontend
 
 理发店管理系统前端，覆盖当前后端已有的登录认证、用户管理、角色管理、菜单管理能力。
 

@@ -12,6 +12,7 @@ import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
 import { PageLoading } from '@/shared/ui/PageLoading';
 import { Select } from '@/shared/ui/Select';
+import { Table, type TableColumn } from '@/shared/ui/Table';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { normalizeNumber } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -255,6 +256,60 @@ export function DeptPage() {
 
   const flatTree = flattenDeptTree(tree);
 
+  const columns: TableColumn<DeptVO & { depth: number }>[] = [
+    {
+      title: '部门名称',
+      render: (node) => (
+        <span
+          className="font-medium text-salon-ink dark:text-white"
+          style={{ paddingLeft: `${node.depth * 20}px` }}
+        >
+          {node.name}
+        </span>
+      ),
+    },
+    { title: '排序', align: 'right', render: (node) => node.sort ?? 0 },
+    {
+      title: '状态',
+      render: (node) => (
+        <Badge tone={node.status === 1 ? 'success' : 'danger'}>
+          {getStatusLabel(node.status)}
+        </Badge>
+      ),
+    },
+    {
+      title: '操作',
+      align: 'right',
+      render: (node) => (
+        <div className="flex justify-end gap-2">
+          {hasPermission('system:dept:edit') ? (
+            <Button
+              icon={<Pencil className="size-4" />}
+              onClick={() => {
+                setModalMode('edit');
+                setActiveDeptId(node.id);
+              }}
+              size="sm"
+              variant="secondary"
+            >
+              编辑
+            </Button>
+          ) : null}
+          {hasPermission('system:dept:delete') ? (
+            <Button
+              icon={<Trash2 className="size-4" />}
+              onClick={() => setConfirmIds([node.id])}
+              size="sm"
+              variant="danger"
+            >
+              删除
+            </Button>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
+
   async function handleDelete(ids: EntityId[]): Promise<void> {
     if (!ids.length) {
       return;
@@ -333,76 +388,13 @@ export function DeptPage() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-salon-line bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        {loading ? (
-          <PageLoading />
-        ) : flatTree.length === 0 ? (
-          <div className="p-4">
-            <EmptyState title="暂无部门" description="租户内还没有部门，点击新增创建。" />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
-                <tr>
-                  <th className="px-4 py-3 font-medium">部门名称</th>
-                  <th className="px-4 py-3 font-medium">排序</th>
-                  <th className="px-4 py-3 font-medium">状态</th>
-                  <th className="px-4 py-3 text-right font-medium">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {flatTree.map((node) => (
-                  <tr
-                    className="border-t border-salon-line text-zinc-700 hover:bg-slate-50/60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900/70"
-                    key={node.id}
-                  >
-                    <td
-                      className="px-4 py-3 font-medium text-salon-ink dark:text-white"
-                      style={{ paddingLeft: `${16 + node.depth * 20}px` }}
-                    >
-                      {node.name}
-                    </td>
-                    <td className="px-4 py-3">{node.sort ?? '-'}</td>
-                    <td className="px-4 py-3">
-                      <Badge tone={node.status === 1 ? 'success' : 'danger'}>
-                        {getStatusLabel(node.status)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {hasPermission('system:dept:edit') ? (
-                          <Button
-                            icon={<Pencil className="size-4" />}
-                            onClick={() => {
-                              setModalMode('edit');
-                              setActiveDeptId(node.id);
-                            }}
-                            size="sm"
-                            variant="secondary"
-                          >
-                            编辑
-                          </Button>
-                        ) : null}
-                        {hasPermission('system:dept:delete') ? (
-                          <Button
-                            icon={<Trash2 className="size-4" />}
-                            onClick={() => setConfirmIds([node.id])}
-                            size="sm"
-                            variant="danger"
-                          >
-                            删除
-                          </Button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <Table
+        columns={columns}
+        data={flatTree}
+        rowKey={(node) => node.id}
+        loading={loading}
+        empty={<EmptyState title="暂无部门" description="租户内还没有部门，点击新增创建。" />}
+      />
 
       {modalMode ? (
         <DeptFormDialog

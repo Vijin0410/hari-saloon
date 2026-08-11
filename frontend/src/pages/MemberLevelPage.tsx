@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Search, Trash2 } from 'lucide-react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Controller, useForm } from 'react-hook-form';
 import { memberLevelApi } from '@/shared/api/modules/memberApi';
 import type {
   MemberLevelFormPayload,
   MemberLevelPageVO,
 } from '@/features/member/model/memberTypes';
+import { memberLevelFormSchema, type MemberLevelFormValues } from '@/features/member/model/memberSchemas';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
+import { Card } from '@/shared/ui/Card';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { Field } from '@/shared/ui/Field';
@@ -14,78 +18,386 @@ import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
 import { PageLoading } from '@/shared/ui/PageLoading';
 import { Select } from '@/shared/ui/Select';
+import { Textarea } from '@/shared/ui/Textarea';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { normalizeNumber } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
 
-function defaultForm(): MemberLevelFormPayload {
-  return { name: '', levelNo: 0, pointRate: 1, rechargeGiftRate: 0, status: 1 };
+const DECIMAL_RE = /^\d{1,9}(\.\d{0,2})?$/;
+const INT_RE = /^\d{1,9}$/;
+
+function defaultValues(): MemberLevelFormValues {
+  return {
+    name: '',
+    levelNo: '1',
+    serviceDiscount: '',
+    goodsDiscount: '',
+    pointRate: '1',
+    rechargeGiftRate: '0',
+    upgradeThreshold: '',
+    rights: '',
+    sort: '0',
+    status: 1,
+    remark: '',
+  };
+}
+
+function toFormValues(p: MemberLevelFormPayload): MemberLevelFormValues {
+  return {
+    name: p.name ?? '',
+    levelNo: p.levelNo != null ? String(p.levelNo) : '',
+    serviceDiscount: p.serviceDiscount != null ? String(p.serviceDiscount) : '',
+    goodsDiscount: p.goodsDiscount != null ? String(p.goodsDiscount) : '',
+    pointRate: p.pointRate != null ? String(p.pointRate) : '',
+    rechargeGiftRate: p.rechargeGiftRate != null ? String(p.rechargeGiftRate) : '',
+    upgradeThreshold: p.upgradeThreshold != null ? String(p.upgradeThreshold) : '',
+    rights: p.rights ?? '',
+    sort: p.sort != null ? String(p.sort) : '0',
+    status: normalizeNumber(p.status, 1) as 0 | 1,
+    remark: p.remark ?? '',
+  };
+}
+
+function toPayload(v: MemberLevelFormValues): MemberLevelFormPayload {
+  return {
+    name: v.name.trim(),
+    levelNo: Number(v.levelNo) || 0,
+    serviceDiscount: v.serviceDiscount ? Number(v.serviceDiscount) : undefined,
+    goodsDiscount: v.goodsDiscount ? Number(v.goodsDiscount) : undefined,
+    pointRate: v.pointRate ? Number(v.pointRate) : undefined,
+    rechargeGiftRate: v.rechargeGiftRate ? Number(v.rechargeGiftRate) : undefined,
+    upgradeThreshold: v.upgradeThreshold ? Number(v.upgradeThreshold) : undefined,
+    rights: v.rights?.trim() || undefined,
+    sort: v.sort ? Number(v.sort) : 0,
+    status: v.status,
+    remark: v.remark?.trim() || undefined,
+  };
+}
+
+/** 折扣 0-1 转中文：0.9 -> 9 折，0.85 -> 8.5 折，1 -> 无折扣 */
+function formatDiscount(v?: number): string {
+  if (v == null) {
+    return '暂无';
+  }
+  if (v >= 1) {
+    return '无折扣';
+  }
+  const times10 = v * 10;
+  return `${times10 % 1 === 0 ? times10 : times10.toFixed(1)} 折`;
+}
+
+type FormMode = 'create' | 'edit';
+
+function MemberLevelFormDialog({
+  mode,
+  open,
+  levelId,
+  onClose,
+  onSaved,
+}: {
+  mode: FormMode;
+  open: boolean;
+  levelId: string | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [loadingForm, setLoadingForm] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const {
+    control,
+    formState: { errors },
+    handleSubmit,
+    register,
+    reset,
+  } = useForm<MemberLevelFormValues>({
+    resolver: zodResolver(memberLevelFormSchema),
+    defaultValues: defaultValues(),
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    if (mode === 'create') {
+      reset(defaultValues());
+      return;
+    }
+    if (!levelId) {
+      return;
+    }
+    let active = true;
+    setLoadingForm(true);
+    memberLevelApi
+      .form(levelId)
+      .then((p) => {
+        if (active) {
+          reset(toFormValues(p));
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingForm(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [mode, open, levelId, reset]);
+
+  async function handleSave(values: MemberLevelFormValues): Promise<void> {
+    setSubmitLoading(true);
+    try {
+      const payload = toPayload(values);
+      if (mode === 'create') {
+        await memberLevelApi.create(payload);
+      } else if (levelId) {
+        await memberLevelApi.update(levelId, payload);
+      }
+      onSaved();
+      onClose();
+    } finally {
+      setSubmitLoading(false);
+    }
+  }
+
+  return (
+    <Modal
+      description={mode === 'create' ? '新建会员等级。' : '修改等级折扣与权益。'}
+      footer={
+        <>
+          <Button onClick={onClose} variant="secondary">
+            取消
+          </Button>
+          <Button loading={submitLoading} onClick={handleSubmit(handleSave)}>
+            保存
+          </Button>
+        </>
+      }
+      onClose={onClose}
+      open={open}
+      title={mode === 'create' ? '新增等级' : '编辑等级'}
+    >
+      {loadingForm ? (
+        <PageLoading />
+      ) : (
+        <form className="grid gap-3 md:grid-cols-2" onSubmit={handleSubmit(handleSave)}>
+          <Field error={errors.name?.message} label="等级名称" required>
+            <Input invalid={Boolean(errors.name)} placeholder="如：黄金会员" {...register('name')} />
+          </Field>
+          <Field error={errors.levelNo?.message} label="等级序号" required>
+            <Controller
+              control={control}
+              name="levelNo"
+              render={({ field }) => (
+                <Input
+                  inputMode="numeric"
+                  invalid={Boolean(errors.levelNo)}
+                  placeholder="数字越小等级越低"
+                  value={field.value ?? ''}
+                  onBlur={field.onBlur}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || INT_RE.test(v)) {
+                      field.onChange(v);
+                    }
+                  }}
+                />
+              )}
+            />
+          </Field>
+          <Field error={errors.serviceDiscount?.message} label="服务折扣(0-1)" hint="0.9 表示 9 折">
+            <Controller
+              control={control}
+              name="serviceDiscount"
+              render={({ field }) => (
+                <Input
+                  inputMode="decimal"
+                  invalid={Boolean(errors.serviceDiscount)}
+                  placeholder="如：0.9"
+                  value={field.value ?? ''}
+                  onBlur={field.onBlur}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || DECIMAL_RE.test(v)) {
+                      field.onChange(v);
+                    }
+                  }}
+                />
+              )}
+            />
+          </Field>
+          <Field error={errors.goodsDiscount?.message} label="商品折扣(0-1)" hint="0.9 表示 9 折">
+            <Controller
+              control={control}
+              name="goodsDiscount"
+              render={({ field }) => (
+                <Input
+                  inputMode="decimal"
+                  invalid={Boolean(errors.goodsDiscount)}
+                  placeholder="如：0.9"
+                  value={field.value ?? ''}
+                  onBlur={field.onBlur}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || DECIMAL_RE.test(v)) {
+                      field.onChange(v);
+                    }
+                  }}
+                />
+              )}
+            />
+          </Field>
+          <Field error={errors.pointRate?.message} label="积分倍率" hint="1.5 表示 1.5 倍积分">
+            <Controller
+              control={control}
+              name="pointRate"
+              render={({ field }) => (
+                <Input
+                  inputMode="decimal"
+                  invalid={Boolean(errors.pointRate)}
+                  placeholder="如：1.5"
+                  value={field.value ?? ''}
+                  onBlur={field.onBlur}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || DECIMAL_RE.test(v)) {
+                      field.onChange(v);
+                    }
+                  }}
+                />
+              )}
+            />
+          </Field>
+          <Field error={errors.rechargeGiftRate?.message} label="充值赠送率" hint="如 0.1 表示充 100 送 10">
+            <Controller
+              control={control}
+              name="rechargeGiftRate"
+              render={({ field }) => (
+                <Input
+                  inputMode="decimal"
+                  invalid={Boolean(errors.rechargeGiftRate)}
+                  placeholder="如：0.1"
+                  value={field.value ?? ''}
+                  onBlur={field.onBlur}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || DECIMAL_RE.test(v)) {
+                      field.onChange(v);
+                    }
+                  }}
+                />
+              )}
+            />
+          </Field>
+          <Field error={errors.upgradeThreshold?.message} label="升级门槛" hint="累计达此值自动升级">
+            <Controller
+              control={control}
+              name="upgradeThreshold"
+              render={({ field }) => (
+                <Input
+                  inputMode="decimal"
+                  invalid={Boolean(errors.upgradeThreshold)}
+                  placeholder="如：5000"
+                  value={field.value ?? ''}
+                  onBlur={field.onBlur}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || DECIMAL_RE.test(v)) {
+                      field.onChange(v);
+                    }
+                  }}
+                />
+              )}
+            />
+          </Field>
+          <Field error={errors.sort?.message} label="排序">
+            <Controller
+              control={control}
+              name="sort"
+              render={({ field }) => (
+                <Input
+                  inputMode="numeric"
+                  invalid={Boolean(errors.sort)}
+                  placeholder="数字越小越靠前"
+                  value={field.value ?? ''}
+                  onBlur={field.onBlur}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || INT_RE.test(v)) {
+                      field.onChange(v);
+                    }
+                  }}
+                />
+              )}
+            />
+          </Field>
+          <Field label="状态">
+            <Select {...register('status', { valueAsNumber: true })}>
+              <option value={1}>启用</option>
+              <option value={0}>禁用</option>
+            </Select>
+          </Field>
+          <Field
+            className="md:col-span-2"
+            label="专属权益(JSON)"
+            hint='如 {"bonus":"生日礼","discount":"每月一次8折"}'
+          >
+            <Textarea placeholder="JSON 格式，留空则无专属权益" {...register('rights')} />
+          </Field>
+          <Field className="md:col-span-2" label="备注">
+            <Input {...register('remark')} />
+          </Field>
+          <button className="hidden" type="submit" />
+        </form>
+      )}
+    </Modal>
+  );
 }
 
 export function MemberLevelPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const [rows, setRows] = useState<MemberLevelPageVO[]>([]);
   const [loading, setLoading] = useState(false);
-  const [total, setTotal] = useState(0);
-  const [pageNum, setPageNum] = useState(1);
   const [keyword, setKeyword] = useState('');
   const debounced = useDebounce(keyword, 300);
-  const [open, setOpen] = useState(false);
+  const [editMode, setEditMode] = useState<FormMode | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState<MemberLevelFormPayload>(() => defaultForm());
-  const [saving, setSaving] = useState(false);
   const [confirmIds, setConfirmIds] = useState<string[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await memberLevelApi.list({
-        pageNum,
-        pageSize: 10,
+        pageNum: 1,
+        pageSize: 100,
         name: debounced || undefined,
       });
       setRows(data.list ?? []);
-      setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [pageNum, debounced]);
+  }, [debounced]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function openEdit(id: string): Promise<void> {
-    const detail = await memberLevelApi.form(id);
-    setEditId(id);
-    setForm({ ...detail });
-    setOpen(true);
-  }
-
-  async function handleSave(): Promise<void> {
-    setSaving(true);
-    try {
-      if (editId) {
-        await memberLevelApi.update(editId, form);
-      } else {
-        await memberLevelApi.create(form);
-      }
-      setOpen(false);
-      setEditId(null);
-      await load();
-    } finally {
-      setSaving(false);
-    }
-  }
-
   function openCreate(): void {
+    setEditMode('create');
     setEditId(null);
-    setForm(defaultForm());
-    setOpen(true);
   }
 
-  function setNum(field: keyof MemberLevelFormPayload, value: string): void {
-    setForm((f) => ({ ...f, [field]: value === '' ? undefined : Number(value) }));
+  function openEdit(id: string): void {
+    setEditMode('edit');
+    setEditId(id);
   }
+
+  function closeEdit(): void {
+    setEditMode(null);
+    setEditId(null);
+  }
+
+  const sortedRows = [...rows].sort((a, b) => (a.levelNo ?? 0) - (b.levelNo ?? 0));
 
   return (
     <div className="space-y-4">
@@ -131,176 +443,92 @@ export function MemberLevelPage() {
 
       {loading ? (
         <PageLoading />
-      ) : rows.length === 0 ? (
+      ) : sortedRows.length === 0 ? (
         <EmptyState title="暂无等级" description="还未配置任何会员等级。" />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-salon-line dark:border-zinc-800">
-          <table className="min-w-full divide-y divide-salon-line text-sm dark:divide-zinc-800">
-            <thead className="bg-slate-50 dark:bg-zinc-900/60">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">等级名称</th>
-                <th className="px-4 py-3 text-left font-medium">序号</th>
-                <th className="px-4 py-3 text-left font-medium">服务折扣</th>
-                <th className="px-4 py-3 text-left font-medium">商品折扣</th>
-                <th className="px-4 py-3 text-left font-medium">积分倍率</th>
-                <th className="px-4 py-3 text-left font-medium">充值赠送</th>
-                <th className="px-4 py-3 text-left font-medium">状态</th>
-                <th className="px-4 py-3 text-right font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-salon-line dark:divide-zinc-800">
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-3">{row.name}</td>
-                  <td className="px-4 py-3">{row.levelNo}</td>
-                  <td className="px-4 py-3">{row.serviceDiscount ?? '-'}</td>
-                  <td className="px-4 py-3">{row.goodsDiscount ?? '-'}</td>
-                  <td className="px-4 py-3">{row.pointRate ?? '-'}</td>
-                  <td className="px-4 py-3">{row.rechargeGiftRate ?? '-'}</td>
-                  <td className="px-4 py-3">
-                    <Badge tone={row.status === 1 ? 'success' : 'danger'}>
-                      {row.status === 1 ? '启用' : '禁用'}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {sortedRows.map((level) => (
+            <Card key={level.id} hover={false}>
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-salon-accent text-sm font-semibold text-white">
+                  {level.levelNo}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-base font-semibold text-salon-ink dark:text-zinc-100">
+                      {level.name}
+                    </span>
+                    <Badge tone={level.status === 1 ? 'success' : 'danger'}>
+                      {level.status === 1 ? '启用' : '禁用'}
                     </Badge>
-                  </td>
-                  <td className="space-x-2 px-4 py-3 text-right">
-                    {hasPermission('biz:memberLevel:edit') ? (
-                      <Button onClick={() => void openEdit(row.id)} size="sm" variant="secondary">
-                        编辑
-                      </Button>
-                    ) : null}
-                    {hasPermission('biz:memberLevel:delete') ? (
-                      <Button
-                        icon={<Trash2 className="size-4" />}
-                        onClick={() => setConfirmIds([row.id])}
-                        size="sm"
-                        variant="secondary"
-                      >
-                        删除
-                      </Button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                  <div className="text-zinc-500 dark:text-zinc-400">服务折扣</div>
+                  <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">
+                    {formatDiscount(level.serviceDiscount)}
+                  </div>
+                </div>
+                <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                  <div className="text-zinc-500 dark:text-zinc-400">商品折扣</div>
+                  <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">
+                    {formatDiscount(level.goodsDiscount)}
+                  </div>
+                </div>
+                <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                  <div className="text-zinc-500 dark:text-zinc-400">积分倍率</div>
+                  <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">
+                    {level.pointRate != null ? `${level.pointRate} 倍` : '暂无'}
+                  </div>
+                </div>
+                <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                  <div className="text-zinc-500 dark:text-zinc-400">充值赠送</div>
+                  <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">
+                    {level.rechargeGiftRate != null ? level.rechargeGiftRate : '暂无'}
+                  </div>
+                </div>
+              </div>
+              {level.upgradeThreshold != null ? (
+                <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  升级门槛：{level.upgradeThreshold}
+                </div>
+              ) : null}
+              <div className="mt-3 flex justify-end gap-2 border-t border-salon-line pt-3 dark:border-zinc-800">
+                {hasPermission('biz:memberLevel:edit') ? (
+                  <Button
+                    icon={<Pencil className="size-4" />}
+                    onClick={() => openEdit(String(level.id))}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    编辑
+                  </Button>
+                ) : null}
+                {hasPermission('biz:memberLevel:delete') ? (
+                  <Button
+                    icon={<Trash2 className="size-4" />}
+                    onClick={() => setConfirmIds([String(level.id)])}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    删除
+                  </Button>
+                ) : null}
+              </div>
+            </Card>
+          ))}
         </div>
       )}
 
-      <div className="flex items-center justify-between text-sm text-zinc-500">
-        <span>共 {total} 条</span>
-        <div className="flex gap-2">
-          <Button
-            disabled={pageNum <= 1}
-            onClick={() => setPageNum((p) => p - 1)}
-            size="sm"
-            variant="secondary"
-          >
-            上一页
-          </Button>
-          <Button
-            disabled={pageNum * 10 >= total}
-            onClick={() => setPageNum((p) => p + 1)}
-            size="sm"
-            variant="secondary"
-          >
-            下一页
-          </Button>
-        </div>
-      </div>
-
-      <Modal
-        footer={
-          <>
-            <Button onClick={() => setOpen(false)} variant="secondary">
-              取消
-            </Button>
-            <Button loading={saving} onClick={() => void handleSave()}>
-              保存
-            </Button>
-          </>
-        }
-        onClose={() => setOpen(false)}
-        open={open}
-        title={editId ? '编辑等级' : '新增等级'}
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="等级名称" required>
-            <Input
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              value={form.name}
-            />
-          </Field>
-          <Field label="等级序号" required>
-            <Input
-              onChange={(e) => setNum('levelNo', e.target.value)}
-              type="number"
-              value={form.levelNo ?? 0}
-            />
-          </Field>
-          <Field label="服务折扣(0-1)">
-            <Input
-              onChange={(e) => setNum('serviceDiscount', e.target.value)}
-              type="number"
-              step="0.01"
-              value={form.serviceDiscount ?? ''}
-            />
-          </Field>
-          <Field label="商品折扣(0-1)">
-            <Input
-              onChange={(e) => setNum('goodsDiscount', e.target.value)}
-              type="number"
-              step="0.01"
-              value={form.goodsDiscount ?? ''}
-            />
-          </Field>
-          <Field label="积分倍率">
-            <Input
-              onChange={(e) => setNum('pointRate', e.target.value)}
-              type="number"
-              step="0.01"
-              value={form.pointRate ?? 1}
-            />
-          </Field>
-          <Field label="充值赠送率">
-            <Input
-              onChange={(e) => setNum('rechargeGiftRate', e.target.value)}
-              type="number"
-              step="0.01"
-              value={form.rechargeGiftRate ?? 0}
-            />
-          </Field>
-          <Field label="升级门槛">
-            <Input
-              onChange={(e) => setNum('upgradeThreshold', e.target.value)}
-              type="number"
-              step="0.01"
-              value={form.upgradeThreshold ?? ''}
-            />
-          </Field>
-          <Field label="排序">
-            <Input
-              onChange={(e) => setNum('sort', e.target.value)}
-              type="number"
-              value={form.sort ?? 0}
-            />
-          </Field>
-          <Field label="状态">
-            <Select
-              onChange={(e) => setForm((f) => ({ ...f, status: Number(e.target.value) }))}
-              value={form.status ?? 1}
-            >
-              <option value={1}>启用</option>
-              <option value={0}>禁用</option>
-            </Select>
-          </Field>
-          <Field label="专属权益(JSON)">
-            <Input
-              onChange={(e) => setForm((f) => ({ ...f, rights: e.target.value }))}
-              value={form.rights ?? ''}
-            />
-          </Field>
-        </div>
-      </Modal>
+      <MemberLevelFormDialog
+        levelId={editId}
+        mode={editMode ?? 'create'}
+        onClose={closeEdit}
+        onSaved={() => void load()}
+        open={editMode !== null}
+      />
 
       <ConfirmDialog
         danger

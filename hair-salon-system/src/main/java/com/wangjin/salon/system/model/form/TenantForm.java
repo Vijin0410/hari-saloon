@@ -53,7 +53,11 @@ public class TenantForm {
     @Schema(description = "开通时联合创建的初始门店（可选，仅新增）")
     private InitialStoreInfo store;
 
-    /** 开通时同步的通用数据模块（仅新增；可选值 dict/memberLevel/memberTag；空则默认全部） */
-    @Schema(description = "开通时同步的通用数据模块（仅新增；dict/memberLevel/memberTag，空则默认全部）")
+    /** 开通时同步的通用数据模块（仅新增；可选值 memberLevel/memberTag；空则默认全部） */
+    @Schema(description = "开通时同步的通用数据模块（仅新增；memberLevel/memberTag，空则默认全部）")
     private java.util.List<String> syncModules;
+
+    /** 开通时同步的字典类型编码（仅新增；从默认租户复制勾选类型的字典值；空则不同步字典） */
+    @Schema(description = "开通时同步的字典类型编码（仅新增；从默认租户复制勾选类型，空则不同步字典）")
+    private java.util.List<String> syncDictTypes;
 }

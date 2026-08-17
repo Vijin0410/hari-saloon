@@ -1,5 +1,6 @@
 package com.wangjin.salon.system.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -25,6 +26,7 @@ import com.wangjin.salon.system.model.query.TenantPageQuery;
 import com.wangjin.salon.system.model.vo.TenantPageVO;
 import com.wangjin.salon.system.service.SalonMemberPort;
 import com.wangjin.salon.system.service.SalonStorePort;
+import com.wangjin.salon.system.service.SysDictService;
 import com.wangjin.salon.system.service.SysRoleMenuService;
 import com.wangjin.salon.system.service.SysRoleService;
 import com.wangjin.salon.system.service.SysTenantService;
@@ -57,6 +59,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
     private final SalonProperties salonProperties;
     private final SalonStorePort salonStorePort;
     private final SalonMemberPort memberPort;
+    private final SysDictService dictService;
 
     public SysTenantServiceImpl(TenantConverter tenantConverter,
                                 SysRoleService roleService,
@@ -67,7 +70,8 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
                                 PasswordEncoder passwordEncoder,
                                 SalonProperties salonProperties,
                                 SalonStorePort salonStorePort,
-                                SalonMemberPort memberPort) {
+                                SalonMemberPort memberPort,
+                                @Lazy SysDictService dictService) {
         this.tenantConverter = tenantConverter;
         this.roleService = roleService;
         this.roleMenuService = roleMenuService;
@@ -78,6 +82,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         this.salonProperties = salonProperties;
         this.salonStorePort = salonStorePort;
         this.memberPort = memberPort;
+        this.dictService = dictService;
     }
 
     /** 店长默认可挂菜单 id（与 data.sql 种子一致；菜单全局共享） */
@@ -137,7 +142,8 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
                 adminNickname,
                 rawPassword,
                 form.getStore(),
-                form.getSyncModules()
+                form.getSyncModules(),
+                form.getSyncDictTypes()
         ));
         return true;
     }
@@ -151,7 +157,8 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
     private void bootstrapTenant(Long tenantId,
                                  String adminUsername, String adminNickname, String rawPassword,
                                  InitialStoreInfo store,
-                                 java.util.List<String> syncModules) {
+                                 java.util.List<String> syncModules,
+                                 java.util.List<String> syncDictTypes) {
         // 租户内管理员（本租户全部数据，不含租户管理）；ROOT 是系统管理员，仅默认租户，不在开通时创建
         SysRole tenantAdmin = savePresetRole("租户管理员", RoleCodes.TENANT_ADMIN.getCode(), 1, DataScopeEnum.ALL.getValue(), tenantId);
         SysRole manager = savePresetRole("店长", RoleCodes.STORE_MANAGER.getCode(), 2, DataScopeEnum.ALL.getValue(), tenantId);
@@ -188,8 +195,8 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
             salonStorePort.syncUserStores(admin.getId(), List.of(storeId));
         }
 
-        // 按勾选模块从默认租户复制通用数据（会员等级 / 会员标签）；空则默认全部，开箱即用。
-        // 字典已全局共享，新租户无需复制。
+        // 按勾选模块从默认租户复制通用数据；空则默认全部（会员等级 / 会员标签），开箱即用。
+        // 字典按 syncDictTypes 勾选的类型编码同步（空则不同步字典，新租户下拉/翻译回落通用）。
         java.util.Set<String> modules = (syncModules == null || syncModules.isEmpty())
                 ? java.util.Set.of("memberLevel", "memberTag")
                 : new java.util.HashSet<>(syncModules);
@@ -198,6 +205,9 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         }
         if (modules.contains("memberTag")) {
             memberPort.copyMemberTag(SystemConstants.DEFAULT_TENANT_ID);
+        }
+        if (CollUtil.isNotEmpty(syncDictTypes)) {
+            dictService.copyFromDefaultTenant(tenantId, syncDictTypes);
         }
     }
 

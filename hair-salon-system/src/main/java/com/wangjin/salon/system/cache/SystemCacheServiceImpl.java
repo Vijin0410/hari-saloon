@@ -3,6 +3,7 @@ package com.wangjin.salon.system.cache;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wangjin.common.constant.CacheConstants;
+import com.wangjin.common.constant.SystemConstants;
 import com.wangjin.common.redis.service.RedisService;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.model.entity.SysDept;
@@ -15,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,21 +42,28 @@ public class SystemCacheServiceImpl implements SystemCacheService {
 
     @Override
     public void refreshDictCache() {
-        // 字典全局共享（sys_dict/sys_dict_type 在 ignore-tables，不走租户隔离），缓存 key 不含 tenantId
+        // 字典 = 通用 + 租户覆盖（与 wj-framework DictAspect 翻译逻辑对齐，同 value 租户覆盖通用）：
+        // 通用（默认租户 1）system:core:dict:{typeCode}；租户自定义 system:core:dict:{typeCode}:{tenantId}
         redisService.deleteByPrefix(CacheConstants.SYS_DICT_KEY);
         List<SysDict> list = dictService.list(new LambdaQueryWrapper<SysDict>()
                 .eq(SysDict::getStatus, 1)
                 .orderByAsc(SysDict::getSort));
+        // 默认租户视为通用模板（无后缀 key），其余租户各写自己的 key；orderByAsc 保证组内有序
         Map<String, List<SysDict>> grouped = list.stream()
-                .collect(Collectors.groupingBy(SysDict::getTypeCode));
-        grouped.forEach((typeCode, items) -> {
+                .collect(Collectors.groupingBy(d -> d.getTypeCode() + cacheSuffix(d.getTenantId())));
+        grouped.forEach((cacheKey, items) -> {
             List<Option<String>> options = items.stream()
-                    .sorted(Comparator.comparing(d -> d.getSort() == null ? 0 : d.getSort()))
                     .map(d -> new Option<>(d.getValue(), d.getName(), d.getRemark()))
                     .toList();
-            redisService.setCacheList(CacheConstants.SYS_DICT_KEY + typeCode, options);
+            redisService.setCacheList(CacheConstants.SYS_DICT_KEY + cacheKey, options);
         });
-        log.info("字典缓存已刷新，类型数={}", grouped.size());
+        log.info("字典缓存已刷新，类型键数={}", grouped.size());
+    }
+
+    /** 字典缓存键后缀：默认租户（通用字典）无后缀，其余租户为 ":{tenantId}"。 */
+    private String cacheSuffix(Long tenantId) {
+        return tenantId != null && !SystemConstants.DEFAULT_TENANT_ID.equals(tenantId)
+                ? ":" + tenantId : "";
     }
 
     @Override

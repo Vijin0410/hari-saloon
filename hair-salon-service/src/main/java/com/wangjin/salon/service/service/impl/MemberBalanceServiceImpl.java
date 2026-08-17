@@ -46,6 +46,7 @@ public class MemberBalanceServiceImpl implements MemberBalanceService {
             vo.setPrincipalBalance(principal);
             vo.setGiftBalance(gift);
             vo.setFrozenBalance(frozen);
+            // 可用余额 = 本金 + 赠送 - 冻结
             vo.setAvailableBalance(principal.add(gift).subtract(frozen));
             vo.setLastRechargeTime(balance.getLastRechargeTime());
             vo.setLastConsumeTime(balance.getLastConsumeTime());

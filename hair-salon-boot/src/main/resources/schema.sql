@@ -210,7 +210,7 @@ CREATE TABLE IF NOT EXISTS sys_dict_type (
     deleted       int4         DEFAULT 0
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uk_sys_dict_type_code_tenant ON sys_dict_type (tenant_id, code);
-COMMENT ON TABLE sys_dict_type IS '字典类型（全局共享：走 ignore-tables，不按租户隔离；value 多为后端代码契约，仅系统管理员维护）';
+COMMENT ON TABLE sys_dict_type IS '字典类型（通用(默认租户1)+租户覆盖：走 ignore-tables，由代码按租户分键写缓存；value 多为后端代码契约，仅系统管理员维护）';
 COMMENT ON COLUMN sys_dict_type.id IS '字典类型ID';
 COMMENT ON COLUMN sys_dict_type.name IS '字典类型名称';
 COMMENT ON COLUMN sys_dict_type.code IS '字典类型编码（租户内唯一）';
@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS sys_dict (
     tenant_id     int8         NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sys_dict_type_code ON sys_dict (tenant_id, type_code);
-COMMENT ON TABLE sys_dict IS '字典数据项（全局共享：走 ignore-tables，不按租户隔离）';
+COMMENT ON TABLE sys_dict IS '字典数据项（通用(默认租户1)+租户覆盖：走 ignore-tables，由代码按租户分键写缓存，同 value 租户覆盖通用）';
 COMMENT ON COLUMN sys_dict.id IS '字典项ID';
 COMMENT ON COLUMN sys_dict.type_code IS '字典类型编码';
 COMMENT ON COLUMN sys_dict.name IS '字典项名称';

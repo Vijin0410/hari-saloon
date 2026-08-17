@@ -108,6 +108,7 @@
 - 多表写：`@Transactional(rollbackFor = Exception.class)`；只读不加事务；注意自调用不走代理。
 - 业务失败抛 `BizException`；列表勿返回 null（空列表/空分页）。
 - 字典表 `sys_dict` / `sys_dict_type`；业务只存 value；新建字典先 type 再项；VO `@Dict`，勿手写拼装。
+- **字典租户模式（强制）**：字典为「通用（默认租户 1 = 模板）+ 租户覆盖」--缓存键通用 `system:core:dict:{typeCode}`、租户 `system:core:dict:{typeCode}:{tenantId}`，同 value 租户覆盖通用（与 wj-framework `DictAspect` 对齐；表走 `ignore-tables`，由代码手动分键：写入 `SystemCacheServiceImpl`、读取 `listDictOptions` / 翻译切面）。**每次新增字典种子 SQL（`data.sql` / `migrate-*.sql`）必须同步加一份租户 `2084880957290426370` 的副本**（INSERT..SELECT 自租户 1，`id + 1000`，NOT EXISTS 守卫）。契约型字典（余额桶/变动类型等）value 不得偏离通用，租户副本只能改名称/排序；字典维护权限仍仅 ROOT。
 - 缓存更新路径须失效/刷新，与既有 cache 策略一致。
 
 ### 5. 数据访问 / SQL

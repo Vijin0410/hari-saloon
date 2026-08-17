@@ -27,6 +27,7 @@ import type {
   DictPageQuery,
   DictPageVO,
   DictTypeFormPayload,
+  DictTypeOption,
   DictTypePageQuery,
   DictTypePageVO,
   TenantLoginOption,
@@ -191,8 +192,10 @@ export interface TenantFormPayload {
   adminPassword?: string;
   /** 开通时联合创建的初始门店（可选；name 空则不建门店，仅新增） */
   store?: InitialStoreInfoPayload;
-  /** 开通时同步的通用数据模块（仅新增；dict/memberLevel/memberTag，空则默认全部） */
+  /** 开通时同步的通用数据模块（仅新增；memberLevel/memberTag，空则默认全部） */
   syncModules?: string[];
+  /** 开通时同步的字典类型编码（仅新增；从默认租户复制勾选类型，空则不同步字典） */
+  syncDictTypes?: string[];
 }
 
 export const tenantApi = {
@@ -377,6 +380,11 @@ export const fileApi = {
 export const dictTypeApi = {
   list(params: DictTypePageQuery): Promise<PageData<DictTypePageVO>> {
     return get<PageData<DictTypePageVO>>('/v1/dict/types/page', { params });
+  },
+
+  /** 通用字典类型下拉（value=类型编码）；开通租户勾选同步字典用 */
+  options(): Promise<DictTypeOption[]> {
+    return get<DictTypeOption[]>('/v1/dict/types/options');
   },
 
   getForm(id: EntityId): Promise<DictTypeFormPayload> {

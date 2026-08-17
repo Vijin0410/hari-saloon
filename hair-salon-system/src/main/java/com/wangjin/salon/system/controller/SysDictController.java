@@ -97,6 +97,13 @@ public class SysDictController {
         return Result.success(dictTypeService.listByGroupCode(groupCode));
     }
 
+    @Operation(summary = "通用字典类型下拉", description = "通用（默认租户）启用的字典类型，value=类型编码；开通租户勾选同步字典等场景使用")
+    @GetMapping("/types/options")
+    @PreAuthorize("isAuthenticated()")
+    public Result<List<Option<String>>> listTypeOptions() {
+        return Result.success(dictTypeService.listTypeOptions());
+    }
+
     @Operation(summary = "字典类型表单")
     @GetMapping("/types/{id}/form")
     @PreAuthorize("hasAuthority('system:dict:view')")

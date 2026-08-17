@@ -7,7 +7,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.wangjin.common.constant.SystemConstants;
 import com.wangjin.common.security.util.SecurityUtils;
+import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.cache.SystemCacheService;
 import com.wangjin.salon.system.converter.DictTypeConverter;
 import com.wangjin.salon.system.mapper.SysDictTypeMapper;
@@ -43,9 +45,9 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
 
     @Override
     public Page<DictTypePageVO> getDictTypePage(DictTypePageQuery queryParams) {
-        // 字典全局共享（ignore-tables），TenantLine 不再按租户过滤；ROOT 可按 tenantId 筛选，其余忽略防越权
+        // 字典类型通用（默认租户1）+ 租户覆盖；ROOT 可按 tenantId 筛选，其余锁定本租户防混排/越权
         if (!SecurityUtils.isRoot()) {
-            queryParams.setTenantId(null);
+            queryParams.setTenantId(SecurityUtils.getTenantId());
         }
         Page<SysDictType> page = this.page(
                 new Page<>(queryParams.getPageNum(), queryParams.getPageSize()),
@@ -116,10 +118,23 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
     }
 
     @Override
+    public List<Option<String>> listTypeOptions() {
+        // 通用模板（默认租户 1）启用的类型，value=code；只取租户 1 天然去重（租户副本不进下拉）
+        return this.list(new LambdaQueryWrapper<SysDictType>()
+                        .eq(SysDictType::getTenantId, SystemConstants.DEFAULT_TENANT_ID)
+                        .eq(SysDictType::getStatus, 1))
+                .stream()
+                .map(t -> new Option<>(t.getCode(), t.getName()))
+                .toList();
+    }
+
+    @Override
     public List<DictTypeForm> listByGroupCode(String groupCode) {
+        // 非 ROOT 锁定本租户，避免通用 + 租户副本混出重复类型；ROOT 看全部
         List<SysDictType> list = this.list(new LambdaQueryWrapper<SysDictType>()
                 .eq(SysDictType::getGroupCode, groupCode)
-                .eq(SysDictType::getStatus, 1));
+                .eq(SysDictType::getStatus, 1)
+                .eq(!SecurityUtils.isRoot(), SysDictType::getTenantId, SecurityUtils.getTenantId()));
         return dictTypeConverter.entity2Form(list);
     }
 }

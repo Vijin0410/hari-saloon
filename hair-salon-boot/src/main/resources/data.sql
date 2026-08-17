@@ -294,8 +294,10 @@ SELECT 3, m.id, 1 FROM sys_menu m
 WHERE m.id IN (110, 107, 109)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 3 AND rm.menu_id = m.id AND rm.type = 1);
 
--- ===== 租户 2084880957290426370 P1 通用数据（等级/标签）=====
--- 与默认租户 1 保持一致；id 段避开租户1（等级 1001-1004 / 标签 2001-2006）。字典已全局共享，不再为第二租户单独种子。
+-- ===== 租户 2084880957290426370 P1 通用数据（等级/标签/字典）=====
+-- 与默认租户 1 保持一致；id 段避开租户1（等级 1001-1004 / 标签 2001-2006 / 字典类型 1-6 / 字典项 11-68）。
+-- 字典为「通用（默认租户1）+ 租户覆盖」模式（wj-framework DictAspect 合并翻译），租户副本 id = 租户1 id + 1000；
+-- 约定：后续每次新增字典种子（type + 项），必须同步加一份本租户（2084880957290426370）的副本。
 
 -- 会员等级
 INSERT INTO salon_member_level (id, tenant_id, name, level_no, service_discount, goods_discount, point_rate, recharge_gift_rate, sort, status, create_by, create_time, update_by, update_time, deleted)
@@ -321,7 +323,19 @@ FROM (VALUES
 ) AS v(id, name, color, sort)
 WHERE NOT EXISTS (SELECT 1 FROM salon_member_tag t WHERE t.id = v.id);
 
--- 字典已全局共享（sys_dict/sys_dict_type 走 ignore-tables），第二租户不再单独种子
+-- 字典类型副本（通用 + 租户覆盖；从租户 1 全量复制，id + 1000）
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT d.id + 1000, d.name, d.code, d.status, d.remark, d.group_code, 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM sys_dict_type d
+WHERE d.tenant_id = 1 AND d.deleted = 0
+  AND NOT EXISTS (SELECT 1 FROM sys_dict_type t WHERE t.code = d.code AND t.tenant_id = 2084880957290426370);
+
+-- 字典项副本（同 value 与租户 1 一致，租户可在自己副本上调整名称/排序）
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT d.id + 1000, d.type_code, d.name, d.value, d.sort, d.status, d.defaulted, d.remark, 2084880957290426370
+FROM sys_dict d
+WHERE d.tenant_id = 1
+  AND NOT EXISTS (SELECT 1 FROM sys_dict t WHERE t.type_code = d.type_code AND t.value = d.value AND t.tenant_id = 2084880957290426370);
 
 -- ===== P2 服务项目与商品主数据 =====
 

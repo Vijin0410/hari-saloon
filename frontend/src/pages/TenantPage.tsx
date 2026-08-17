@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Search, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
+import { ListChecks, Plus, Search, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import {
+  dictTypeApi,
   tenantApi,
+  type DictTypeOption,
   type TenantFormPayload,
   type TenantPageVO,
 } from '@/shared/api/modules/systemApi';
@@ -22,7 +24,6 @@ import { useAuthStore } from '@/store/useAuthStore';
 
 const PAGE_SIZE = 10;
 const SYNC_MODULE_OPTIONS: ReadonlyArray<readonly [string, string]> = [
-  ['dict', '字典'],
   ['memberLevel', '会员等级'],
   ['memberTag', '会员标签'],
 ];
@@ -37,7 +38,8 @@ function defaultValues(): TenantFormValues {
     contact: '',
     phone: '',
     store: { name: '', code: '', phone: '', address: '' },
-    syncModules: ['dict', 'memberLevel', 'memberTag'],
+    syncModules: ['memberLevel', 'memberTag'],
+    syncDictTypes: [],
   };
 }
 
@@ -57,10 +59,11 @@ function toPayload(v: TenantFormValues): TenantFormPayload {
       address: v.store.address.trim() || undefined,
     },
     syncModules: v.syncModules,
+    syncDictTypes: v.syncDictTypes,
   };
 }
 
-/** 租户开通表单：嵌套初始门店 + 同步模块 checkbox 组。 */
+/** 租户开通表单：嵌套初始门店 + 同步模块 checkbox 组 + 字典类型勾选（可全选）。 */
 function TenantCreateDialog({
   open,
   onClose,
@@ -71,6 +74,7 @@ function TenantCreateDialog({
   onSaved: () => void;
 }) {
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [dictTypes, setDictTypes] = useState<DictTypeOption[]>([]);
   const {
     formState: { errors },
     handleSubmit,
@@ -86,8 +90,18 @@ function TenantCreateDialog({
   useEffect(() => {
     if (open) {
       reset(defaultValues());
+      // 拉通用字典类型清单（value=code），默认全选，开箱即用
+      void dictTypeApi
+        .options()
+        .then((options) => {
+          setDictTypes(options ?? []);
+          setValue('syncDictTypes', (options ?? []).map((o) => String(o.value)), {
+            shouldDirty: true,
+          });
+        })
+        .catch(() => setDictTypes([]));
     }
-  }, [open, reset]);
+  }, [open, reset, setValue]);
 
   async function handleSave(values: TenantFormValues): Promise<void> {
     setSubmitLoading(true);
@@ -101,12 +115,30 @@ function TenantCreateDialog({
   }
 
   const selectedModules = watch('syncModules') ?? [];
+  const selectedDictTypes = watch('syncDictTypes') ?? [];
+  const allDictSelected =
+    dictTypes.length > 0 && selectedDictTypes.length === dictTypes.length;
 
   function toggleModule(key: string, checked: boolean): void {
     const next = checked
       ? Array.from(new Set([...selectedModules, key]))
       : selectedModules.filter((m) => m !== key);
     setValue('syncModules', next, { shouldDirty: true });
+  }
+
+  function toggleDictType(code: string, checked: boolean): void {
+    const next = checked
+      ? Array.from(new Set([...selectedDictTypes, code]))
+      : selectedDictTypes.filter((c) => c !== code);
+    setValue('syncDictTypes', next, { shouldDirty: true });
+  }
+
+  function toggleAllDictTypes(): void {
+    setValue(
+      'syncDictTypes',
+      allDictSelected ? [] : dictTypes.map((o) => String(o.value)),
+      { shouldDirty: true },
+    );
   }
 
   return (
@@ -191,6 +223,48 @@ function TenantCreateDialog({
               );
             })}
           </div>
+        </div>
+
+        <div className="space-y-2 border-t border-salon-line pt-3 dark:border-zinc-800">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-salon-ink dark:text-white">
+              同步字典（从默认租户复制勾选类型的字典值）
+            </div>
+            {dictTypes.length > 0 ? (
+              <Button
+                icon={<ListChecks className="size-4" />}
+                onClick={toggleAllDictTypes}
+                size="sm"
+                variant="secondary"
+              >
+                {allDictSelected ? '全不选' : '全选'}
+              </Button>
+            ) : null}
+          </div>
+          {dictTypes.length > 0 ? (
+            <div className="grid gap-2 md:grid-cols-3">
+              {dictTypes.map((option) => {
+                const code = String(option.value);
+                const checked = selectedDictTypes.includes(code);
+                return (
+                  <label
+                    className="flex cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-salon-line dark:hover:border-zinc-700"
+                    key={code}
+                  >
+                    <input
+                      checked={checked}
+                      className="size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
+                      onChange={() => toggleDictType(code, !checked)}
+                      type="checkbox"
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">暂无可同步的字典类型</p>
+          )}
         </div>
         <button className="hidden" type="submit" />
       </form>

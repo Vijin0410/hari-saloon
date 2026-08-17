@@ -111,6 +111,7 @@ export const tenantFormSchema = z.object({
     address: z.string(),
   }),
   syncModules: z.array(z.string()).optional(),
+  syncDictTypes: z.array(z.string()).optional(),
 });
 
 export type TenantFormValues = z.infer<typeof tenantFormSchema>;

@@ -53,5 +53,7 @@ export interface DictFormPayload {
 
 /** 字典下拉项：value=字典值，label=字典名称 */
 export type DictOption = OptionNode<string>;
+/** 通用字典类型下拉项（value=类型编码 code） */
+export type DictTypeOption = OptionNode<string>;
 /** 登录页租户下拉项：value=租户编码 code，label=租户名称 */
 export type TenantLoginOption = OptionNode<string>;

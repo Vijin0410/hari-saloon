@@ -39,6 +39,13 @@ interface ConfirmState {
 }
 
 const MENU_TREE_COLLAPSED_CACHE_KEY = 'hair-salon-menu-management-collapsed-ids';
+/** 折叠记忆有效期：1小时，期间每次操作都会刷新，超期后回到默认全折叠。 */
+const MENU_TREE_COLLAPSE_TTL_MS = 1 * 1 * 60 * 60 * 1000;
+
+interface CollapsedIdsCache {
+  ids: string[];
+  savedAt: number;
+}
 
 function defaultMenuValues(): MenuFormValues {
   return {
@@ -157,6 +164,14 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
+function isCollapsedIdsCache(value: unknown): value is CollapsedIdsCache {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const { ids, savedAt } = value as { ids?: unknown; savedAt?: unknown };
+  return isStringArray(ids) && typeof savedAt === 'number';
+}
+
 function readCollapsedIdsCache(expandableIds: Set<string>): Set<string> | null {
   try {
     const raw = window.localStorage.getItem(MENU_TREE_COLLAPSED_CACHE_KEY);
@@ -164,10 +179,13 @@ function readCollapsedIdsCache(expandableIds: Set<string>): Set<string> | null {
       return null;
     }
     const parsed: unknown = JSON.parse(raw);
-    if (!isStringArray(parsed)) {
+    // 旧格式（纯 id 数组）没有时间戳，视为已过期一并清理
+    const cache = isCollapsedIdsCache(parsed) ? parsed : null;
+    if (!cache || Date.now() - cache.savedAt > MENU_TREE_COLLAPSE_TTL_MS) {
+      window.localStorage.removeItem(MENU_TREE_COLLAPSED_CACHE_KEY);
       return null;
     }
-    return new Set(parsed.filter((id) => expandableIds.has(id)));
+    return new Set(cache.ids.filter((id) => expandableIds.has(id)));
   } catch {
     return null;
   }
@@ -175,7 +193,8 @@ function readCollapsedIdsCache(expandableIds: Set<string>): Set<string> | null {
 
 function writeCollapsedIdsCache(collapsedIds: Set<string>): void {
   try {
-    window.localStorage.setItem(MENU_TREE_COLLAPSED_CACHE_KEY, JSON.stringify([...collapsedIds]));
+    const cache: CollapsedIdsCache = { ids: [...collapsedIds], savedAt: Date.now() };
+    window.localStorage.setItem(MENU_TREE_COLLAPSED_CACHE_KEY, JSON.stringify(cache));
   } catch {
     // localStorage 不可用时只保留当前页面内的展开状态。
   }

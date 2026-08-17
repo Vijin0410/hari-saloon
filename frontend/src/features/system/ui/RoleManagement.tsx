@@ -364,47 +364,61 @@ function MenuPermissionDialog({
       const hasChildren = children.length > 0;
       const collapsed = collapsedIds.has(id);
       return [
-        <div
-          className="flex items-start gap-2 rounded-md border border-salon-line bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-950"
-          key={id}
-          style={{ marginLeft: depth * 14 }}
-        >
-          <div className="flex items-center gap-1">
-            {hasChildren ? (
-              <button
-                className="text-zinc-400 transition hover:text-salon-accent"
-                onClick={() => toggleCollapse(id)}
-                type="button"
-              >
-                {collapsed ? (
-                  <ChevronRight className="size-4" />
-                ) : (
-                  <ChevronDown className="size-4" />
-                )}
-              </button>
-            ) : (
-              <span className="inline-block w-4" />
-            )}
-            <input
-              checked={checked}
-              className="mt-0.5 size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
-              onChange={(event) => updateSelection(node, event.target.checked)}
-              type="checkbox"
-            />
-          </div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-salon-ink dark:text-zinc-100">
-                {getMenuTitle(node)}
-              </span>
-              <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
+        <div className="space-y-1.5" key={`menu-node-${node.id}`}>
+          <div
+            className={
+              depth === 0
+                ? 'flex items-start gap-2 rounded-md border border-salon-line bg-slate-50 px-3 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-900/50'
+                : 'flex items-start gap-2 rounded-md border border-salon-line bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-950'
+            }
+          >
+            <div className="flex items-center gap-1">
+              {hasChildren ? (
+                <button
+                  className="text-zinc-400 transition hover:text-salon-accent"
+                  onClick={() => toggleCollapse(id)}
+                  type="button"
+                >
+                  {collapsed ? (
+                    <ChevronRight className="size-4" />
+                  ) : (
+                    <ChevronDown className="size-4" />
+                  )}
+                </button>
+              ) : (
+                <span className="inline-block w-4" />
+              )}
+              <input
+                checked={checked}
+                className="mt-0.5 size-4 rounded border-salon-line text-salon-accent focus:ring-salon-accent"
+                onChange={(event) => updateSelection(node, event.target.checked)}
+                type="checkbox"
+              />
             </div>
-            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              {node.perm || node.path || '未配置权限标识'}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={
+                    depth === 0
+                      ? 'font-semibold text-salon-ink dark:text-zinc-100'
+                      : 'font-medium text-salon-ink dark:text-zinc-100'
+                  }
+                >
+                  {getMenuTitle(node)}
+                </span>
+                <Badge tone="info">{getMenuTypeLabel(node.type)}</Badge>
+              </div>
+              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {node.perm || node.path || '未配置权限标识'}
+              </div>
             </div>
           </div>
+          {hasChildren && !collapsed ? (
+            <div className="ml-5 space-y-1.5 border-l-2 border-salon-line pl-3 dark:border-zinc-700">
+              {renderMenuNodes(children, depth + 1)}
+            </div>
+          ) : null}
         </div>,
-        ...(hasChildren && !collapsed ? renderMenuNodes(children, depth + 1) : []),
       ];
     });
   }

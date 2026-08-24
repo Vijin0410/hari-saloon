@@ -61,6 +61,10 @@ wj:
       - sys_role_menu
       # 菜单全局共享：各租户角色通过 sys_role_menu 挂同一套菜单
       - sys_menu
+      # 字典=通用(默认租户1)+租户覆盖：走 ignore-tables 由代码手动按租户分键读写缓存（通用 system:core:dict:{typeCode}，
+      # 租户 system:core:dict:{typeCode}:{tenantId}，同 value 租户覆盖通用，与 wj-framework DictAspect 对齐）
+      - sys_dict
+      - sys_dict_type
   apidoc:
     title: 理发店管理系统 API
     version: 1.0.0
@@ -85,6 +89,9 @@ wj:
     # 密码过期天数：<=0 不启用过期强制改密（仍保留逻辑）；>0 时距上次改密超过该天数须重置
     # 无论是否启用过期，last_password_change_time IS NULL（首次/管理员重置后）仍强制改密
     password-expire-days: 0
+    # 充值活动赠送解冻（冻结至次月1号后解冻至赠送桶）；默认每天 03:10
+    recharge-unfreeze-enabled: true
+    recharge-unfreeze-cron: "0 10 3 * * ?"
 
 logging:
   level:

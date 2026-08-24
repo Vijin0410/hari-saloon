@@ -1,6 +1,6 @@
 # 项目上下文记忆
 
-> 最后更新: 2026-08-17
+> 最后更新: 2026-08-24
 
 ## 模块与包
 
@@ -44,6 +44,10 @@
 - `GET|POST|PUT|DELETE /api/v1/services` / `GET /options` - 服务项目；`biz:serviceItem:*`（标准价/会员价/时长/discountable/commissionable）
 - `GET|POST|PUT|DELETE /api/v1/goods-categories` / `GET /options` - 商品分类；`biz:goodsCategory:*`
 - `GET|POST|PUT|DELETE /api/v1/goods` / `GET /options` - 商品；`biz:goods:*`（条码/销售价/成本价/stock_quantity 供 P5 扣减）
+- `GET|POST|PUT|DELETE /api/v1/recharge-activities` / `GET /options` - 充值活动；`biz:rechargeActivity:*`（充X送Y档位，生效窗口过滤）
+- `GET /api/v1/recharges/page|preview` / `GET /{id}/detail` / `POST /add` - 会员充值；`biz:recharge:list/view/add`（preview 按金额实时算赠送；一期手动确认收款）
+- `GET /api/v1/orders/page|{id}/detail` / `POST /add|{id}/pay|{id}/cancel` / `PUT /{id}/update` - 收银订单；`biz:order:list/view/add/pay/cancel`（挂单=status 0；结算=add/update+pay 两步；金额服务端算不信前端）
+- `GET /api/v1/users/options` - 员工下拉（isAuthenticated，开单选服务人员）
 
 ## 可复用的后端方法/组件
 
@@ -57,6 +61,9 @@
 - **SalonStorePermissionService** - salon 业务门店范围：ROOT/ALL 全量；其他用户按 `salon_store_user.store_id` + 本人创建兜底过滤
 - **SalonStorePort**（SPI，system 定义 / service 实现 `SalonStorePortImpl`）- 跨模块门店端口：`provisionInitialStore`（开通联合建店）、`syncUserStores`（用户绑多门店，全量覆盖）、`listUserStoreIds`（回显）；解 system↔service 循环依赖
 - **RoleCodes**（Enum）- ROOT/TENANT_ADMIN/STORE_MANAGER/STORE_STAFF 预置角色编码 + `isPreset(code)`；编辑预置角色禁改 code、禁新建/改名 ROOT；同租户 code 唯一（DB `uk_sys_role_code_tenant` + TenantLine）
+- **MemberLevelService#checkAndUpgrade(memberId)** - 等级升级检查：max(累计充值,累计消费) vs 启用等级 upgradeThreshold，只升不降；P4 充值 / P5 支付完成事务内调用
+- **RechargeOrderService** - P4 充值核心：`preview(memberId,amount)` 赠送预览（活动门槛最高档优先，无活动走等级 rechargeGiftRate 兜底向下取整到分）；`create()` 建单 + 本金/赠送分流水（活动赠送冻结至次月，独立 bean `RechargeGiftUnfreezeExecutor` 保证占坑与流水同事务）+ 累计充值 + 升级检查；`unfreezeDueAll()` 跨租户解冻编排（`RechargeGiftUnfreezeJob` 每天 03:10，`wj.salon.recharge-unfreeze-*` 配置）
+- **OrderService** - P5 收银核心：`savePending/updatePending` 挂单（明细快照 + 会员等级折扣按行 discountable 判定）；`pay()` 结算（条件更新占坑防并发 -> 积分抵扣 100分=1元 -> 余额支付先赠送后本金 -> 支付明细 -> 找零 -> 商品库存条件扣减防超卖 -> 送积分 实收×pointRate -> 累计消费 -> 升级检查）；`cancel()` 仅挂单可取消；金额全部服务端算，不信前端
 - **MinioService**（wj common-minio）- upload/delete/getPublicUrl/getPresignedUrl
 - **SysFileService** - `uploadAndSave`（传 MinIO + 落 sys_file，落库失败补删避免孤儿）/ `delete`（逻辑删 + 删 MinIO，限本人/ALL）/ `getAccessibleUrl`（私有桶统一预签名：公开不校验归属 / 私有校验归属）；sys_file 走 `@DataPermission`
 - **MemberAssetService#expireMemberPoints(memberId, now)** - 单会员过期积分清零（事务内条件置零批次+写 changeType=8 流水+原子扣 points，幂等）；`MemberPointService#expireDuePoints()` - 跨租户编排入口（逐租户 TenantContextRunner）；`MemberPointExpireJob` - 定时任务（@Scheduled，默认每天 02:00）
@@ -66,8 +73,10 @@
 - 模型：目录/菜单 type=1/2 `perm=NULL`（只存 path/component）；按钮 type=4 挂 perm
 - 按钮 perm（每资源）：`:list` 查看列表 / `:view` 查看详情 / `:add` / `:edit` / `:delete` / `:status` 改状态 / `:password` 重置密码 / `:assign` 角色分配菜单
 - 公用接口 `isAuthenticated()`（不挂 perm）：各 `options` 下拉、`/me`、`/me/password`、`/menus/routes`
-- 按钮 id：用户 21-27、角色 31-37、菜单 41-45、部门 51-55、字典 61-65、租户 71-76、门店 91-95、会员 101-105、会员等级 111-115、会员标签 121-125、服务分类 131-135、服务项目 141-145、商品分类 151-155、商品 161-165；目录/菜单 id：服务分类 13、服务项目 14、商品分类 15、商品 16（均挂 biz 目录 8）
-- 预置角色菜单：ROOT 全量；店长（data_scope=1）用户全+部门(查/增/改)+门店(查/增/改)+会员(查/增/改/删)；店员会员(查/增/改)
+- 按钮 id：用户 21-27、角色 31-37、菜单 41-45、部门 51-55、字典 61-65、租户 71-76、门店 91-95、会员 101-105（另 106-110 会员资产：余额/积分调整与流水、打标签）、会员等级 111-115、会员标签 121-125、服务分类 131-135、服务项目 141-145、商品分类 151-155、商品 161-165、订单 181-185（biz:order:list/view/add/pay/cancel，挂收银开单 166）、充值记录 186-188（biz:recharge:list/view/add，挂 168）、充值活动 189-193（biz:rechargeActivity:*，挂 169）
+- 目录/菜单结构（2026-08-17 重组，迁移脚本 `sql/migrate-menu-restructure.sql`，幂等可重跑）：按「强业务/弱配置」分层--会员信息 17(/member-info, rank10)>会员管理 10；服务商品管理 18(/service-goods, rank20)>服务项目 14/商品管理 16；门店管理 8(/store, rank30)>门店列表 9；业务配置 19(/biz-config, rank40)>会员等级 11/会员标签 12/服务分类 13/商品分类 15（低频主数据配置）；系统管理 1(rank100) 不变。perm 全部未变
+- 前端侧栏：叶子按 perm 映射本地路由（`MainLayout.tsx frontendPathByPermission`），目录 icon 须用 `iconByMetaName` 已有名（peoples/shop/office-building 等），新目录名如需新图标须同步前端映射
+- 预置角色菜单：ROOT 全量；店长（data_scope=1）用户全+部门(查/增/改)+门店(查/增/改)+会员/等级/标签全按钮+资产调整+服务商品全按钮+收银全按钮+充值记录/充值活动全按钮；店员会员(查/增/改)+打标签+流水查看+服务商品(查)+收银(list/view/add/pay 无 cancel)+充值记录(list/view 无 add，充值涉资金由店长操作)。菜单目录：收银中心 20(/trade)>收银开单 166(biz/cashier)；会员信息 17>充值记录 168；业务配置 19>充值活动 169
 - 默认 `sql.init.mode=never`：重置跑 `sql/truncate-all.sql` 再 `data.sql`
 
 ## 关键配置
@@ -80,6 +89,8 @@
 - 文件字段约定：业务表（如 `sys_user.avatar`）存 `object_key`；`UserPageVO` 返回时转预签名 URL；表单回显给 object_key，预览调 `GET /files/url?objectKey=`
 
 ## 最近更新
+- 2026-08-24: P4 会员充值 + P5 收银开单一期落地。新表 `salon_recharge_activity`/`salon_recharge_order`/`salon_order`/`salon_order_item`/`salon_order_payment`（schema.sql + `sql/migrate-p4-p5-recharge-order.sql` 存量库幂等迁移）；`salon_member` 补 total_recharge_amount/total_consume_amount。字典 pay_method/order_status（含租户 2084880957290426370 副本 id+1000）。后端：RechargeActivity/RechargeOrder/Order 三 Controller（路径规范 id 居中）、`MemberLevelService.checkAndUpgrade`（升级口径 max(累计充值,累计消费) 只升不降）、`RechargeGiftUnfreezeJob`（活动赠送冻结至次月每天 03:10 解冻，单笔事务独立 Executor bean 防自调用失效）、`OrderServiceImpl.pay`（条件更新占坑防并发重复结算；余额支付先赠送后本金；积分抵扣 100分=1元；商品库存条件扣减防超卖；消费送积分+累计消费+升级检查）；SysUserController 加 /options 员工下拉；ServiceItem/Goods OptionVO 补 discountable、OrderItemVO 补 staffId/assistantId 供取单回填。前端：rechargeApi/orderApi、RechargeActivityPage、RechargeRecordPage、CashierPage（收银台三栏：会员搜索/挂单取单 + 明细改价改量选服务人员 + 选品；订单记录 tab）、MemberPage 充值弹窗（RechargeDialog 活动档位+赠送实时预览 preview 接口）、users/options；router+MainLayout perm 映射（biz:order:list->/biz/cashier 等，icon shopping-cart/receipt/wallet/ticket）。支付一期 manual 手动确认（payment-design.md §9），渠道直连二期引 wechatpay-java + alipay-sdk-java 官方 SDK 按 PayChannel SPI 接入。P5 剩余：卡项核销（依赖 P3）、小票打印（依赖 P10）。
+- 2026-08-17: 菜单结构重组二次调整（`sql/migrate-menu-restructure.sql` 已合并，幂等可重跑）：按「强业务/弱配置」拆出**业务配置**目录 19(/biz-config, rank40, icon=tree)>会员等级11/会员标签12/服务分类13/商品分类15（低频主数据配置，从 17/18 迁出）；会员信息 17 只剩会员管理 10；服务商品管理 18 剩服务项目 14+商品管理 16（redirect 改指 /service-goods/service）。perm 全部不变（前后端零改动）；店长/店员与其他租户角色按持有子菜单自动补挂目录（店员因持有分类查看权限现也可见 19）。data.sql/project_context 同步。
 - 2026-08-07: P2 服务项目与商品主数据落地。4 表 `salon_service_category`/`salon_service`/`salon_goods_category`/`salon_goods`（租户级 `BaseTenantEntity`，无门店隔离）。服务项目 entity `SalonServiceItem`（@TableName("salon_service")，避开 `ServiceService` 叠词，service/controller 命名 `ServiceItem`）；商品 `SalonGoods`->`GoodsService`。各全套 CRUD（page/{id}/form/add/{id}/update/delete/options）复用 MemberLevel 模板 + `@PreAuthorize` + MapStruct。字段：服务（standardPrice/memberPrice/duration/discountable/commissionable）、商品（barcode/salePrice/costPrice/stockQuantity 供 P5 扣减，完整进销存见 P17）。菜单 13-16 + 按钮 131-165（biz:serviceCategory:*/biz:serviceItem:*/biz:goodsCategory:*/biz:goods:*），店长全权限、店员仅 list/view。schema.sql + data.sql（租户1 默认分类6+4+示例服务3+商品2，租户2 默认分类）+ `sql/migrate-p2-service-goods.sql`（存量库）。前端 features/service+goods types、serviceApi/goodsApi、4 Page（复用 MemberLevelPage）、router 4 路由、MainLayout perm/icon 映射（folder-tree/scissors/shopping-bag）。服务人员绑定/商品销售规则属 P5 未做。计划文档 P1✅/P2🔄，四功能（等级升级/消费送积分/充值赠送档位/充值冻结）归入 P4/P5 明细 + §5.1 加升级口径决策。
 - 2026-08-06: 积分过期时间改为按天。Java 层 `expireTime` 由 `LocalDateTime` 改为 `LocalDate`（`SalonMemberPointLog`/`MemberPointLogVO`/`MemberPointAdjustForm`/`MemberAssetService.changePoints` 参数）；**DB 列 `expire_time` 保持 `timestamp` 不变**（`LocalDate` 映射 timestamp 列：按天存当天 00:00:00、读取取日期部分，未来需要时分秒时无需改列）；过期判定改 `expireDate < today`（**选当天则在当天24:00后过期**，定时任务次日扫到即清零）；前端积分过期选择改 `type="date"`（去掉 `datetime-local`），提交无需转换。规范（CLAUDE/AGENTS §8 + react-solo-architect 第15条）：时间字段**优先按天** `type="date"`，**禁用 `type="datetime-local"`**（空值占位 `--:--` 丑），确需时分秒用 `type="date"`+`type="time"` 组合。
 - 2026-08-06: 会员积分过期清零定时任务。`SalonMemberPointLog` 批次模型（remainingPoints/expireTime/sourceLogId）已就绪、changeType=8=过期清零已预留，补齐到期执行逻辑：`MemberPointExpireJob`（`@Scheduled`，`wj.salon.point-expire-enabled` 默认开 / `point-expire-cron` 默认 `0 0 2 * * ?` 每天 02:00；启动类加 `@EnableScheduling`）-> `MemberPointService.expireDuePoints()`（查启用租户逐个 `TenantContextRunner.run` 切上下文——**定时任务无登录态，`WjTenantLineHandler` 会把非忽略表回落到默认租户1，故必须逐租户切换**）-> `MemberAssetService.expireMemberPoints(memberId, now)`（单会员事务：扫 `expireTime<=now` 且 `remainingPoints>0` 的获得类批次，条件置零 `SET remaining_points=0 WHERE id=? AND remaining_points=?` 幂等防并发/重复执行，逐批写 changeType=8 流水 `sourceLogId` 指向源批次、`remark="积分到期清零"`，`member.points` 用 `setSql("points = points - ?")` 原子扣减；不引分布式锁，靠条件置零+原子扣减天然幂等）。前端积分流水 changeType 数字改中文映射（8=过期清零 可见）。

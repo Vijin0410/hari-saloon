@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wangjin.salon.service.mapper.SalonOrderMapper">
+
+    <sql id="baseSelect">
+        SELECT
+            o.id, o.order_no, o.member_id, o.item_amount, o.discount_amount,
+            o.payable_amount, o.point_deduct_amount, o.received_amount, o.change_amount, o.status,
+            o.remark, o.create_time, o.paid_time,
+            m.name AS member_name, m.phone AS member_phone,
+            s.name AS store_name
+        FROM salon_order o
+        LEFT JOIN salon_member m ON m.id = o.member_id AND m.deleted = 0
+        LEFT JOIN salon_store s ON s.id = o.store_id AND s.deleted = 0
+    </sql>
+
+    <select id="getOrderPage" resultType="com.wangjin.salon.service.model.vo.OrderPageVO">
+        <include refid="baseSelect"/>
+        <where>
+            o.deleted = 0
+            <if test="q.keywords != null and q.keywords != ''">
+                AND (
+                    o.order_no LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
+                    OR m.name LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
+                    OR m.phone LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
+                )
+            </if>
+            <if test="q.memberId != null">
+                AND o.member_id = #{q.memberId}
+            </if>
+            <if test="q.status != null">
+                AND o.status = #{q.status}
+            </if>
+            <if test="q.tenantId != null">
+                AND o.tenant_id = #{q.tenantId}
+            </if>
+            <if test="q.storeId != null">
+                AND o.store_id = #{q.storeId}
+            </if>
+            <if test="q.startTime != null">
+                AND o.create_time &gt;= #{q.startTime}
+            </if>
+            <if test="q.endTime != null">
+                AND o.create_time &lt;= #{q.endTime}
+            </if>
+            <if test="q.allStoreScope == null or q.allStoreScope == false">
+                <choose>
+                    <when test="q.deniedStoreScope == true">
+                        AND 1 = 0
+                    </when>
+                    <otherwise>
+                        AND (
+                            <trim prefixOverrides="OR">
+                                <if test="q.permittedStoreIds != null and q.permittedStoreIds.size > 0">
+                                    OR o.store_id IN
+                                    <foreach collection="q.permittedStoreIds" item="storeId" open="(" separator="," close=")">
+                                        #{storeId}
+                                    </foreach>
+                                </if>
+                                <if test="q.permissionUserId != null">
+                                    OR o.create_by = #{q.permissionUserId}
+                                </if>
+                            </trim>
+                        )
+                    </otherwise>
+                </choose>
+            </if>
+        </where>
+        ORDER BY o.create_time DESC
+    </select>
+
+    <select id="getOrderById" resultType="com.wangjin.salon.service.model.vo.OrderPageVO">
+        <include refid="baseSelect"/>
+        WHERE o.deleted = 0 AND o.id = #{id}
+    </select>
+</mapper>

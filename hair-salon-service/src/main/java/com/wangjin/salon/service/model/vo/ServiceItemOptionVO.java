@@ -21,4 +21,6 @@ public class ServiceItemOptionVO {
     private BigDecimal memberPrice;
     @Schema(description = "服务时长（分钟）")
     private Integer duration;
+    @Schema(description = "是否参与折扣（1=是 0=否，收银台行折扣计算用）")
+    private Integer discountable;
 }

@@ -19,4 +19,6 @@ public class GoodsOptionVO {
     private BigDecimal salePrice;
     @Schema(description = "库存数量")
     private Integer stockQuantity;
+    @Schema(description = "是否参与折扣（1=是 0=否，收银台行折扣计算用）")
+    private Integer discountable;
 }

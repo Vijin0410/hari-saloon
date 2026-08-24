@@ -23,6 +23,7 @@ import type {
   MemberTagOption,
 } from '@/features/member/model/memberTypes';
 import { memberFormSchema, type MemberFormValues } from '@/features/member/model/memberSchemas';
+import { RechargeDialog } from '@/features/member/ui/RechargeDialog';
 import { dictApi } from '@/shared/api/modules/systemApi';
 import type { DictOption } from '@/features/system/model/dictTypes';
 import type { StoreOption } from '@/features/system/model/systemTypes';
@@ -294,6 +295,9 @@ export function MemberPage() {
   // 详情
   const [detail, setDetail] = useState<MemberDetailVO | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // 会员充值
+  const [rechargeOpen, setRechargeOpen] = useState(false);
 
   // 余额调整
   const [balanceAdjustOpen, setBalanceAdjustOpen] = useState(false);
@@ -787,6 +791,11 @@ export function MemberPage() {
                 hint="可用余额"
                 extra={
                   <div className="flex shrink-0 gap-2">
+                    {hasPermission('biz:recharge:add') ? (
+                      <Button size="sm" onClick={() => setRechargeOpen(true)}>
+                        充值
+                      </Button>
+                    ) : null}
                     {hasPermission('biz:memberBalance:adjust') ? (
                       <Button
                         size="sm"
@@ -1489,6 +1498,17 @@ export function MemberPage() {
         }}
         open={Boolean(confirmIds)}
         title="确认删除会员"
+      />
+
+      <RechargeDialog
+        memberId={detail ? String(detail.id) : null}
+        memberName={detail?.name}
+        onClose={() => setRechargeOpen(false)}
+        onRecharged={() => {
+          void refreshDetail();
+          void load();
+        }}
+        open={rechargeOpen}
       />
     </div>
   );

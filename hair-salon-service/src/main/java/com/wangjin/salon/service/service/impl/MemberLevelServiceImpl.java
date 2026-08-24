@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wangjin.salon.service.converter.MemberLevelConverter;
 import com.wangjin.salon.service.mapper.SalonMemberLevelMapper;
+import com.wangjin.salon.service.mapper.SalonMemberMapper;
+import com.wangjin.salon.service.model.entity.SalonMember;
 import com.wangjin.salon.service.model.entity.SalonMemberLevel;
 import com.wangjin.salon.service.model.form.MemberLevelForm;
 import com.wangjin.salon.service.model.query.MemberLevelPageQuery;
@@ -26,6 +28,7 @@ import java.util.List;
 public class MemberLevelServiceImpl extends ServiceImpl<SalonMemberLevelMapper, SalonMemberLevel> implements MemberLevelService {
 
     private final MemberLevelConverter levelConverter;
+    private final SalonMemberMapper memberMapper;
 
     @Override
     public Page<MemberLevelPageVO> getPage(MemberLevelPageQuery query) {
@@ -86,5 +89,38 @@ public class MemberLevelServiceImpl extends ServiceImpl<SalonMemberLevelMapper, 
                         .eq(SalonMemberLevel::getStatus, 1)
                         .orderByAsc(SalonMemberLevel::getLevelNo))
                 .stream().map(levelConverter::entity2OptionVo).toList();
+    }
+
+    @Override
+    public void checkAndUpgrade(Long memberId) {
+        SalonMember member = memberMapper.selectById(memberId);
+        if (member == null) {
+            return;
+        }
+        // 升级口径：累计充值与累计消费取大者（只升不降；当前等级被禁用/删除时也可顺延升级）
+        BigDecimal amount = nz(member.getTotalRechargeAmount()).max(nz(member.getTotalConsumeAmount()));
+        SalonMemberLevel target = this.list(Wrappers.<SalonMemberLevel>lambdaQuery()
+                        .eq(SalonMemberLevel::getStatus, 1)
+                        .isNotNull(SalonMemberLevel::getUpgradeThreshold)
+                        .le(SalonMemberLevel::getUpgradeThreshold, amount)
+                        .orderByDesc(SalonMemberLevel::getLevelNo)
+                        .last("LIMIT 1"))
+                .stream().findFirst().orElse(null);
+        if (target == null) {
+            return;
+        }
+        if (member.getLevelId() != null) {
+            SalonMemberLevel current = this.getById(member.getLevelId());
+            if (current != null && current.getLevelNo() >= target.getLevelNo()) {
+                return;
+            }
+        }
+        memberMapper.update(null, Wrappers.<SalonMember>lambdaUpdate()
+                .set(SalonMember::getLevelId, target.getId())
+                .eq(SalonMember::getId, memberId));
+    }
+
+    private BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
     }
 }

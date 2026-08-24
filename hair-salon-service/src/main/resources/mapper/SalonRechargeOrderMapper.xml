@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wangjin.salon.service.mapper.SalonRechargeOrderMapper">
+
+    <select id="getRechargePage" resultType="com.wangjin.salon.service.model.vo.RechargeOrderPageVO">
+        SELECT
+            r.id, r.recharge_no, r.member_id, r.principal_amount, r.gift_amount,
+            r.gift_source, r.gift_frozen, r.pay_method, r.remark, r.create_time,
+            m.name AS member_name, m.phone AS member_phone,
+            s.name AS store_name,
+            a.name AS activity_name,
+            u.nickname AS operator_name
+        FROM salon_recharge_order r
+        LEFT JOIN salon_member m ON m.id = r.member_id AND m.deleted = 0
+        LEFT JOIN salon_store s ON s.id = r.store_id AND s.deleted = 0
+        LEFT JOIN salon_recharge_activity a ON a.id = r.activity_id AND a.deleted = 0
+        LEFT JOIN sys_user u ON u.id = r.operator_id AND u.deleted = 0
+        <where>
+            r.deleted = 0
+            <if test="q.keywords != null and q.keywords != ''">
+                AND (
+                    r.recharge_no LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
+                    OR m.name LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
+                    OR m.phone LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')
+                )
+            </if>
+            <if test="q.memberId != null">
+                AND r.member_id = #{q.memberId}
+            </if>
+            <if test="q.payMethod != null">
+                AND r.pay_method = #{q.payMethod}
+            </if>
+            <if test="q.giftSource != null">
+                AND r.gift_source = #{q.giftSource}
+            </if>
+            <if test="q.tenantId != null">
+                AND r.tenant_id = #{q.tenantId}
+            </if>
+            <if test="q.storeId != null">
+                AND r.store_id = #{q.storeId}
+            </if>
+            <if test="q.startTime != null">
+                AND r.create_time &gt;= #{q.startTime}
+            </if>
+            <if test="q.endTime != null">
+                AND r.create_time &lt;= #{q.endTime}
+            </if>
+            <if test="q.allStoreScope == null or q.allStoreScope == false">
+                <choose>
+                    <when test="q.deniedStoreScope == true">
+                        AND 1 = 0
+                    </when>
+                    <otherwise>
+                        AND (
+                            <trim prefixOverrides="OR">
+                                <if test="q.permittedStoreIds != null and q.permittedStoreIds.size > 0">
+                                    OR r.store_id IN
+                                    <foreach collection="q.permittedStoreIds" item="storeId" open="(" separator="," close=")">
+                                        #{storeId}
+                                    </foreach>
+                                </if>
+                                <if test="q.permissionUserId != null">
+                                    OR r.create_by = #{q.permissionUserId}
+                                </if>
+                            </trim>
+                        )
+                    </otherwise>
+                </choose>
+            </if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <select id="getRechargeById" resultType="com.wangjin.salon.service.model.vo.RechargeOrderPageVO">
+        SELECT
+            r.id, r.recharge_no, r.member_id, r.principal_amount, r.gift_amount,
+            r.gift_source, r.gift_frozen, r.pay_method, r.remark, r.create_time,
+            m.name AS member_name, m.phone AS member_phone,
+            s.name AS store_name,
+            a.name AS activity_name,
+            u.nickname AS operator_name
+        FROM salon_recharge_order r
+        LEFT JOIN salon_member m ON m.id = r.member_id AND m.deleted = 0
+        LEFT JOIN salon_store s ON s.id = r.store_id AND s.deleted = 0
+        LEFT JOIN salon_recharge_activity a ON a.id = r.activity_id AND a.deleted = 0
+        LEFT JOIN sys_user u ON u.id = r.operator_id AND u.deleted = 0
+        WHERE r.deleted = 0 AND r.id = #{id}
+    </select>
+</mapper>

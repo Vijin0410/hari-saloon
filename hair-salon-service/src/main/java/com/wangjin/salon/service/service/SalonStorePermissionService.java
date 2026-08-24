@@ -9,6 +9,8 @@ import com.wangjin.salon.service.model.bo.StoreDataScopeBO;
 import com.wangjin.salon.service.model.entity.SalonStore;
 import com.wangjin.salon.service.model.entity.SalonStoreUser;
 import com.wangjin.salon.service.model.query.MemberPageQuery;
+import com.wangjin.salon.service.model.query.OrderPageQuery;
+import com.wangjin.salon.service.model.query.RechargeOrderPageQuery;
 import com.wangjin.salon.service.model.query.StorePageQuery;
 import com.wangjin.salon.system.constant.RoleCodes;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +64,22 @@ public class SalonStorePermissionService {
     }
 
     public void apply(MemberPageQuery query) {
+        StoreDataScopeBO scope = currentScope();
+        query.setAllStoreScope(scope.getAllStoreScope());
+        query.setDeniedStoreScope(scope.getDeniedStoreScope());
+        query.setPermittedStoreIds(scope.getPermittedStoreIds());
+        query.setPermissionUserId(scope.getPermissionUserId());
+    }
+
+    public void apply(RechargeOrderPageQuery query) {
+        StoreDataScopeBO scope = currentScope();
+        query.setAllStoreScope(scope.getAllStoreScope());
+        query.setDeniedStoreScope(scope.getDeniedStoreScope());
+        query.setPermittedStoreIds(scope.getPermittedStoreIds());
+        query.setPermissionUserId(scope.getPermissionUserId());
+    }
+
+    public void apply(OrderPageQuery query) {
         StoreDataScopeBO scope = currentScope();
         query.setAllStoreScope(scope.getAllStoreScope());
         query.setDeniedStoreScope(scope.getDeniedStoreScope());

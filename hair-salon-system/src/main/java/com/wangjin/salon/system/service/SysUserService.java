@@ -2,6 +2,7 @@ package com.wangjin.salon.system.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.model.dto.UserAuthInfo;
 import com.wangjin.salon.system.model.entity.SysUser;
 import com.wangjin.salon.system.model.form.UserForm;
@@ -10,10 +11,14 @@ import com.wangjin.salon.system.model.vo.UserInfoVO;
 import com.wangjin.salon.system.model.vo.UserPageVO;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface SysUserService extends IService<SysUser> {
 
     SysUser getByUsername(String username);
+
+    /** 员工下拉（本租户启用用户，P5 开单选服务人员用） */
+    List<Option<Long>> listUserOptions();
 
     IPage<UserPageVO> getUserPage(UserPageQuery queryParams);
 

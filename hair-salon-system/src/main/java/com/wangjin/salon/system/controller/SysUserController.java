@@ -4,6 +4,7 @@ import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
 import com.wangjin.common.web.annotation.QueryDict;
+import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.model.form.UserForm;
 import com.wangjin.salon.system.model.query.UserPageQuery;
 import com.wangjin.salon.system.model.vo.UserInfoVO;
@@ -26,6 +27,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Tag(name = "01.用户接口")
 @RestController
 @RequestMapping("/api/v1/users")
@@ -42,6 +45,13 @@ public class SysUserController {
     public PageResult<UserPageVO> getUserPage(UserPageQuery queryParams) {
         var page = userService.getUserPage(queryParams);
         return PageResult.success(page.getRecords(), page.getTotal());
+    }
+
+    @Operation(summary = "员工下拉（开单选服务人员）")
+    @GetMapping("/options")
+    @PreAuthorize("isAuthenticated()")
+    public Result<List<Option<Long>>> listUserOptions() {
+        return Result.success(userService.listUserOptions());
     }
 
     @Operation(summary = "新增用户")

@@ -16,6 +16,7 @@ import com.wangjin.common.minio.service.MinioService;
 import com.wangjin.common.result.ResultCode;
 import com.wangjin.common.security.context.UserContext;
 import com.wangjin.common.security.util.SecurityUtils;
+import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.cache.SystemCacheService;
 import com.wangjin.salon.system.config.SalonProperties;
 import com.wangjin.salon.system.constant.RoleCodes;
@@ -93,6 +94,17 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         return this.getOne(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getUsername, username)
                 .last("LIMIT 1"));
+    }
+
+    @Override
+    public List<Option<Long>> listUserOptions() {
+        return this.list(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getStatus, 1)
+                .select(SysUser::getId, SysUser::getUsername, SysUser::getNickname))
+                .stream()
+                .map(u -> new Option<>(u.getId(),
+                        StrUtil.isNotBlank(u.getNickname()) ? u.getNickname() : u.getUsername()))
+                .toList();
     }
 
     @Override

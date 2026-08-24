@@ -33,9 +33,16 @@ import type {
   TenantLoginOption,
 } from '@/features/system/model/dictTypes';
 
+export type { DictTypeOption } from '@/features/system/model/dictTypes';
+
 export const userApi = {
   list(params: UserPageQuery): Promise<PageData<UserPageVO>> {
     return get<PageData<UserPageVO>>('/v1/users/page', { params });
+  },
+
+  /** 员工下拉（开单选服务人员） */
+  options(): Promise<Array<{ value: EntityId; label: string }>> {
+    return get<Array<{ value: EntityId; label: string }>>('/v1/users/options');
   },
 
   getForm(userId: EntityId): Promise<UserFormPayload> {

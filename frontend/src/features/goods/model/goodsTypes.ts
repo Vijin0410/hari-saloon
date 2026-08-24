@@ -75,4 +75,5 @@ export interface GoodsOption {
   categoryId?: EntityId;
   salePrice?: number;
   stockQuantity?: number;
+  discountable?: number;
 }

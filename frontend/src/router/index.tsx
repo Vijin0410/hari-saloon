@@ -25,6 +25,13 @@ const ServiceCategoryPage = lazy(() => import('@/pages/ServiceCategoryPage').the
 const ServiceItemPage = lazy(() => import('@/pages/ServiceItemPage').then((module) => ({ default: module.ServiceItemPage })));
 const GoodsCategoryPage = lazy(() => import('@/pages/GoodsCategoryPage').then((module) => ({ default: module.GoodsCategoryPage })));
 const GoodsPage = lazy(() => import('@/pages/GoodsPage').then((module) => ({ default: module.GoodsPage })));
+const RechargeActivityPage = lazy(() =>
+  import('@/pages/RechargeActivityPage').then((module) => ({ default: module.RechargeActivityPage })),
+);
+const RechargeRecordPage = lazy(() =>
+  import('@/pages/RechargeRecordPage').then((module) => ({ default: module.RechargeRecordPage })),
+);
+const CashierPage = lazy(() => import('@/pages/CashierPage').then((module) => ({ default: module.CashierPage })));
 const DeptPage = lazy(() => import('@/pages/DeptPage').then((module) => ({ default: module.DeptPage })));
 const ForbiddenPage = lazy(() =>
   import('@/pages/ForbiddenPage').then((module) => ({ default: module.ForbiddenPage })),
@@ -161,6 +168,30 @@ export const router = createBrowserRouter([
             element: (
               <PermissionRoute permission="biz:goods:list">
                 <GoodsPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/cashier',
+            element: (
+              <PermissionRoute permission="biz:order:list">
+                <CashierPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/recharges',
+            element: (
+              <PermissionRoute permission="biz:recharge:list">
+                <RechargeRecordPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/recharge-activities',
+            element: (
+              <PermissionRoute permission="biz:rechargeActivity:list">
+                <RechargeActivityPage />
               </PermissionRoute>
             ),
           },

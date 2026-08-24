@@ -74,4 +74,5 @@ export interface ServiceItemOption {
   standardPrice?: number;
   memberPrice?: number;
   duration?: number;
+  discountable?: number;
 }

@@ -4,21 +4,26 @@ import {
   BookOpen,
   Building2,
   ChevronDown,
+  ClipboardList,
   FolderTree,
   LayoutDashboard,
   LogOut,
   MenuSquare,
   Moon,
+  Receipt,
   Scissors,
   Settings,
   ShieldCheck,
   ShoppingBag,
+  ShoppingCart,
   Store,
   Sun,
   Medal,
   Tag,
+  Ticket,
   UserRound,
   Users,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { menuApi } from '@/shared/api/modules/systemApi';
@@ -79,6 +84,9 @@ const frontendPathByPermission: Record<string, string> = {
   'biz:serviceItem:list': '/biz/services',
   'biz:goodsCategory:list': '/biz/goods-categories',
   'biz:goods:list': '/biz/goods',
+  'biz:order:list': '/biz/cashier',
+  'biz:recharge:list': '/biz/recharges',
+  'biz:rechargeActivity:list': '/biz/recharge-activities',
 };
 
 const knownFrontendPaths = new Set<string>(Object.values(frontendPathByPermission));
@@ -98,6 +106,9 @@ const iconByPermission: Record<string, IconType> = {
   'biz:serviceItem:list': Scissors,
   'biz:goodsCategory:list': FolderTree,
   'biz:goods:list': ShoppingBag,
+  'biz:order:list': Receipt,
+  'biz:recharge:list': Wallet,
+  'biz:rechargeActivity:list': Ticket,
 };
 
 const iconByMetaName: Record<string, IconType> = {
@@ -118,6 +129,11 @@ const iconByMetaName: Record<string, IconType> = {
   'folder-tree': FolderTree,
   scissors: Scissors,
   'shopping-bag': ShoppingBag,
+  'shopping-cart': ShoppingCart,
+  receipt: Receipt,
+  wallet: Wallet,
+  ticket: Ticket,
+  'clipboard-list': ClipboardList,
 };
 
 function isPathActive(path: string, pathname: string): boolean {

@@ -33,19 +33,22 @@ SELECT 1, 1
 WHERE NOT EXISTS (SELECT 1 FROM sys_user_role WHERE user_id = 1 AND role_id = 1);
 
 -- ===== 目录/菜单（type=1/2）：perm 留空，运行时 listRoutes 从子按钮 :list 推导 =====
+-- 根目录拆分：会员信息(17) / 服务商品管理(18) / 门店管理(8) / 系统管理(1)；详见 sql/migrate-menu-restructure.sql
 INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
 SELECT v.id, v.parent_id, v.name, v.type, v.path, v.component, v.redirect, v.tree_path, v.meta, NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 FROM (VALUES
-  (1::int8,  0::int8, 'system',       2, '/system', 'Layout',           '/system/user', '0',   '{"title":"系统管理","icon":"setting","rank":100,"showLink":true}'),
-  (2::int8,  1::int8, 'systemUser',   1, 'user',    'system/user/index',  NULL,          '0,1', '{"title":"用户管理","icon":"user","rank":1,"showLink":true}'),
-  (3::int8,  1::int8, 'systemRole',   1, 'role',    'system/role/index',  NULL,          '0,1', '{"title":"角色管理","icon":"peoples","rank":2,"showLink":true}'),
-  (4::int8,  1::int8, 'systemMenu',   1, 'menu',    'system/menu/index',  NULL,          '0,1', '{"title":"菜单管理","icon":"tree-table","rank":3,"showLink":true}'),
-  (5::int8,  1::int8, 'systemDept',   1, 'dept',    'system/dept/index',  NULL,          '0,1', '{"title":"部门管理","icon":"tree","rank":4,"showLink":true}'),
-  (6::int8,  1::int8, 'systemDict',   1, 'dict',    'system/dict/index',  NULL,          '0,1', '{"title":"字典管理","icon":"dict","rank":5,"showLink":true}'),
-  (7::int8,  1::int8, 'systemTenant', 1, 'tenant',  'system/tenant/index',NULL,          '0,1', '{"title":"租户管理","icon":"office-building","rank":0,"showLink":true}'),
-  (8::int8,  0::int8, 'biz',          2, '/biz',    'Layout',             '/biz/store',  '0',   '{"title":"业务管理","icon":"shop","rank":50,"showLink":true}'),
-  (9::int8,  8::int8, 'bizStore',     1, 'store',   'biz/store/index',    NULL,          '0,8', '{"title":"门店管理","icon":"office-building","rank":1,"showLink":true}'),
-  (10::int8, 8::int8, 'bizMember',    1, 'member',  'biz/member/index',   NULL,          '0,8', '{"title":"会员管理","icon":"peoples","rank":2,"showLink":true}')
+  (1::int8,  0::int8, 'system',       2, '/system', 'Layout',            '/system/user', '0',   '{"title":"系统管理","icon":"setting","rank":100,"showLink":true}'),
+  (2::int8,  1::int8, 'systemUser',   1, 'user',    'system/user/index',  NULL,           '0,1', '{"title":"用户管理","icon":"user","rank":1,"showLink":true}'),
+  (3::int8,  1::int8, 'systemRole',   1, 'role',    'system/role/index',  NULL,           '0,1', '{"title":"角色管理","icon":"peoples","rank":2,"showLink":true}'),
+  (4::int8,  1::int8, 'systemMenu',   1, 'menu',    'system/menu/index',  NULL,           '0,1', '{"title":"菜单管理","icon":"tree-table","rank":3,"showLink":true}'),
+  (5::int8,  1::int8, 'systemDept',   1, 'dept',    'system/dept/index',  NULL,           '0,1', '{"title":"部门管理","icon":"tree","rank":4,"showLink":true}'),
+  (6::int8,  1::int8, 'systemDict',   1, 'dict',    'system/dict/index',  NULL,           '0,1', '{"title":"字典管理","icon":"dict","rank":5,"showLink":true}'),
+  (7::int8,  1::int8, 'systemTenant', 1, 'tenant',  'system/tenant/index',NULL,           '0,1', '{"title":"租户管理","icon":"office-building","rank":0,"showLink":true}'),
+  (17::int8, 0::int8, 'memberInfo',   2, '/member-info', 'Layout', '/member-info/member', '0',    '{"title":"会员信息","icon":"peoples","rank":10,"showLink":true}'),
+  (10::int8, 17::int8,'bizMember',    1, 'member',  'biz/member/index',   NULL,           '0,17', '{"title":"会员管理","icon":"member","rank":1,"showLink":true}'),
+  (8::int8,  0::int8, 'storeManage',  2, '/store',  'Layout',             '/store/list',  '0',   '{"title":"门店管理","icon":"office-building","rank":30,"showLink":true}'),
+  (9::int8,  8::int8, 'storeList',    1, 'list',    'biz/store/index',    NULL,           '0,8', '{"title":"门店列表","icon":"shop","rank":1,"showLink":true}'),
+  (19::int8, 0::int8, 'bizConfig',    2, '/biz-config', 'Layout',         '/biz-config/level', '0', '{"title":"业务配置","icon":"tree","rank":40,"showLink":true}')
 ) AS v(id, parent_id, name, type, path, component, redirect, tree_path, meta)
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 
@@ -100,12 +103,12 @@ FROM (VALUES
   (93::int8, 9::int8,  'storeAdd',     '0,8,9',  '{"title":"新增门店"}', 'biz:store:add'),
   (94::int8, 9::int8,  'storeEdit',    '0,8,9',  '{"title":"编辑门店"}', 'biz:store:edit'),
   (95::int8, 9::int8,  'storeDelete',  '0,8,9',  '{"title":"删除门店"}', 'biz:store:delete'),
-  -- 会员 biz:member:*
-  (101::int8, 10::int8, 'memberList',   '0,8,10', '{"title":"查看列表"}', 'biz:member:list'),
-  (102::int8, 10::int8, 'memberView',   '0,8,10', '{"title":"查看详情"}', 'biz:member:view'),
-  (103::int8, 10::int8, 'memberAdd',    '0,8,10', '{"title":"新增会员"}', 'biz:member:add'),
-  (104::int8, 10::int8, 'memberEdit',   '0,8,10', '{"title":"编辑会员"}', 'biz:member:edit'),
-  (105::int8, 10::int8, 'memberDelete', '0,8,10', '{"title":"删除会员"}', 'biz:member:delete')
+  -- 会员 biz:member:*（挂会员管理 10 下，目录 17）
+  (101::int8, 10::int8, 'memberList',   '0,17,10', '{"title":"查看列表"}', 'biz:member:list'),
+  (102::int8, 10::int8, 'memberView',   '0,17,10', '{"title":"查看详情"}', 'biz:member:view'),
+  (103::int8, 10::int8, 'memberAdd',    '0,17,10', '{"title":"新增会员"}', 'biz:member:add'),
+  (104::int8, 10::int8, 'memberEdit',   '0,17,10', '{"title":"编辑会员"}', 'biz:member:edit'),
+  (105::int8, 10::int8, 'memberDelete', '0,17,10', '{"title":"删除会员"}', 'biz:member:delete')
 ) AS v(id, parent_id, name, tree_path, meta, perm)
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 
@@ -119,14 +122,14 @@ INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 2, m.id, 1 FROM sys_menu m
 WHERE m.id IN (1, 2, 21, 22, 23, 24, 25, 26, 27,
                5, 51, 52, 53, 54,
-               8, 9, 91, 92, 94,
-               10, 101, 102, 103, 104, 105)
+               17, 10, 101, 102, 103, 104, 105,
+               8, 9, 91, 92, 94)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 2 AND rm.menu_id = m.id AND rm.type = 1);
 
 -- 店员：会员查看/新增/编辑
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 3, m.id, 1 FROM sys_menu m
-WHERE m.id IN (8, 10, 101, 102, 103, 104)
+WHERE m.id IN (17, 10, 101, 102, 103, 104)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 3 AND rm.menu_id = m.id AND rm.type = 1);
 
 -- 默认总店营业档案
@@ -249,12 +252,12 @@ FROM (VALUES
 ) AS v(id, name, value, sort)
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'point_change_type' AND d.value = v.value AND d.tenant_id = 1);
 
--- 菜单：会员等级配置 / 会员标签管理（type=1，挂会员菜单 10 下）
+-- 菜单：会员等级配置 / 会员标签管理（type=1，挂业务配置目录 19 下）
 INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
 SELECT v.id, v.parent_id, v.name, v.type, v.path, v.component, NULL, v.tree_path, v.meta, NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 FROM (VALUES
-  (11::int8, 8::int8, 'memberLevel', 1, 'level', 'biz/member/level/index', '0,8', '{"title":"会员等级","icon":"medal","rank":3,"showLink":true}'),
-  (12::int8, 8::int8, 'memberTag',   1, 'tag',   'biz/member/tag/index',   '0,8', '{"title":"会员标签","icon":"tag","rank":4,"showLink":true}')
+  (11::int8, 19::int8, 'memberLevel', 1, 'level', 'biz/member/level/index', '0,19', '{"title":"会员等级","icon":"medal","rank":1,"showLink":true}'),
+  (12::int8, 19::int8, 'memberTag',   1, 'tag',   'biz/member/tag/index',   '0,19', '{"title":"会员标签","icon":"tag","rank":2,"showLink":true}')
 ) AS v(id, parent_id, name, type, path, component, tree_path, meta)
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 
@@ -262,28 +265,28 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
 SELECT v.id, v.parent_id, v.name, 4, NULL, NULL, NULL, v.tree_path, v.meta, v.perm, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 FROM (VALUES
-  (111::int8, 11::int8, 'memberLevelList',   '0,8,10,11', '{"title":"查看列表"}', 'biz:memberLevel:list'),
-  (112::int8, 11::int8, 'memberLevelView',   '0,8,10,11', '{"title":"查看详情"}', 'biz:memberLevel:view'),
-  (113::int8, 11::int8, 'memberLevelAdd',    '0,8,10,11', '{"title":"新增等级"}', 'biz:memberLevel:add'),
-  (114::int8, 11::int8, 'memberLevelEdit',   '0,8,10,11', '{"title":"编辑等级"}', 'biz:memberLevel:edit'),
-  (115::int8, 11::int8, 'memberLevelDelete', '0,8,10,11', '{"title":"删除等级"}', 'biz:memberLevel:delete'),
-  (121::int8, 12::int8, 'memberTagList',   '0,8,10,12', '{"title":"查看列表"}', 'biz:memberTag:list'),
-  (122::int8, 12::int8, 'memberTagView',   '0,8,10,12', '{"title":"查看详情"}', 'biz:memberTag:view'),
-  (123::int8, 12::int8, 'memberTagAdd',    '0,8,10,12', '{"title":"新增标签"}', 'biz:memberTag:add'),
-  (124::int8, 12::int8, 'memberTagEdit',   '0,8,10,12', '{"title":"编辑标签"}', 'biz:memberTag:edit'),
-  (125::int8, 12::int8, 'memberTagDelete', '0,8,10,12', '{"title":"删除标签"}', 'biz:memberTag:delete'),
-  (106::int8, 10::int8, 'memberBalanceAdjust', '0,8,10', '{"title":"余额调整"}', 'biz:memberBalance:adjust'),
-  (107::int8, 10::int8, 'memberBalanceLog',    '0,8,10', '{"title":"余额流水"}', 'biz:memberBalance:log'),
-  (108::int8, 10::int8, 'memberPointAdjust',   '0,8,10', '{"title":"积分调整"}', 'biz:memberPoint:adjust'),
-  (109::int8, 10::int8, 'memberPointLog',      '0,8,10', '{"title":"积分流水"}', 'biz:memberPoint:log'),
-  (110::int8, 10::int8, 'memberTagRel',        '0,8,10', '{"title":"会员打标签"}', 'biz:member:tag')
+  (111::int8, 11::int8, 'memberLevelList',   '0,19,11', '{"title":"查看列表"}', 'biz:memberLevel:list'),
+  (112::int8, 11::int8, 'memberLevelView',   '0,19,11', '{"title":"查看详情"}', 'biz:memberLevel:view'),
+  (113::int8, 11::int8, 'memberLevelAdd',    '0,19,11', '{"title":"新增等级"}', 'biz:memberLevel:add'),
+  (114::int8, 11::int8, 'memberLevelEdit',   '0,19,11', '{"title":"编辑等级"}', 'biz:memberLevel:edit'),
+  (115::int8, 11::int8, 'memberLevelDelete', '0,19,11', '{"title":"删除等级"}', 'biz:memberLevel:delete'),
+  (121::int8, 12::int8, 'memberTagList',   '0,19,12', '{"title":"查看列表"}', 'biz:memberTag:list'),
+  (122::int8, 12::int8, 'memberTagView',   '0,19,12', '{"title":"查看详情"}', 'biz:memberTag:view'),
+  (123::int8, 12::int8, 'memberTagAdd',    '0,19,12', '{"title":"新增标签"}', 'biz:memberTag:add'),
+  (124::int8, 12::int8, 'memberTagEdit',   '0,19,12', '{"title":"编辑标签"}', 'biz:memberTag:edit'),
+  (125::int8, 12::int8, 'memberTagDelete', '0,19,12', '{"title":"删除标签"}', 'biz:memberTag:delete'),
+  (106::int8, 10::int8, 'memberBalanceAdjust', '0,17,10', '{"title":"余额调整"}', 'biz:memberBalance:adjust'),
+  (107::int8, 10::int8, 'memberBalanceLog',    '0,17,10', '{"title":"余额流水"}', 'biz:memberBalance:log'),
+  (108::int8, 10::int8, 'memberPointAdjust',   '0,17,10', '{"title":"积分调整"}', 'biz:memberPoint:adjust'),
+  (109::int8, 10::int8, 'memberPointLog',      '0,17,10', '{"title":"积分流水"}', 'biz:memberPoint:log'),
+  (110::int8, 10::int8, 'memberTagRel',        '0,17,10', '{"title":"会员打标签"}', 'biz:member:tag')
 ) AS v(id, parent_id, name, tree_path, meta, perm)
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 
 -- 店长(role 2)：等级全 + 标签全 + 余额/积分调整 + 流水查看 + 打标签
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 2, m.id, 1 FROM sys_menu m
-WHERE m.id IN (11, 111, 112, 113, 114, 115,
+WHERE m.id IN (19, 11, 111, 112, 113, 114, 115,
                12, 121, 122, 123, 124, 125,
                106, 107, 108, 109, 110)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 2 AND rm.menu_id = m.id AND rm.type = 1);
@@ -291,7 +294,7 @@ WHERE m.id IN (11, 111, 112, 113, 114, 115,
 -- 店员(role 3)：打标签 + 余额/积分流水查看（不含余额/积分调整）
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 3, m.id, 1 FROM sys_menu m
-WHERE m.id IN (110, 107, 109)
+WHERE m.id IN (17, 110, 107, 109)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 3 AND rm.menu_id = m.id AND rm.type = 1);
 
 -- ===== 租户 2084880957290426370 P1 通用数据（等级/标签/字典）=====
@@ -339,14 +342,18 @@ WHERE d.tenant_id = 1
 
 -- ===== P2 服务项目与商品主数据 =====
 
--- 菜单：服务分类/服务项目/商品分类/商品（type=1，挂业务目录 8 下）
+-- 菜单：服务商品管理目录 18（服务项目/商品）+ 业务配置目录下移入服务分类/商品分类（type=1）
+INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 18, 0, 'serviceGoods', 2, '/service-goods', 'Layout', '/service-goods/service', '0', '{"title":"服务商品管理","icon":"shop","rank":20,"showLink":true}', NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = 18);
+
 INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
 SELECT v.id, v.parent_id, v.name, v.type, v.path, v.component, NULL, v.tree_path, v.meta, NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 FROM (VALUES
-  (13::int8, 8::int8, 'serviceCategory', 1, 'service-category', 'biz/service-category/index', '0,8', '{"title":"服务分类","icon":"folder-tree","rank":5,"showLink":true}'),
-  (14::int8, 8::int8, 'serviceItem',      1, 'service',         'biz/service/index',         '0,8', '{"title":"服务项目","icon":"scissors","rank":6,"showLink":true}'),
-  (15::int8, 8::int8, 'goodsCategory',    1, 'goods-category',  'biz/goods-category/index',  '0,8', '{"title":"商品分类","icon":"folder-tree","rank":7,"showLink":true}'),
-  (16::int8, 8::int8, 'goods',            1, 'goods',           'biz/goods/index',           '0,8', '{"title":"商品管理","icon":"shopping-bag","rank":8,"showLink":true}')
+  (14::int8, 18::int8, 'serviceItem',      1, 'service',         'biz/service/index',         '0,18', '{"title":"服务项目","icon":"scissors","rank":1,"showLink":true}'),
+  (16::int8, 18::int8, 'goods',            1, 'goods',           'biz/goods/index',           '0,18', '{"title":"商品管理","icon":"shopping-bag","rank":2,"showLink":true}'),
+  (13::int8, 19::int8, 'serviceCategory', 1, 'service-category', 'biz/service-category/index', '0,19', '{"title":"服务分类","icon":"folder-tree","rank":3,"showLink":true}'),
+  (15::int8, 19::int8, 'goodsCategory',   1, 'goods-category',  'biz/goods-category/index',  '0,19', '{"title":"商品分类","icon":"folder-tree","rank":4,"showLink":true}')
 ) AS v(id, parent_id, name, type, path, component, tree_path, meta)
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 
@@ -354,42 +361,42 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
 SELECT v.id, v.parent_id, v.name, 4, NULL, NULL, NULL, v.tree_path, v.meta, v.perm, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 FROM (VALUES
-  (131::int8, 13::int8, 'serviceCategoryList',   '0,8,13', '{"title":"查看列表"}', 'biz:serviceCategory:list'),
-  (132::int8, 13::int8, 'serviceCategoryView',   '0,8,13', '{"title":"查看详情"}', 'biz:serviceCategory:view'),
-  (133::int8, 13::int8, 'serviceCategoryAdd',    '0,8,13', '{"title":"新增分类"}', 'biz:serviceCategory:add'),
-  (134::int8, 13::int8, 'serviceCategoryEdit',   '0,8,13', '{"title":"编辑分类"}', 'biz:serviceCategory:edit'),
-  (135::int8, 13::int8, 'serviceCategoryDelete', '0,8,13', '{"title":"删除分类"}', 'biz:serviceCategory:delete'),
-  (141::int8, 14::int8, 'serviceItemList',   '0,8,14', '{"title":"查看列表"}', 'biz:serviceItem:list'),
-  (142::int8, 14::int8, 'serviceItemView',   '0,8,14', '{"title":"查看详情"}', 'biz:serviceItem:view'),
-  (143::int8, 14::int8, 'serviceItemAdd',    '0,8,14', '{"title":"新增项目"}', 'biz:serviceItem:add'),
-  (144::int8, 14::int8, 'serviceItemEdit',   '0,8,14', '{"title":"编辑项目"}', 'biz:serviceItem:edit'),
-  (145::int8, 14::int8, 'serviceItemDelete', '0,8,14', '{"title":"删除项目"}', 'biz:serviceItem:delete'),
-  (151::int8, 15::int8, 'goodsCategoryList',   '0,8,15', '{"title":"查看列表"}', 'biz:goodsCategory:list'),
-  (152::int8, 15::int8, 'goodsCategoryView',   '0,8,15', '{"title":"查看详情"}', 'biz:goodsCategory:view'),
-  (153::int8, 15::int8, 'goodsCategoryAdd',    '0,8,15', '{"title":"新增分类"}', 'biz:goodsCategory:add'),
-  (154::int8, 15::int8, 'goodsCategoryEdit',   '0,8,15', '{"title":"编辑分类"}', 'biz:goodsCategory:edit'),
-  (155::int8, 15::int8, 'goodsCategoryDelete', '0,8,15', '{"title":"删除分类"}', 'biz:goodsCategory:delete'),
-  (161::int8, 16::int8, 'goodsList',   '0,8,16', '{"title":"查看列表"}', 'biz:goods:list'),
-  (162::int8, 16::int8, 'goodsView',   '0,8,16', '{"title":"查看详情"}', 'biz:goods:view'),
-  (163::int8, 16::int8, 'goodsAdd',    '0,8,16', '{"title":"新增商品"}', 'biz:goods:add'),
-  (164::int8, 16::int8, 'goodsEdit',   '0,8,16', '{"title":"编辑商品"}', 'biz:goods:edit'),
-  (165::int8, 16::int8, 'goodsDelete', '0,8,16', '{"title":"删除商品"}', 'biz:goods:delete')
+  (141::int8, 14::int8, 'serviceItemList',   '0,18,14', '{"title":"查看列表"}', 'biz:serviceItem:list'),
+  (142::int8, 14::int8, 'serviceItemView',   '0,18,14', '{"title":"查看详情"}', 'biz:serviceItem:view'),
+  (143::int8, 14::int8, 'serviceItemAdd',    '0,18,14', '{"title":"新增项目"}', 'biz:serviceItem:add'),
+  (144::int8, 14::int8, 'serviceItemEdit',   '0,18,14', '{"title":"编辑项目"}', 'biz:serviceItem:edit'),
+  (145::int8, 14::int8, 'serviceItemDelete', '0,18,14', '{"title":"删除项目"}', 'biz:serviceItem:delete'),
+  (161::int8, 16::int8, 'goodsList',   '0,18,16', '{"title":"查看列表"}', 'biz:goods:list'),
+  (162::int8, 16::int8, 'goodsView',   '0,18,16', '{"title":"查看详情"}', 'biz:goods:view'),
+  (163::int8, 16::int8, 'goodsAdd',    '0,18,16', '{"title":"新增商品"}', 'biz:goods:add'),
+  (164::int8, 16::int8, 'goodsEdit',   '0,18,16', '{"title":"编辑商品"}', 'biz:goods:edit'),
+  (165::int8, 16::int8, 'goodsDelete', '0,18,16', '{"title":"删除商品"}', 'biz:goods:delete'),
+  (131::int8, 13::int8, 'serviceCategoryList',   '0,19,13', '{"title":"查看列表"}', 'biz:serviceCategory:list'),
+  (132::int8, 13::int8, 'serviceCategoryView',   '0,19,13', '{"title":"查看详情"}', 'biz:serviceCategory:view'),
+  (133::int8, 13::int8, 'serviceCategoryAdd',    '0,19,13', '{"title":"新增分类"}', 'biz:serviceCategory:add'),
+  (134::int8, 13::int8, 'serviceCategoryEdit',   '0,19,13', '{"title":"编辑分类"}', 'biz:serviceCategory:edit'),
+  (135::int8, 13::int8, 'serviceCategoryDelete', '0,19,13', '{"title":"删除分类"}', 'biz:serviceCategory:delete'),
+  (151::int8, 15::int8, 'goodsCategoryList',   '0,19,15', '{"title":"查看列表"}', 'biz:goodsCategory:list'),
+  (152::int8, 15::int8, 'goodsCategoryView',   '0,19,15', '{"title":"查看详情"}', 'biz:goodsCategory:view'),
+  (153::int8, 15::int8, 'goodsCategoryAdd',    '0,19,15', '{"title":"新增分类"}', 'biz:goodsCategory:add'),
+  (154::int8, 15::int8, 'goodsCategoryEdit',   '0,19,15', '{"title":"编辑分类"}', 'biz:goodsCategory:edit'),
+  (155::int8, 15::int8, 'goodsCategoryDelete', '0,19,15', '{"title":"删除分类"}', 'biz:goodsCategory:delete')
 ) AS v(id, parent_id, name, tree_path, meta, perm)
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 
 -- 店长(role 2)：P2 全部
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 2, m.id, 1 FROM sys_menu m
-WHERE m.id IN (13, 131, 132, 133, 134, 135,
-               14, 141, 142, 143, 144, 145,
-               15, 151, 152, 153, 154, 155,
-               16, 161, 162, 163, 164, 165)
+WHERE m.id IN (18, 14, 141, 142, 143, 144, 145,
+               16, 161, 162, 163, 164, 165,
+               19, 13, 131, 132, 133, 134, 135,
+               15, 151, 152, 153, 154, 155)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 2 AND rm.menu_id = m.id AND rm.type = 1);
 
--- 店员(role 3)：仅查看（开单选服务/商品）
+-- 店员(role 3)：仅查看（开单选服务/商品；分类在业务配置下亦仅查看）
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 3, m.id, 1 FROM sys_menu m
-WHERE m.id IN (13, 131, 132, 14, 141, 142, 15, 151, 152, 16, 161, 162)
+WHERE m.id IN (18, 14, 141, 142, 16, 161, 162, 19, 13, 131, 132, 15, 151, 152)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 3 AND rm.menu_id = m.id AND rm.type = 1);
 
 -- 默认服务分类（租户1）
@@ -458,3 +465,113 @@ FROM (VALUES
   (4008::int8, '日用周边', 4)
 ) AS v(id, name, sort)
 WHERE NOT EXISTS (SELECT 1 FROM salon_goods_category c WHERE c.id = v.id);
+
+-- ===== P4 会员充值 / P5 收银开单 =====
+
+-- 字典：pay_method 支付方式（契约型：充值仅可用 1/2/3/4/8；订单支付 1-5/7/8；6 赠送余额预留 P6/P7 细分）
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 7, '支付方式', 'pay_method', 1, '收银/充值支付方式', 'system', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'pay_method' AND tenant_id = 1);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT v.id, 'pay_method', v.name, v.value, v.sort, 1, 0, NULL, 1
+FROM (VALUES
+  (81::int8, '现金',       '1', 1),
+  (82::int8, '微信',       '2', 2),
+  (83::int8, '支付宝',     '3', 3),
+  (84::int8, '银行卡',     '4', 4),
+  (85::int8, '会员余额',   '5', 5),
+  (86::int8, '赠送余额',   '6', 6),
+  (87::int8, '积分抵扣',   '7', 7),
+  (88::int8, '其他',       '8', 8)
+) AS v(id, name, value, sort)
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'pay_method' AND d.value = v.value AND d.tenant_id = 1);
+
+-- 字典：order_status 订单状态（契约型，value 不得偏离通用）
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 8, '订单状态', 'order_status', 1, '收银订单状态', 'system', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'order_status' AND tenant_id = 1);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT v.id, 'order_status', v.name, v.value, v.sort, 1, 0, NULL, 1
+FROM (VALUES
+  (91::int8, '挂单',       '0', 1),
+  (92::int8, '已支付',     '1', 2),
+  (93::int8, '部分退款',   '2', 3),
+  (94::int8, '已退款',     '3', 4),
+  (95::int8, '已取消',     '4', 5)
+) AS v(id, name, value, sort)
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'order_status' AND d.value = v.value AND d.tenant_id = 1);
+
+-- 字典租户副本（2084880957290426370，id = 租户1 + 1000）
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT d.id + 1000, d.name, d.code, d.status, d.remark, d.group_code, 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM sys_dict_type d
+WHERE d.tenant_id = 1 AND d.deleted = 0 AND d.code IN ('pay_method', 'order_status')
+  AND NOT EXISTS (SELECT 1 FROM sys_dict_type t WHERE t.code = d.code AND t.tenant_id = 2084880957290426370);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT d.id + 1000, d.type_code, d.name, d.value, d.sort, d.status, d.defaulted, d.remark, 2084880957290426370
+FROM sys_dict d
+WHERE d.tenant_id = 1 AND d.deleted = 0 AND d.type_code IN ('pay_method', 'order_status')
+  AND NOT EXISTS (SELECT 1 FROM sys_dict t WHERE t.type_code = d.type_code AND t.value = d.value AND t.tenant_id = 2084880957290426370);
+
+-- 菜单：收银中心目录 20 + 收银开单 166（收银台与订单记录同页两视图）；充值记录 168（挂会员信息 17）；充值活动 169（挂业务配置 19）
+INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, v.parent_id, v.name, v.type, v.path, v.component, NULL, v.tree_path, v.meta, NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (20::int8, 0::int8,  'tradeCenter',     2, '/trade',           'Layout',                 '0',    '{"title":"收银中心","icon":"shopping-cart","rank":5,"showLink":true}'),
+  (166::int8, 20::int8,'cashier',         1, 'cashier',           'biz/cashier/index',      '0,20', '{"title":"收银开单","icon":"receipt","rank":1,"showLink":true}'),
+  (168::int8, 17::int8,'rechargeRecord',  1, 'recharge',          'biz/recharge/index',     '0,17', '{"title":"充值记录","icon":"wallet","rank":2,"showLink":true}'),
+  (169::int8, 19::int8,'rechargeActivity',1, 'recharge-activity', 'biz/recharge-activity/index', '0,19', '{"title":"充值活动","icon":"ticket","rank":5,"showLink":true}')
+) AS v(id, parent_id, name, type, path, component, tree_path, meta)
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
+
+-- 按钮（type=4）：订单 biz:order:*（挂 166，list 推导收银开单入口）/ 充值记录 biz:recharge:* / 充值活动 biz:rechargeActivity:*
+INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, v.parent_id, v.name, 4, NULL, NULL, NULL, v.tree_path, v.meta, v.perm, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (181::int8, 166::int8, 'orderList',   '0,20,166', '{"title":"查看订单"}', 'biz:order:list'),
+  (182::int8, 166::int8, 'orderView',   '0,20,166', '{"title":"查看详情"}', 'biz:order:view'),
+  (183::int8, 166::int8, 'orderAdd',    '0,20,166', '{"title":"开单挂单"}', 'biz:order:add'),
+  (184::int8, 166::int8, 'orderPay',    '0,20,166', '{"title":"订单结算"}', 'biz:order:pay'),
+  (185::int8, 166::int8, 'orderCancel', '0,20,166', '{"title":"取消订单"}', 'biz:order:cancel'),
+  (186::int8, 168::int8, 'rechargeList', '0,17,168', '{"title":"查看记录"}', 'biz:recharge:list'),
+  (187::int8, 168::int8, 'rechargeView', '0,17,168', '{"title":"查看详情"}', 'biz:recharge:view'),
+  (188::int8, 168::int8, 'rechargeAdd',  '0,17,168', '{"title":"会员充值"}', 'biz:recharge:add'),
+  (189::int8, 169::int8, 'rechargeActivityList',   '0,19,169', '{"title":"查看列表"}', 'biz:rechargeActivity:list'),
+  (190::int8, 169::int8, 'rechargeActivityView',   '0,19,169', '{"title":"查看详情"}', 'biz:rechargeActivity:view'),
+  (191::int8, 169::int8, 'rechargeActivityAdd',    '0,19,169', '{"title":"新增活动"}', 'biz:rechargeActivity:add'),
+  (192::int8, 169::int8, 'rechargeActivityEdit',   '0,19,169', '{"title":"编辑活动"}', 'biz:rechargeActivity:edit'),
+  (193::int8, 169::int8, 'rechargeActivityDelete', '0,19,169', '{"title":"删除活动"}', 'biz:rechargeActivity:delete')
+) AS v(id, parent_id, name, tree_path, meta, perm)
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
+
+-- 店长(role 2)：收银全按钮 + 充值记录全按钮 + 充值活动全按钮
+INSERT INTO sys_role_menu (role_id, menu_id, type)
+SELECT 2, m.id, 1 FROM sys_menu m
+WHERE m.id IN (20, 166, 181, 182, 183, 184, 185,
+               17, 168, 186, 187, 188,
+               19, 169, 189, 190, 191, 192, 193)
+  AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 2 AND rm.menu_id = m.id AND rm.type = 1);
+
+-- 店员(role 3)：收银（无取消）+ 充值记录查看（无发起充值，充值涉资金由店长操作）
+INSERT INTO sys_role_menu (role_id, menu_id, type)
+SELECT 3, m.id, 1 FROM sys_menu m
+WHERE m.id IN (20, 166, 181, 182, 183, 184,
+               168, 186, 187)
+  AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 3 AND rm.menu_id = m.id AND rm.type = 1);
+
+-- 示例充值活动（租户1 id 7001-7002；租户2 id 7003-7004）
+INSERT INTO salon_recharge_activity (id, tenant_id, name, threshold_amount, gift_amount, sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 1, v.name, v.threshold_amount, v.gift_amount, v.sort, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (7001::int8, '充500送50',   500.00,  50.00, 1),
+  (7002::int8, '充1000送120', 1000.00, 120.00, 2)
+) AS v(id, name, threshold_amount, gift_amount, sort)
+WHERE NOT EXISTS (SELECT 1 FROM salon_recharge_activity a WHERE a.id = v.id);
+
+INSERT INTO salon_recharge_activity (id, tenant_id, name, threshold_amount, gift_amount, sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 2084880957290426370, v.name, v.threshold_amount, v.gift_amount, v.sort, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (7003::int8, '充500送50',   500.00,  50.00, 1),
+  (7004::int8, '充1000送120', 1000.00, 120.00, 2)
+) AS v(id, name, threshold_amount, gift_amount, sort)
+WHERE NOT EXISTS (SELECT 1 FROM salon_recharge_activity a WHERE a.id = v.id);

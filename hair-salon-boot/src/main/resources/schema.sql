@@ -334,6 +334,8 @@ CREATE TABLE IF NOT EXISTS salon_member (
     level_id        int8,
     balance         numeric(12, 2) DEFAULT 0,
     points          int4         DEFAULT 0,
+    total_recharge_amount numeric(12, 2) DEFAULT 0,
+    total_consume_amount  numeric(12, 2) DEFAULT 0,
     source          varchar(32),
     status          int4         DEFAULT 1,
     remark          varchar(255),
@@ -356,6 +358,8 @@ COMMENT ON COLUMN salon_member.birthday IS '生日';
 COMMENT ON COLUMN salon_member.level_id IS '会员等级ID（关联salon_member_level，空=普通，建档时由service填默认等级）';
 COMMENT ON COLUMN salon_member.balance IS '可用总余额（冗余=本金+赠送-冻结，真源在salon_member_balance）';
 COMMENT ON COLUMN salon_member.points IS '可用总积分（冗余，真源由salon_member_point_log汇总）';
+COMMENT ON COLUMN salon_member.total_recharge_amount IS '累计充值金额（本金，不含赠送；升级口径=与累计消费取大）';
+COMMENT ON COLUMN salon_member.total_consume_amount IS '累计消费金额（订单实收，含余额支付；升级口径=与累计充值取大）';
 COMMENT ON COLUMN salon_member.source IS '会员来源';
 COMMENT ON COLUMN salon_member.status IS '状态（1=启用 0=禁用）';
 COMMENT ON COLUMN salon_member.remark IS '备注';
@@ -447,7 +451,7 @@ COMMENT ON COLUMN salon_member_level.service_discount IS '服务折扣（0.00-1.
 COMMENT ON COLUMN salon_member_level.goods_discount IS '商品折扣（0.00-1.00，1=不打折，NULL=不参与折扣）';
 COMMENT ON COLUMN salon_member_level.point_rate IS '积分倍率（1.00=正常，1.50=1.5倍）';
 COMMENT ON COLUMN salon_member_level.recharge_gift_rate IS '充值赠送率（0.10=充100送10），等级默认值，P4充值活动可叠加';
-COMMENT ON COLUMN salon_member_level.upgrade_threshold IS '升级门槛（累计消费金额），NULL=不自动升级';
+COMMENT ON COLUMN salon_member_level.upgrade_threshold IS '升级门槛（累计充值与累计消费取大者达到即升级，只升不降），NULL=不自动升级';
 COMMENT ON COLUMN salon_member_level.rights IS '专属权益（JSON，如生日礼包、专属项目）';
 COMMENT ON COLUMN salon_member_level.sort IS '排序';
 COMMENT ON COLUMN salon_member_level.status IS '状态（1=启用 0=禁用）';
@@ -822,3 +826,213 @@ COMMENT ON COLUMN salon_goods.create_time IS '创建时间';
 COMMENT ON COLUMN salon_goods.update_by IS '更新人ID';
 COMMENT ON COLUMN salon_goods.update_time IS '更新时间';
 COMMENT ON COLUMN salon_goods.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- ===== P4 会员充值 =====
+
+-- 充值活动（租户级，充 X 送 Y 档位）
+CREATE TABLE IF NOT EXISTS salon_recharge_activity (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    name                varchar(64)   NOT NULL,
+    threshold_amount    numeric(12, 2) NOT NULL,
+    gift_amount         numeric(12, 2) NOT NULL,
+    start_time          timestamp,
+    end_time            timestamp,
+    sort                int4          DEFAULT 0,
+    status              int4          DEFAULT 1,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_recharge_activity_tenant ON salon_recharge_activity (tenant_id, status) WHERE deleted = 0;
+COMMENT ON TABLE salon_recharge_activity IS '充值活动（租户级，充X送Y档位）';
+COMMENT ON COLUMN salon_recharge_activity.id IS '活动ID';
+COMMENT ON COLUMN salon_recharge_activity.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_recharge_activity.name IS '活动名称（如充500送50）';
+COMMENT ON COLUMN salon_recharge_activity.threshold_amount IS '充值门槛（单笔充值金额>=该值可享）';
+COMMENT ON COLUMN salon_recharge_activity.gift_amount IS '赠送金额';
+COMMENT ON COLUMN salon_recharge_activity.start_time IS '生效时间（NULL=立即生效）';
+COMMENT ON COLUMN salon_recharge_activity.end_time IS '失效时间（NULL=长期有效）';
+COMMENT ON COLUMN salon_recharge_activity.sort IS '排序';
+COMMENT ON COLUMN salon_recharge_activity.status IS '状态（1=启用 0=禁用）';
+COMMENT ON COLUMN salon_recharge_activity.remark IS '备注';
+COMMENT ON COLUMN salon_recharge_activity.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_recharge_activity.create_time IS '创建时间';
+COMMENT ON COLUMN salon_recharge_activity.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_recharge_activity.update_time IS '更新时间';
+COMMENT ON COLUMN salon_recharge_activity.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 充值订单（P4；支付一期为收银员手动确认，渠道直连见 payment-design.md）
+CREATE TABLE IF NOT EXISTS salon_recharge_order (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    store_id            int8          NOT NULL,
+    recharge_no         varchar(32)   NOT NULL,
+    member_id           int8          NOT NULL,
+    activity_id         int8,
+    principal_amount    numeric(12, 2) NOT NULL,
+    gift_amount         numeric(12, 2) DEFAULT 0,
+    gift_source         int4          NOT NULL DEFAULT 3,
+    gift_frozen         int4          DEFAULT 0,
+    unfrozen_time       timestamp,
+    pay_method          int4          NOT NULL,
+    pay_time            timestamp,
+    operator_id         int8,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_recharge_order_member ON salon_recharge_order (tenant_id, member_id, create_time) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_recharge_order_store ON salon_recharge_order (tenant_id, store_id, create_time) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_recharge_order_unfreeze ON salon_recharge_order (tenant_id, gift_frozen, unfrozen_time) WHERE deleted = 0 AND gift_frozen = 1;
+COMMENT ON TABLE salon_recharge_order IS '充值订单（本金计预收款不计营业收入；赠送单独记录）';
+COMMENT ON COLUMN salon_recharge_order.id IS '充值单ID';
+COMMENT ON COLUMN salon_recharge_order.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_recharge_order.store_id IS '充值门店ID';
+COMMENT ON COLUMN salon_recharge_order.recharge_no IS '充值单号';
+COMMENT ON COLUMN salon_recharge_order.member_id IS '会员ID';
+COMMENT ON COLUMN salon_recharge_order.activity_id IS '命中的充值活动ID（NULL=未命中活动，走等级兜底或无赠送）';
+COMMENT ON COLUMN salon_recharge_order.principal_amount IS '本金金额（实收，计入预收款）';
+COMMENT ON COLUMN salon_recharge_order.gift_amount IS '赠送金额（不计营业收入，与本金分流水）';
+COMMENT ON COLUMN salon_recharge_order.gift_source IS '赠送来源（1=充值活动 2=等级赠送率兜底 3=无赠送）';
+COMMENT ON COLUMN salon_recharge_order.gift_frozen IS '赠送是否冻结至次月（1=活动赠送冻结，次月1日后解冻；0=不冻结）';
+COMMENT ON COLUMN salon_recharge_order.unfrozen_time IS '赠送解冻时间（NULL=未解冻或无需解冻）';
+COMMENT ON COLUMN salon_recharge_order.pay_method IS '支付方式（字典 pay_method：1现金 2微信 3支付宝 4银行卡 8其他）';
+COMMENT ON COLUMN salon_recharge_order.pay_time IS '支付确认时间';
+COMMENT ON COLUMN salon_recharge_order.operator_id IS '操作人ID';
+COMMENT ON COLUMN salon_recharge_order.remark IS '备注';
+COMMENT ON COLUMN salon_recharge_order.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_recharge_order.create_time IS '创建时间';
+COMMENT ON COLUMN salon_recharge_order.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_recharge_order.update_time IS '更新时间';
+COMMENT ON COLUMN salon_recharge_order.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- ===== P5 收银开单 =====
+
+-- 收银订单
+CREATE TABLE IF NOT EXISTS salon_order (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    store_id            int8          NOT NULL,
+    order_no            varchar(32)   NOT NULL,
+    member_id           int8,
+    item_amount         numeric(12, 2) NOT NULL DEFAULT 0,
+    discount_amount     numeric(12, 2) DEFAULT 0,
+    payable_amount      numeric(12, 2) NOT NULL DEFAULT 0,
+    point_deduct_points int4          DEFAULT 0,
+    point_deduct_amount numeric(12, 2) DEFAULT 0,
+    received_amount     numeric(12, 2) DEFAULT 0,
+    change_amount       numeric(12, 2) DEFAULT 0,
+    status              int4          NOT NULL DEFAULT 0,
+    paid_time           timestamp,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_order_no ON salon_order (order_no) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_order_member ON salon_order (tenant_id, member_id, create_time) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_order_store ON salon_order (tenant_id, store_id, create_time) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_order_status ON salon_order (tenant_id, status, create_time) WHERE deleted = 0;
+COMMENT ON TABLE salon_order IS '收银订单（挂单=status 0）';
+COMMENT ON COLUMN salon_order.id IS '订单ID';
+COMMENT ON COLUMN salon_order.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_order.store_id IS '开单门店ID';
+COMMENT ON COLUMN salon_order.order_no IS '订单号';
+COMMENT ON COLUMN salon_order.member_id IS '会员ID（NULL=散客）';
+COMMENT ON COLUMN salon_order.item_amount IS '原价合计（明细原单价×数量，未折）';
+COMMENT ON COLUMN salon_order.discount_amount IS '优惠总额（会员等级折扣减免=原价合计-折后合计）';
+COMMENT ON COLUMN salon_order.payable_amount IS '应收金额（折后-积分抵扣前）';
+COMMENT ON COLUMN salon_order.point_deduct_points IS '积分抵扣使用的积分数';
+COMMENT ON COLUMN salon_order.point_deduct_amount IS '积分抵扣金额';
+COMMENT ON COLUMN salon_order.received_amount IS '实收金额（应收-积分抵扣；含会员余额支付部分）';
+COMMENT ON COLUMN salon_order.change_amount IS '找零金额（现金投入-现金应收，>=0）';
+COMMENT ON COLUMN salon_order.status IS '状态（0=挂单 1=已支付 2=部分退款 3=已退款 4=已取消；2/3预留P6）';
+COMMENT ON COLUMN salon_order.paid_time IS '支付完成时间';
+COMMENT ON COLUMN salon_order.remark IS '备注';
+COMMENT ON COLUMN salon_order.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_order.create_time IS '创建时间';
+COMMENT ON COLUMN salon_order.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_order.update_time IS '更新时间';
+COMMENT ON COLUMN salon_order.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 订单明细（服务/商品行，含服务人员绑定）
+CREATE TABLE IF NOT EXISTS salon_order_item (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    order_id            int8          NOT NULL,
+    item_type           int4          NOT NULL,
+    item_id             int8          NOT NULL,
+    item_name           varchar(64)   NOT NULL,
+    unit_price          numeric(12, 2) NOT NULL,
+    price               numeric(12, 2) NOT NULL,
+    quantity            int4          NOT NULL DEFAULT 1,
+    discount_rate       numeric(4, 2) DEFAULT 1.00,
+    subtotal            numeric(12, 2) NOT NULL,
+    staff_id            int8,
+    assistant_id        int8,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_order_item_order ON salon_order_item (tenant_id, order_id) WHERE deleted = 0;
+COMMENT ON TABLE salon_order_item IS '订单明细（服务/商品行 + 服务人员绑定）';
+COMMENT ON COLUMN salon_order_item.id IS '明细ID';
+COMMENT ON COLUMN salon_order_item.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_order_item.order_id IS '订单ID';
+COMMENT ON COLUMN salon_order_item.item_type IS '明细类型（1=服务项目 2=商品）';
+COMMENT ON COLUMN salon_order_item.item_id IS '项目/商品ID';
+COMMENT ON COLUMN salon_order_item.item_name IS '名称快照（下单时）';
+COMMENT ON COLUMN salon_order_item.unit_price IS '原单价（服务=会员价或标准价，商品=销售价）';
+COMMENT ON COLUMN salon_order_item.price IS '实际单价（收银可改价）';
+COMMENT ON COLUMN salon_order_item.quantity IS '数量';
+COMMENT ON COLUMN salon_order_item.discount_rate IS '行折扣率快照（会员等级折扣，1.00=未折；discountable=0 的行恒为1）';
+COMMENT ON COLUMN salon_order_item.subtotal IS '行小计（price×quantity×discount_rate）';
+COMMENT ON COLUMN salon_order_item.staff_id IS '主服务人员ID（关联sys_user）';
+COMMENT ON COLUMN salon_order_item.assistant_id IS '助理ID（关联sys_user）';
+COMMENT ON COLUMN salon_order_item.remark IS '备注';
+COMMENT ON COLUMN salon_order_item.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_order_item.create_time IS '创建时间';
+COMMENT ON COLUMN salon_order_item.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_order_item.update_time IS '更新时间';
+COMMENT ON COLUMN salon_order_item.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 订单支付明细（组合支付，每方式一行）
+CREATE TABLE IF NOT EXISTS salon_order_payment (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    order_id            int8          NOT NULL,
+    pay_method          int4          NOT NULL,
+    amount              numeric(12, 2) NOT NULL,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_order_payment_order ON salon_order_payment (tenant_id, order_id) WHERE deleted = 0;
+COMMENT ON TABLE salon_order_payment IS '订单支付明细（组合支付，每方式一行）';
+COMMENT ON COLUMN salon_order_payment.id IS '支付明细ID';
+COMMENT ON COLUMN salon_order_payment.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_order_payment.order_id IS '订单ID';
+COMMENT ON COLUMN salon_order_payment.pay_method IS '支付方式（字典 pay_method：1现金 2微信 3支付宝 4银行卡 5会员余额 6赠送余额 7积分抵扣 8其他）';
+COMMENT ON COLUMN salon_order_payment.amount IS '支付金额';
+COMMENT ON COLUMN salon_order_payment.remark IS '备注';
+COMMENT ON COLUMN salon_order_payment.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_order_payment.create_time IS '创建时间';
+COMMENT ON COLUMN salon_order_payment.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_order_payment.update_time IS '更新时间';
+COMMENT ON COLUMN salon_order_payment.deleted IS '逻辑删除（0=未删除 1=已删除）';
+

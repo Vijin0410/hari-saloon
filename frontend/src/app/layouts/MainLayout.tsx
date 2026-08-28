@@ -5,6 +5,7 @@ import {
   Building2,
   ChevronDown,
   ClipboardList,
+  CreditCard,
   FolderTree,
   LayoutDashboard,
   LogOut,
@@ -87,6 +88,7 @@ const frontendPathByPermission: Record<string, string> = {
   'biz:order:list': '/biz/cashier',
   'biz:recharge:list': '/biz/recharges',
   'biz:rechargeActivity:list': '/biz/recharge-activities',
+  'biz:pay:config:list': '/biz/pay-config',
 };
 
 const knownFrontendPaths = new Set<string>(Object.values(frontendPathByPermission));
@@ -109,6 +111,7 @@ const iconByPermission: Record<string, IconType> = {
   'biz:order:list': Receipt,
   'biz:recharge:list': Wallet,
   'biz:rechargeActivity:list': Ticket,
+  'biz:pay:config:list': CreditCard,
 };
 
 const iconByMetaName: Record<string, IconType> = {
@@ -133,6 +136,7 @@ const iconByMetaName: Record<string, IconType> = {
   receipt: Receipt,
   wallet: Wallet,
   ticket: Ticket,
+  'credit-card': CreditCard,
   'clipboard-list': ClipboardList,
 };
 

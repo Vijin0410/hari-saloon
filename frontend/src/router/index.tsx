@@ -32,6 +32,9 @@ const RechargeRecordPage = lazy(() =>
   import('@/pages/RechargeRecordPage').then((module) => ({ default: module.RechargeRecordPage })),
 );
 const CashierPage = lazy(() => import('@/pages/CashierPage').then((module) => ({ default: module.CashierPage })));
+const PayConfigPage = lazy(() =>
+  import('@/pages/PayConfigPage').then((module) => ({ default: module.PayConfigPage })),
+);
 const DeptPage = lazy(() => import('@/pages/DeptPage').then((module) => ({ default: module.DeptPage })));
 const ForbiddenPage = lazy(() =>
   import('@/pages/ForbiddenPage').then((module) => ({ default: module.ForbiddenPage })),
@@ -192,6 +195,14 @@ export const router = createBrowserRouter([
             element: (
               <PermissionRoute permission="biz:rechargeActivity:list">
                 <RechargeActivityPage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/pay-config',
+            element: (
+              <PermissionRoute permission="biz:pay:config:list">
+                <PayConfigPage />
               </PermissionRoute>
             ),
           },

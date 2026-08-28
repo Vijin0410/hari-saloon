@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8081
 #  servlet:
 #    context-path: /salon
 
@@ -43,6 +43,8 @@ wj:
       ignore-urls:
         - /auth/login
         - /api/v1/tenants/options-public
+        # 渠道支付回调（微信）：免鉴权，靠平台证书验签防伪造（PayNotifyController）
+        - /api/v1/pay/notify/**
         - /doc.html
         - /webjars/**
         - /v3/api-docs/**
@@ -92,6 +94,21 @@ wj:
     # 充值活动赠送解冻（冻结至次月1号后解冻至赠送桶）；默认每天 03:10
     recharge-unfreeze-enabled: true
     recharge-unfreeze-cron: "0 10 3 * * ?"
+    # 支付渠道密钥 SM4 加密密钥（32位hex=128bit，CBC+随机IV；生产必须覆盖并妥善保管）
+    # 密钥变更会导致存量密文无法解密，须提前规划换钥重灌
+    pay:
+      sm4-key: "0123456789abcdef0123456789abcdef"
+      # 支付回调基地址：须公网可达的 HTTPS 域名（本地开发用内网穿透，如 https://xxx.cpolar.io）
+      # 下单时拼接为 {base}/api/v1/pay/notify/{channel}/{tenantId}（路径式：支付宝/微信均不允许 notify_url 带查询串）；
+      # 为空则扫码下单（微信/支付宝）报错
+      notify-base-url: "https://example.com"
+      # 支付宝开放平台网关：默认正式环境；沙箱联调切 https://openapi-sandbox.dl.alipaydev.com/gateway.do
+      # （配套沙箱控制台 APPID/密钥，扫码用「支付宝沙箱钱包」App，买家账号见沙箱控制台）
+#      alipay-gateway-url: "https://openapi.alipay.com/gateway.do"
+      alipay-gateway-url: "https://openapi-sandbox.dl.alipaydev.com/gateway.do"
+      # 查单兜底（防回调丢失）：扫各渠道 pending 支付流水主动查渠道，默认每 2 分钟
+      query-enabled: true
+      query-cron: "0 */2 * * * ?"
 
 logging:
   level:

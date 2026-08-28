@@ -20,6 +20,8 @@ public class RechargeOrderPageQuery extends BasePageQuery {
     private Long memberId;
     @Schema(description = "支付方式（字典 pay_method）")
     private Integer payMethod;
+    @Schema(description = "支付状态（0=待支付 1=已支付 2=已取消）")
+    private Integer status;
     @Schema(description = "赠送来源（1活动 2等级 3无）")
     private Integer giftSource;
     @Schema(description = "租户ID（ROOT 跨租户筛选用，非 ROOT 忽略）")

@@ -6,7 +6,7 @@
     <select id="getRechargePage" resultType="com.wangjin.salon.service.model.vo.RechargeOrderPageVO">
         SELECT
             r.id, r.recharge_no, r.member_id, r.principal_amount, r.gift_amount,
-            r.gift_source, r.gift_frozen, r.pay_method, r.remark, r.create_time,
+            r.gift_source, r.gift_frozen, r.pay_method, r.status, r.remark, r.create_time,
             m.name AS member_name, m.phone AS member_phone,
             s.name AS store_name,
             a.name AS activity_name,
@@ -30,6 +30,9 @@
             </if>
             <if test="q.payMethod != null">
                 AND r.pay_method = #{q.payMethod}
+            </if>
+            <if test="q.status != null">
+                AND r.status = #{q.status}
             </if>
             <if test="q.giftSource != null">
                 AND r.gift_source = #{q.giftSource}
@@ -75,7 +78,7 @@
     <select id="getRechargeById" resultType="com.wangjin.salon.service.model.vo.RechargeOrderPageVO">
         SELECT
             r.id, r.recharge_no, r.member_id, r.principal_amount, r.gift_amount,
-            r.gift_source, r.gift_frozen, r.pay_method, r.remark, r.create_time,
+            r.gift_source, r.gift_frozen, r.pay_method, r.status, r.remark, r.create_time,
             m.name AS member_name, m.phone AS member_phone,
             s.name AS store_name,
             a.name AS activity_name,

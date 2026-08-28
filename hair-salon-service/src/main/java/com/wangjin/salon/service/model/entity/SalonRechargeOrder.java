@@ -23,6 +23,11 @@ public class SalonRechargeOrder extends BaseTenantEntity<Long> {
     public static final int GIFT_SOURCE_LEVEL = 2;
     public static final int GIFT_SOURCE_NONE = 3;
 
+    /** 支付状态：0=待支付（渠道扫码中） 1=已支付 2=已取消（超时关闭或人工取消，未入账） */
+    public static final int STATUS_PENDING = 0;
+    public static final int STATUS_PAID = 1;
+    public static final int STATUS_CANCELLED = 2;
+
     /** 充值门店ID */
     private Long storeId;
     /** 充值单号 */
@@ -44,6 +49,8 @@ public class SalonRechargeOrder extends BaseTenantEntity<Long> {
     private LocalDateTime unfrozenTime;
     /** 支付方式（字典 pay_method：1现金 2微信 3支付宝 4银行卡 8其他） */
     private Integer payMethod;
+    /** 支付状态（0=待支付（渠道扫码中） 1=已支付 2=已取消（超时关闭或人工取消）；默认1兼容一期手动确认即入账） */
+    private Integer status;
     /** 支付确认时间 */
     private LocalDateTime payTime;
     /** 操作人ID */

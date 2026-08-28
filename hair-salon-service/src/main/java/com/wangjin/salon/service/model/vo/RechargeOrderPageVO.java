@@ -35,6 +35,8 @@ public class RechargeOrderPageVO {
     @Schema(description = "支付方式（字典 pay_method）")
     @Dict(dictCode = "pay_method")
     private Integer payMethod;
+    @Schema(description = "支付状态（0=待支付 1=已支付 2=已取消）")
+    private Integer status;
     @Schema(description = "充值门店名称")
     private String storeName;
     @Schema(description = "操作人昵称")

@@ -8,7 +8,9 @@ import com.wangjin.salon.service.model.form.RechargeCreateForm;
 import com.wangjin.salon.service.model.query.RechargeOrderPageQuery;
 import com.wangjin.salon.service.model.vo.RechargeOrderDetailVO;
 import com.wangjin.salon.service.model.vo.RechargeOrderPageVO;
+import com.wangjin.salon.service.model.vo.RechargePayStatusVO;
 import com.wangjin.salon.service.model.vo.RechargePreviewVO;
+import com.wangjin.salon.service.model.vo.RechargePrepayVO;
 import com.wangjin.salon.service.service.RechargeOrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -61,5 +63,37 @@ public class RechargeOrderController {
     @PreAuthorize("hasAuthority('biz:recharge:add')")
     public Result<Long> create(@Valid @RequestBody RechargeCreateForm form) {
         return Result.success(rechargeOrderService.create(form));
+    }
+
+    @Operation(summary = "微信扫码预下单（直连模式，返回二维码）")
+    @PostMapping("/wxpay/prepay")
+    @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('biz:recharge:add')")
+    public Result<RechargePrepayVO> prepayWxpay(@Valid @RequestBody RechargeCreateForm form) {
+        return Result.success(rechargeOrderService.prepayScan("wxpay", form));
+    }
+
+    @Operation(summary = "支付宝扫码预下单（直连模式，返回二维码）")
+    @PostMapping("/alipay/prepay")
+    @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('biz:recharge:add')")
+    public Result<RechargePrepayVO> prepayAlipay(@Valid @RequestBody RechargeCreateForm form) {
+        return Result.success(rechargeOrderService.prepayScan("alipay", form));
+    }
+
+    @Operation(summary = "充值单支付状态（扫码轮询）")
+    @GetMapping("/{id}/pay-status")
+    @PreAuthorize("hasAuthority('biz:recharge:view')")
+    public Result<RechargePayStatusVO> payStatus(@PathVariable Long id) {
+        return Result.success(rechargeOrderService.getPayStatus(id));
+    }
+
+    @Operation(summary = "取消待支付充值单（扫码支付放弃时关闭单据）")
+    @PostMapping("/{id}/cancel")
+    @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('biz:recharge:add')")
+    public Result<Void> cancel(@PathVariable Long id) {
+        rechargeOrderService.cancel(id);
+        return Result.success(null);
     }
 }

@@ -1295,7 +1295,7 @@ export function MemberPage() {
         onClose={() => setBalanceLogOpen(false)}
         open={balanceLogOpen}
         title="余额流水"
-        width="640px"
+        width="760px"
         footer={
           <Button onClick={() => setBalanceLogOpen(false)} variant="secondary">
             关闭
@@ -1307,9 +1307,10 @@ export function MemberPage() {
             <thead className="bg-slate-50 dark:bg-zinc-900/60">
               <tr>
                 <th className="px-2 py-2 text-left">时间</th>
-                <th className="px-2 py-2 text-left">桶/类型</th>
-                <th className="px-2 py-2 text-right">变动额</th>
-                <th className="px-2 py-2 text-right">变动后</th>
+                <th className="px-2 py-2 text-left">类型</th>
+                <th className="px-2 py-2 text-right">本金</th>
+                <th className="px-2 py-2 text-right">赠送</th>
+                <th className="px-2 py-2 text-right">冻结</th>
                 <th className="px-2 py-2 text-left">操作人</th>
               </tr>
             </thead>
@@ -1317,20 +1318,28 @@ export function MemberPage() {
               {balanceLogs.map((l) => (
                 <tr key={l.id}>
                   <td className="px-2 py-2">{l.createTime}</td>
-                  <td className="px-2 py-2">
-                    {l.balanceType_text ?? l.balanceType}/{l.changeType_text ?? l.changeType}
-                  </td>
-                  <td
-                    className={cn(
-                      'px-2 py-2 text-right',
-                      (l.changeAmount ?? 0) >= 0
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-rose-600 dark:text-rose-400',
-                    )}
-                  >
-                    {l.changeAmount}
-                  </td>
-                  <td className="px-2 py-2 text-right">{l.afterAmount}</td>
+                  <td className="px-2 py-2">{l.changeType_text ?? l.changeType}</td>
+                  {[1, 2, 3].map((bucket) => (
+                    <td
+                      className={cn(
+                        'px-2 py-2 text-right',
+                        l.balanceType === bucket && (l.changeAmount ?? 0) >= 0
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-rose-600 dark:text-rose-400',
+                      )}
+                      key={bucket}
+                    >
+                      {l.balanceType === bucket ? (
+                        <>
+                          <div className="font-medium">
+                            {(l.changeAmount ?? 0) > 0 ? '+' : ''}
+                            {l.changeAmount}
+                          </div>
+                          <div className="text-[10px] font-normal text-zinc-400">余 {l.afterAmount}</div>
+                        </>
+                      ) : null}
+                    </td>
+                  ))}
                   <td className="px-2 py-2">{l.operatorName || '暂无'}</td>
                 </tr>
               ))}

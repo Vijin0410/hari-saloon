@@ -13,7 +13,7 @@ public class MemberBalanceVO {
 
     @Schema(description = "本金余额")
     private BigDecimal principalBalance;
-    @Schema(description = "赠送余额")
+    @Schema(description = "赠送余额（含冻结中；冻结仅占用标记，不挪桶）")
     private BigDecimal giftBalance;
     @Schema(description = "冻结金额")
     private BigDecimal frozenBalance;

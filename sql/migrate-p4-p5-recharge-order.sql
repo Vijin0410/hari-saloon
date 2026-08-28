@@ -250,7 +250,7 @@ WHERE d.tenant_id = 1 AND d.deleted = 0 AND d.code IN ('pay_method', 'order_stat
 INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
 SELECT d.id + 1000, d.type_code, d.name, d.value, d.sort, d.status, d.defaulted, d.remark, 2084880957290426370
 FROM sys_dict d
-WHERE d.tenant_id = 1 AND d.deleted = 0 AND d.type_code IN ('pay_method', 'order_status')
+WHERE d.tenant_id = 1 AND d.type_code IN ('pay_method', 'order_status')
   AND NOT EXISTS (SELECT 1 FROM sys_dict t WHERE t.type_code = d.type_code AND t.value = d.value AND t.tenant_id = 2084880957290426370);
 
 -- ===== 菜单/按钮/角色种子（与 data.sql 一致） =====
@@ -318,3 +318,28 @@ FROM (VALUES
   (7004::int8, '充1000送120', 1000.00, 120.00, 2)
 ) AS v(id, name, threshold_amount, gift_amount, sort)
 WHERE NOT EXISTS (SELECT 1 FROM salon_recharge_activity a WHERE a.id = v.id);
+
+-- ===== 2026-08-25 冻结口径修正（幂等，按流水重放） =====
+-- 历史充值冻结曾按「赠送桶扣减 + 冻结桶增加」挪桶记账：赠送余额被清零、可用余额双重扣减。
+-- 新口径：赠送桶保留原值，冻结桶仅作占用标记，可用 = 本金 + 赠送 - 冻结。
+-- 修正方式：按流水重放三桶（赠送桶上 change_type 8冻结/9解冻 的挪桶流水视为未发生），重跑收敛。
+UPDATE salon_member_balance b
+SET principal_balance = COALESCE(agg.principal_sum, 0),
+    gift_balance = COALESCE(agg.gift_sum, 0),
+    frozen_balance = COALESCE(agg.frozen_sum, 0)
+FROM (
+    SELECT member_id,
+           SUM(CASE WHEN balance_type = 1 THEN change_amount ELSE 0 END) AS principal_sum,
+           SUM(CASE WHEN balance_type = 2 AND change_type NOT IN (8, 9) THEN change_amount ELSE 0 END) AS gift_sum,
+           SUM(CASE WHEN balance_type = 3 THEN change_amount ELSE 0 END) AS frozen_sum
+    FROM salon_member_balance_log
+    WHERE deleted = 0
+    GROUP BY member_id
+) agg
+WHERE b.member_id = agg.member_id AND b.deleted = 0;
+
+-- 可用余额（本金+赠送-冻结）全量重算同步到 salon_member.balance
+UPDATE salon_member m
+SET balance = COALESCE(b.principal_balance, 0) + COALESCE(b.gift_balance, 0) - COALESCE(b.frozen_balance, 0)
+FROM salon_member_balance b
+WHERE b.member_id = m.id AND b.deleted = 0;

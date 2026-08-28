@@ -23,7 +23,7 @@ public class SalonMemberBalance extends BaseTenantEntity<Long> {
     private Long memberId;
     /** 本金余额 */
     private BigDecimal principalBalance;
-    /** 赠送余额 */
+    /** 赠送余额（含冻结中：冻结只加 frozenBalance 占用，不扣减本桶） */
     private BigDecimal giftBalance;
     /** 冻结金额（可用=本金+赠送-冻结） */
     private BigDecimal frozenBalance;

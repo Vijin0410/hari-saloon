@@ -24,13 +24,13 @@ public class RechargeGiftUnfreezeExecutor {
     private final SalonRechargeOrderMapper rechargeOrderMapper;
     private final MemberAssetService memberAssetService;
 
-    /** 余额桶：2赠送 3冻结；变动类型 9=解冻 */
-    private static final int BUCKET_GIFT = 2;
+    /** 余额桶：3冻结；变动类型 9=解冻 */
     private static final int BUCKET_FROZEN = 3;
     private static final int CT_UNFREEZE = 9;
 
     /**
-     * 单笔解冻：条件更新占坑（幂等，rows=0 表示已被处理），成功后冻结桶 -> 赠送桶两行流水，同一事务。
+     * 单笔解冻：条件更新占坑（幂等，rows=0 表示已被处理），成功后冻结桶扣减一行流水，同一事务。
+     * 赠送桶原值保留（冻结仅是占用标记），解冻即释放占用、可用余额随之恢复。
      *
      * @return 是否实际执行了解冻
      */
@@ -45,8 +45,6 @@ public class RechargeGiftUnfreezeExecutor {
         }
         BigDecimal gift = order.getGiftAmount();
         memberAssetService.changeBalance(order.getMemberId(), BUCKET_FROZEN, gift.negate(),
-                CT_UNFREEZE, "RECHARGE", order.getId(), order.getRechargeNo(), "活动赠送次月解冻");
-        memberAssetService.changeBalance(order.getMemberId(), BUCKET_GIFT, gift,
                 CT_UNFREEZE, "RECHARGE", order.getId(), order.getRechargeNo(), "活动赠送次月解冻");
         return true;
     }

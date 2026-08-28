@@ -393,17 +393,19 @@ public class OrderServiceImpl implements OrderService {
         return levelDiscount.compareTo(BigDecimal.ZERO) > 0 ? levelDiscount : BigDecimal.ONE;
     }
 
-    /** 余额支付：先扣赠送再扣本金（各桶独立流水，余额不足抛错） */
+    /** 余额支付：先扣赠送再扣本金（赠送桶含冻结占用，可用赠送=赠送-冻结；各桶独立流水，余额不足抛错） */
     private void payWithBalance(SalonMember member, Long orderId, String orderNo, BigDecimal amount) {
         SalonMemberBalance balance = balanceMapper.selectOne(
                 Wrappers.<SalonMemberBalance>lambdaQuery().eq(SalonMemberBalance::getMemberId, member.getId()));
         BigDecimal gift = balance == null || balance.getGiftBalance() == null ? BigDecimal.ZERO : balance.getGiftBalance();
         BigDecimal principal = balance == null || balance.getPrincipalBalance() == null ? BigDecimal.ZERO : balance.getPrincipalBalance();
-        BigDecimal available = gift.add(principal);
+        BigDecimal frozen = balance == null || balance.getFrozenBalance() == null ? BigDecimal.ZERO : balance.getFrozenBalance();
+        BigDecimal giftAvailable = gift.subtract(frozen).max(BigDecimal.ZERO);
+        BigDecimal available = giftAvailable.add(principal);
         if (available.compareTo(amount) < 0) {
             throw new BizException("会员可用余额不足");
         }
-        BigDecimal deductGift = gift.min(amount);
+        BigDecimal deductGift = giftAvailable.min(amount);
         if (deductGift.compareTo(BigDecimal.ZERO) > 0) {
             memberAssetService.changeBalance(member.getId(), BUCKET_GIFT, deductGift.negate(),
                     CT_CONSUME, "ORDER", orderId, orderNo, "会员余额支付（赠送）");

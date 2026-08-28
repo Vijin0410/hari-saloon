@@ -9,6 +9,8 @@ import type {
   RechargeOrderDetailVO,
   RechargeOrderPageQuery,
   RechargeOrderPageVO,
+  RechargePayStatusVO,
+  RechargePrepayVO,
   RechargePreviewVO,
 } from '@/features/recharge/model/rechargeTypes';
 import type { EntityId } from '@/features/system/model/systemTypes';
@@ -46,5 +48,17 @@ export const rechargeApi = {
   },
   create(payload: RechargeCreatePayload): Promise<EntityId> {
     return post<EntityId, RechargeCreatePayload>('/v1/recharges/add', payload);
+  },
+  /** 扫码预下单（直连模式 wxpay/alipay，返回 codeUrl 渲染二维码） */
+  scanPrepay(channel: 'wxpay' | 'alipay', payload: RechargeCreatePayload): Promise<RechargePrepayVO> {
+    return post<RechargePrepayVO, RechargeCreatePayload>(`/v1/recharges/${channel}/prepay`, payload);
+  },
+  /** 充值单支付状态（扫码轮询） */
+  payStatus(id: EntityId): Promise<RechargePayStatusVO> {
+    return get<RechargePayStatusVO>(`/v1/recharges/${id}/pay-status`);
+  },
+  /** 取消待支付充值单（扫码支付放弃时关闭单据） */
+  cancel(id: EntityId): Promise<void> {
+    return post<void, Record<string, never>>(`/v1/recharges/${id}/cancel`, {});
   },
 };

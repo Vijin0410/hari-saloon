@@ -54,6 +54,8 @@ export interface RechargeOrderPageVO {
   activityName?: string;
   payMethod: number;
   payMethodLabel?: string;
+  /** 支付状态（0=待支付 1=已支付 2=已取消） */
+  status?: number;
   storeName?: string;
   operatorName?: string;
   remark?: string;
@@ -73,6 +75,8 @@ export interface RechargeOrderPageQuery {
   keywords?: string;
   memberId?: EntityId;
   payMethod?: number;
+  /** 支付状态（0=待支付 1=已支付 2=已取消） */
+  status?: number;
   giftSource?: number;
   storeId?: EntityId;
   startTime?: string;
@@ -95,11 +99,33 @@ export interface RechargeCreatePayload {
   remark?: string;
 }
 
+/** 扫码预下单结果（直连模式：微信 code_url / 支付宝 qr_code，codeUrl 渲染二维码） */
+export interface RechargePrepayVO {
+  rechargeId: EntityId;
+  outTradeNo: string;
+  codeUrl: string;
+  amount: number;
+}
+
+/** 充值单支付状态（扫码轮询） */
+export interface RechargePayStatusVO {
+  rechargeId: EntityId;
+  status: number;
+  payTime?: string;
+}
+
 /** 赠送来源文案 */
 export const GIFT_SOURCE_LABEL: Record<number, string> = {
   1: '充值活动',
   2: '等级赠送',
   3: '无赠送',
+};
+
+/** 充值单支付状态（后端 salon_recharge_order.status）：label + Badge tone */
+export const RECHARGE_STATUS: Record<number, { label: string; tone: 'warning' | 'success' | 'neutral' }> = {
+  0: { label: '待支付', tone: 'warning' },
+  1: { label: '已支付', tone: 'success' },
+  2: { label: '已取消', tone: 'neutral' },
 };
 
 /** 充值可用支付方式（字典 pay_method：不允许余额/积分） */

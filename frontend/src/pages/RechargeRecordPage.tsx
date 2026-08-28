@@ -5,7 +5,7 @@ import type {
   RechargeOrderDetailVO,
   RechargeOrderPageVO,
 } from '@/features/recharge/model/rechargeTypes';
-import { GIFT_SOURCE_LABEL, RECHARGE_PAY_METHODS } from '@/features/recharge/model/rechargeTypes';
+import { GIFT_SOURCE_LABEL, RECHARGE_PAY_METHODS, RECHARGE_STATUS } from '@/features/recharge/model/rechargeTypes';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
@@ -23,6 +23,14 @@ const PAGE_SIZE = 10;
 
 function payMethodLabel(r: RechargeOrderPageVO): string {
   return r.payMethodLabel ?? RECHARGE_PAY_METHODS.find((m) => m.value === r.payMethod)?.label ?? '其他';
+}
+
+function rechargeStatusBadge(status?: number) {
+  const meta = status == null ? undefined : RECHARGE_STATUS[status];
+  if (!meta) {
+    return <Badge tone="success">已支付</Badge>;
+  }
+  return <Badge tone={meta.tone}>{meta.label}</Badge>;
 }
 
 function RechargeDetailDrawer({ id, onClose }: { id: string | null; onClose: () => void }) {
@@ -95,6 +103,10 @@ function RechargeDetailDrawer({ id, onClose }: { id: string | null; onClose: () 
                 <dt className="text-zinc-500">支付方式</dt>
                 <dd>{payMethodLabel(detail)}</dd>
               </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-zinc-500">支付状态</dt>
+                <dd>{rechargeStatusBadge(detail.status)}</dd>
+              </div>
               <div className="flex justify-between">
                 <dt className="text-zinc-500">充值门店</dt>
                 <dd>{detail.storeName ?? '暂无'}</dd>
@@ -126,6 +138,7 @@ export function RechargeRecordPage() {
   const [pageNum, setPageNum] = useState(1);
   const [keyword, setKeyword] = useState('');
   const [payMethod, setPayMethod] = useState('');
+  const [status, setStatus] = useState('');
   const debounced = useDebounce(keyword, 300);
   const [detailId, setDetailId] = useState<string | null>(null);
 
@@ -137,13 +150,14 @@ export function RechargeRecordPage() {
         pageSize: PAGE_SIZE,
         keywords: debounced || undefined,
         payMethod: payMethod ? Number(payMethod) : undefined,
+        status: status === '' ? undefined : Number(status),
       });
       setRows(data.list ?? []);
       setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [pageNum, debounced, payMethod]);
+  }, [pageNum, debounced, payMethod, status]);
 
   useEffect(() => {
     void load();
@@ -179,6 +193,7 @@ export function RechargeRecordPage() {
         ),
     },
     { title: '支付方式', render: (r) => payMethodLabel(r) },
+    { title: '状态', render: (r) => rechargeStatusBadge(r.status) },
     { title: '门店', render: (r) => r.storeName ?? '暂无' },
     { title: '操作人', render: (r) => r.operatorName ?? '暂无' },
     { title: '充值时间', render: (r) => r.createTime ?? '暂无' },
@@ -213,6 +228,14 @@ export function RechargeRecordPage() {
             {RECHARGE_PAY_METHODS.map((m) => (
               <option key={m.value} value={m.value}>
                 {m.label}
+              </option>
+            ))}
+          </Select>
+          <Select className="lg:w-32" onChange={(e) => setStatus(e.target.value)} value={status}>
+            <option value="">全部状态</option>
+            {Object.entries(RECHARGE_STATUS).map(([value, meta]) => (
+              <option key={value} value={value}>
+                {meta.label}
               </option>
             ))}
           </Select>

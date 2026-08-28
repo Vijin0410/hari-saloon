@@ -293,6 +293,15 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
     await loadPending();
   }
 
+  /** 取单回填：行是否可折从已加载的服务/商品里找回（与后端 buildItems 同源；找不到兜底 1） */
+  function discountableOf(itemType: number, itemId: string): number {
+    const opt =
+      itemType === 1
+        ? services.find((s) => String(s.id) === itemId)
+        : goodsList.find((g) => String(g.id) === itemId);
+    return opt?.discountable ?? 1;
+  }
+
   /** 取单：回填会员与明细 */
   async function loadOrder(id: string): Promise<void> {
     const detail = await orderApi.detail(id);
@@ -325,7 +334,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
         unitPrice: i.unitPrice,
         price: String(i.price),
         quantity: i.quantity,
-        discountable: 1,
+        discountable: discountableOf(i.itemType, String(i.itemId)),
         staffId: i.staffId != null ? String(i.staffId) : '',
         assistantId: i.assistantId != null ? String(i.assistantId) : '',
       })),

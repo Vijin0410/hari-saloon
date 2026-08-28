@@ -575,3 +575,86 @@ FROM (VALUES
   (7004::int8, '充1000送120', 1000.00, 120.00, 2)
 ) AS v(id, name, threshold_amount, gift_amount, sort)
 WHERE NOT EXISTS (SELECT 1 FROM salon_recharge_activity a WHERE a.id = v.id);
+
+-- ===== 支付渠道配置（二期直连前置） =====
+
+-- 字典：pay_channel 支付渠道（契约型，value 不得偏离通用）
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 9, '支付渠道', 'pay_channel', 1, '租户支付配置渠道', 'system', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'pay_channel' AND tenant_id = 1);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT v.id, 'pay_channel', v.name, v.value, v.sort, 1, 0, NULL, 1
+FROM (VALUES
+  (131::int8, '微信支付', 'wxpay',       1),
+  (132::int8, '支付宝',   'alipay',      2),
+  (133::int8, '收钱吧',   'shouqianba',  3),
+  (134::int8, '扫呗',     'saibe',       4),
+  (135::int8, '富掌柜',   'fuzhangui',   5),
+  (136::int8, '手动录入', 'manual',      6)
+) AS v(id, name, value, sort)
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'pay_channel' AND d.value = v.value AND d.tenant_id = 1);
+
+-- 字典：pay_settle_type 结算模式（契约型）
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 10, '支付结算模式', 'pay_settle_type', 1, '租户支付结算模式', 'system', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'pay_settle_type' AND tenant_id = 1);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT v.id, 'pay_settle_type', v.name, v.value, v.sort, 1, 0, NULL, 1
+FROM (VALUES
+  (141::int8, '商户直连',   'self_merchant',  1),
+  (142::int8, '聚合拉单',   'aggregate_pull', 2),
+  (143::int8, '手动录入',   'manual',         3)
+) AS v(id, name, value, sort)
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'pay_settle_type' AND d.value = v.value AND d.tenant_id = 1);
+
+-- 字典：pay_config_status 支付配置状态（契约型）
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 11, '支付配置状态', 'pay_config_status', 1, '租户支付配置验证状态', 'system', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE code = 'pay_config_status' AND tenant_id = 1);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT v.id, 'pay_config_status', v.name, v.value, v.sort, 1, 0, NULL, 1
+FROM (VALUES
+  (151::int8, '待验证',   'pending', 1),
+  (152::int8, '验证通过', 'active',  2),
+  (153::int8, '验证失败', 'invalid', 3)
+) AS v(id, name, value, sort)
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'pay_config_status' AND d.value = v.value AND d.tenant_id = 1);
+
+-- 字典租户副本（2084880957290426370，id = 租户1 + 1000）
+INSERT INTO sys_dict_type (id, name, code, status, remark, group_code, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT d.id + 1000, d.name, d.code, d.status, d.remark, d.group_code, 2084880957290426370, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM sys_dict_type d
+WHERE d.tenant_id = 1 AND d.deleted = 0 AND d.code IN ('pay_channel', 'pay_settle_type', 'pay_config_status')
+  AND NOT EXISTS (SELECT 1 FROM sys_dict_type t WHERE t.code = d.code AND t.tenant_id = 2084880957290426370);
+INSERT INTO sys_dict (id, type_code, name, value, sort, status, defaulted, remark, tenant_id)
+SELECT d.id + 1000, d.type_code, d.name, d.value, d.sort, d.status, d.defaulted, d.remark, 2084880957290426370
+FROM sys_dict d
+WHERE d.tenant_id = 1 AND d.deleted = 0 AND d.type_code IN ('pay_channel', 'pay_settle_type', 'pay_config_status')
+  AND NOT EXISTS (SELECT 1 FROM sys_dict t WHERE t.type_code = d.type_code AND t.value = d.value AND t.tenant_id = 2084880957290426370);
+
+-- 菜单：支付配置 170（挂业务配置 19）
+INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, v.parent_id, v.name, v.type, v.path, v.component, NULL, v.tree_path, v.meta, NULL, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (170::int8, 19::int8, 'payConfig', 1, 'pay-config', 'biz/pay-config/index', '0,19', '{"title":"支付配置","icon":"credit-card","rank":6,"showLink":true}')
+) AS v(id, parent_id, name, type, path, component, tree_path, meta)
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
+
+-- 按钮（type=4）：支付配置 biz:pay:config:*（资金敏感，店员不授权）
+INSERT INTO sys_menu (id, parent_id, name, type, path, component, redirect, tree_path, meta, perm, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, v.parent_id, v.name, 4, NULL, NULL, NULL, v.tree_path, v.meta, v.perm, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+FROM (VALUES
+  (194::int8, 170::int8, 'payConfigList',   '0,19,170', '{"title":"查看列表"}',   'biz:pay:config:list'),
+  (195::int8, 170::int8, 'payConfigView',   '0,19,170', '{"title":"查看详情"}',   'biz:pay:config:view'),
+  (196::int8, 170::int8, 'payConfigAdd',    '0,19,170', '{"title":"新增配置"}',   'biz:pay:config:add'),
+  (197::int8, 170::int8, 'payConfigEdit',   '0,19,170', '{"title":"编辑配置"}',   'biz:pay:config:edit'),
+  (198::int8, 170::int8, 'payConfigDelete', '0,19,170', '{"title":"删除配置"}',   'biz:pay:config:delete'),
+  (199::int8, 170::int8, 'payConfigVerify', '0,19,170', '{"title":"验参自检"}',   'biz:pay:config:verify')
+) AS v(id, parent_id, name, tree_path, meta, perm)
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
+
+-- 店长(role 2)：支付配置全按钮（渠道参数与资金相关，店员不授权）
+INSERT INTO sys_role_menu (role_id, menu_id, type)
+SELECT 2, m.id, 1 FROM sys_menu m
+WHERE m.id IN (19, 170, 194, 195, 196, 197, 198, 199)
+  AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 2 AND rm.menu_id = m.id AND rm.type = 1);

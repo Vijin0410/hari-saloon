@@ -879,6 +879,7 @@ CREATE TABLE IF NOT EXISTS salon_recharge_order (
     gift_frozen         int4          DEFAULT 0,
     unfrozen_time       timestamp,
     pay_method          int4          NOT NULL,
+    status              int4          NOT NULL DEFAULT 1,
     pay_time            timestamp,
     operator_id         int8,
     remark              varchar(255),
@@ -904,6 +905,7 @@ COMMENT ON COLUMN salon_recharge_order.gift_source IS '赠送来源（1=充值�
 COMMENT ON COLUMN salon_recharge_order.gift_frozen IS '赠送是否冻结至次月（1=活动赠送冻结，次月1日后解冻；0=不冻结）';
 COMMENT ON COLUMN salon_recharge_order.unfrozen_time IS '赠送解冻时间（NULL=未解冻或无需解冻）';
 COMMENT ON COLUMN salon_recharge_order.pay_method IS '支付方式（字典 pay_method：1现金 2微信 3支付宝 4银行卡 8其他）';
+COMMENT ON COLUMN salon_recharge_order.status IS '支付状态（0=待支付（渠道扫码中） 1=已支付 2=已取消（超时关闭或人工取消）；默认1兼容一期手动确认即入账）';
 COMMENT ON COLUMN salon_recharge_order.pay_time IS '支付确认时间';
 COMMENT ON COLUMN salon_recharge_order.operator_id IS '操作人ID';
 COMMENT ON COLUMN salon_recharge_order.remark IS '备注';
@@ -1035,4 +1037,111 @@ COMMENT ON COLUMN salon_order_payment.create_time IS '创建时间';
 COMMENT ON COLUMN salon_order_payment.update_by IS '更新人ID';
 COMMENT ON COLUMN salon_order_payment.update_time IS '更新时间';
 COMMENT ON COLUMN salon_order_payment.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- ===== 支付渠道配置（二期直连前置，见 docs/payment-design.md §7.1） =====
+
+-- 租户支付配置（一租户一渠道一条；敏感字段 SM4 加密存储，证书文件走 MinIO 私有桶）
+CREATE TABLE IF NOT EXISTS salon_tenant_pay_config (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    channel             varchar(16)   NOT NULL,
+    settle_type         varchar(16)   NOT NULL,
+    enabled             int4          DEFAULT 1,
+    app_id              varchar(64),
+    mch_id              varchar(32),
+    api_v3_key          varchar(512),
+    cert_serial_no      varchar(64),
+    private_key         text,
+    platform_public_key text,
+    sub_mch_id          varchar(64),
+    store_no            varchar(64),
+    auth_token          varchar(2048),
+    license_object_key  varchar(255),
+    cert_object_key     varchar(255),
+    pull_interval_sec   int4,
+    status              varchar(16)   NOT NULL DEFAULT 'pending',
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_tenant_pay_config_channel ON salon_tenant_pay_config (tenant_id, channel) WHERE deleted = 0;
+COMMENT ON TABLE salon_tenant_pay_config IS '租户支付配置（渠道参数；一租户一渠道一条，敏感字段SM4加密）';
+COMMENT ON COLUMN salon_tenant_pay_config.id IS '配置ID';
+COMMENT ON COLUMN salon_tenant_pay_config.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_tenant_pay_config.channel IS '支付渠道（字典 pay_channel：wxpay/alipay/shouqianba/saibe/fuzhanggui/manual）';
+COMMENT ON COLUMN salon_tenant_pay_config.settle_type IS '结算模式（字典 pay_settle_type：self_merchant直连/aggregate_pull聚合拉单/manual手动）';
+COMMENT ON COLUMN salon_tenant_pay_config.enabled IS '是否启用（1=启用 0=停用）';
+COMMENT ON COLUMN salon_tenant_pay_config.app_id IS '直连：AppID（微信公众号/小程序或支付宝应用）';
+COMMENT ON COLUMN salon_tenant_pay_config.mch_id IS '直连：商户号（微信mch_id/支付宝合作者身份ID）';
+COMMENT ON COLUMN salon_tenant_pay_config.api_v3_key IS '直连：微信APIv3密钥（SM4加密存储）';
+COMMENT ON COLUMN salon_tenant_pay_config.cert_serial_no IS '直连：商户证书序列号（微信）';
+COMMENT ON COLUMN salon_tenant_pay_config.private_key IS '直连：商户/应用私钥PEM全文（SM4加密存储）';
+COMMENT ON COLUMN salon_tenant_pay_config.platform_public_key IS '直连：平台公钥（支付宝公钥，SM4加密存储）';
+COMMENT ON COLUMN salon_tenant_pay_config.sub_mch_id IS '聚合：服务商商户号/子商户号';
+COMMENT ON COLUMN salon_tenant_pay_config.store_no IS '聚合：门店号/终端号';
+COMMENT ON COLUMN salon_tenant_pay_config.auth_token IS '聚合：开放平台授权token（SM4加密存储）';
+COMMENT ON COLUMN salon_tenant_pay_config.license_object_key IS '营业执照文件MinIO object_key（私有桶）';
+COMMENT ON COLUMN salon_tenant_pay_config.cert_object_key IS '证书/密钥文件MinIO object_key（私有桶，如微信apiclient_cert.p12）';
+COMMENT ON COLUMN salon_tenant_pay_config.pull_interval_sec IS '聚合拉单间隔（秒，如120）';
+COMMENT ON COLUMN salon_tenant_pay_config.status IS '配置状态（字典 pay_config_status：pending待验证/active验证通过/invalid验证失败）';
+COMMENT ON COLUMN salon_tenant_pay_config.remark IS '备注';
+COMMENT ON COLUMN salon_tenant_pay_config.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_tenant_pay_config.create_time IS '创建时间';
+COMMENT ON COLUMN salon_tenant_pay_config.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_tenant_pay_config.update_time IS '更新时间';
+COMMENT ON COLUMN salon_tenant_pay_config.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 支付流水（渠道直连下单即落 pending，回调/查单确认 paid；P8 对账依据，见 docs/payment-design.md §7.2）
+CREATE TABLE IF NOT EXISTS salon_pay_record (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    biz_type            int4          NOT NULL,
+    biz_id              int8          NOT NULL,
+    order_id            int8,
+    refund_id           int8,
+    channel             varchar(16)   NOT NULL,
+    settle_type         varchar(16)   NOT NULL,
+    out_trade_no        varchar(32)   NOT NULL,
+    transaction_id      varchar(64),
+    amount              numeric(12, 2) NOT NULL,
+    status              varchar(16)   NOT NULL DEFAULT 'pending',
+    source              varchar(24),
+    paid_at             timestamp,
+    raw_payload         text,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_pay_record_out_trade_no ON salon_pay_record (tenant_id, out_trade_no) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_pay_record_biz ON salon_pay_record (tenant_id, biz_type, biz_id) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_pay_record_pending ON salon_pay_record (tenant_id, status, create_time) WHERE deleted = 0 AND status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_salon_pay_record_transaction ON salon_pay_record (transaction_id) WHERE deleted = 0 AND transaction_id IS NOT NULL;
+COMMENT ON TABLE salon_pay_record IS '支付流水（渠道下单即落pending，回调/查单确认；P8对账依据）';
+COMMENT ON COLUMN salon_pay_record.id IS '支付流水ID';
+COMMENT ON COLUMN salon_pay_record.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_pay_record.biz_type IS '业务类型（1=充值订单 2=收银订单，预留）';
+COMMENT ON COLUMN salon_pay_record.biz_id IS '业务单据ID（biz_type 对应表主键）';
+COMMENT ON COLUMN salon_pay_record.order_id IS '关联收银订单ID（收银场景）';
+COMMENT ON COLUMN salon_pay_record.refund_id IS '关联退款单ID（退款时，预留 P6）';
+COMMENT ON COLUMN salon_pay_record.channel IS '支付渠道（字典 pay_channel：wxpay 等）';
+COMMENT ON COLUMN salon_pay_record.settle_type IS '结算模式（字典 pay_settle_type：self_merchant 直连）';
+COMMENT ON COLUMN salon_pay_record.out_trade_no IS '系统内部交易单号（租户内唯一，下单传渠道；回调反查键）';
+COMMENT ON COLUMN salon_pay_record.transaction_id IS '渠道交易单号（微信 transaction_id；回调/查单回填）';
+COMMENT ON COLUMN salon_pay_record.amount IS '支付金额（下单金额，元）';
+COMMENT ON COLUMN salon_pay_record.status IS '流水状态（pending=已下单待支付 paid=已支付 refunded=已退款 failed=失败/超时关闭）';
+COMMENT ON COLUMN salon_pay_record.source IS '确认来源（realtime_callback=实时回调 query_compensate=查单补偿 aggregate_pull=聚合拉单 manual_input=手动录入）';
+COMMENT ON COLUMN salon_pay_record.paid_at IS '支付完成时间（渠道口径）';
+COMMENT ON COLUMN salon_pay_record.raw_payload IS '回调/查单原始报文（JSON 留痕，可审计）';
+COMMENT ON COLUMN salon_pay_record.remark IS '备注';
+COMMENT ON COLUMN salon_pay_record.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_pay_record.create_time IS '创建时间';
+COMMENT ON COLUMN salon_pay_record.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_pay_record.update_time IS '更新时间';
+COMMENT ON COLUMN salon_pay_record.deleted IS '逻辑删除（0=未删除 1=已删除）';
 

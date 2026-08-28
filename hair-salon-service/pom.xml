@@ -19,5 +19,17 @@
             <groupId>com.wangjin.salon</groupId>
             <artifactId>hair-salon-system</artifactId>
         </dependency>
+        <!-- 微信支付 V3 官方 SDK（Apache-2.0；core 传递依赖 wechatpay-java-core，见 docs/payment-design.md §9） -->
+        <dependency>
+            <groupId>com.github.wechatpay-apiv3</groupId>
+            <artifactId>wechatpay-java</artifactId>
+            <version>0.2.17</version>
+        </dependency>
+        <!-- 支付宝开放平台官方 SDK（当面付 alipay.trade.precreate/query；Apache-2.0） -->
+        <dependency>
+            <groupId>com.alipay.sdk</groupId>
+            <artifactId>alipay-sdk-java</artifactId>
+            <version>4.40.202.ALL</version>
+        </dependency>
     </dependencies>
 </project>

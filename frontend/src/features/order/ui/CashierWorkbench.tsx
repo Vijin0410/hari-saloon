@@ -5,7 +5,7 @@ import { memberApi, memberLevelApi } from '@/shared/api/modules/memberApi';
 import { storeApi, userApi } from '@/shared/api/modules/systemApi';
 import { serviceItemApi, serviceCategoryApi } from '@/shared/api/modules/serviceApi';
 import { goodsApi, goodsCategoryApi } from '@/shared/api/modules/goodsApi';
-import type { OrderPageVO, OrderPayPayload, OrderSavePayload } from '@/features/order/model/orderTypes';
+import type { OrderPageVO, OrderPayPayload, OrderPrepayVO, OrderSavePayload } from '@/features/order/model/orderTypes';
 import type { MemberPageVO } from '@/features/member/model/memberTypes';
 import type { MemberLevelOption } from '@/features/member/model/memberTypes';
 import type { ServiceItemOption } from '@/features/service/model/serviceTypes';
@@ -286,6 +286,28 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       const id = await orderApi.save(buildPayload());
       await orderApi.pay(id, payload);
     }
+    setCart([]);
+    setMember(null);
+    setEditingOrderId(null);
+    onOrderChanged();
+    await loadPending();
+  }
+
+  /** 扫码收款前置：落单（改挂单/新开单）+ 预下单出码，结算由回调驱动 */
+  async function handlePrepay(payload: OrderPayPayload): Promise<OrderPrepayVO> {
+    if (!storeId || cart.length === 0) {
+      throw new Error('未选择商品');
+    }
+    if (editingOrderId) {
+      await orderApi.update(editingOrderId, buildPayload());
+      return orderApi.prepay(editingOrderId, payload);
+    }
+    const id = await orderApi.save(buildPayload());
+    return orderApi.prepay(id, payload);
+  }
+
+  /** 扫码支付确认后清理（轮询回调） */
+  async function handleScanPaid(): Promise<void> {
     setCart([]);
     setMember(null);
     setEditingOrderId(null);
@@ -699,6 +721,8 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
         member={member}
         onClose={() => setPayOpen(false)}
         onConfirm={handlePay}
+        onPrepay={handlePrepay}
+        onPaid={handleScanPaid}
         open={payOpen}
         payable={totals.payable}
       />

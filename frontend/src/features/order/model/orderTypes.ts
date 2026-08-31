@@ -95,6 +95,21 @@ export interface OrderPayPayload {
   payments: OrderPaymentPayload[];
 }
 
+/** 订单扫码预下单结果（收银台渲染二维码 + 轮询订单状态） */
+export interface OrderPrepayVO {
+  orderId: EntityId;
+  outTradeNo: string;
+  codeUrl: string;
+  amount: number;
+}
+
+/** 订单支付状态（扫码轮询） */
+export interface OrderPayStatusVO {
+  orderId: EntityId;
+  status: OrderStatus;
+  paidTime?: string;
+}
+
 /** 订单状态文案（后端字典 order_status 翻译兜底） */
 export const ORDER_STATUS_LABEL: Record<number, string> = {
   0: '挂单',

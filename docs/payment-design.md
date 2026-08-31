@@ -1,7 +1,7 @@
 # 支付集成设计方案
 
 > 基于 `docs/hair-salon-saas-requirements.md`（第 13/14/19 章）与 `docs/hair-salon-implementation-plan.md` P5/P8。
-> 最后更新: 2026-08-04
+> 最后更新: 2026-08-28（阶段 5 P6 退款落地）
 
 ## 1. 设计目标与约束
 
@@ -210,7 +210,12 @@ switch (cfg.getSettleType()) {
 | `settle_type` | 结算模式 |
 | `out_trade_no` | 系统单号（直连模式有，聚合/手动可空） |
 | `transaction_id` | 渠道交易单号 |
-| `amount` | 金额 |
+| `amount` | 订单金额（商家应收，元；渠道下单金额，**入账与回调校验锚点**） |
+| `payer_amount` | 用户实付金额（微信 `payer_total` / 支付宝 `buyer_pay_amount`；平台补贴优惠时小于订单金额，**仅留痕解释不参与入账**） |
+| `fee_amount` | 渠道手续费（直连回调无此字段由对账单回填；服务商回调可带） |
+| `merchant_amount` | 商家实收金额（=订单金额-商家侧优惠-手续费；老板到手口径，报表取此值；**禁止按下单金额×费率自行计算**） |
+| `settle_date` | 结算到账日期（服务商 D+1 等；直连对账回填） |
+| `fee_source` | 手续费来源（`callback`=回调实时获取 / `bill`=对账单回填；回填只补 NULL 不碰人工调整） |
 | `status` | `pending` / `paid` / `refunded` / `failed` |
 | `source` | `realtime_callback` / `query_compensate` / `aggregate_pull` / `manual_input` |
 | `paid_at` | 支付完成时间 |
@@ -258,21 +263,65 @@ switch (cfg.getSettleType()) {
 
 ---
 
-## 9. 落地阶段建议
+## 9. 落地阶段与任务规划（2026-08-28 整合版，等待执行）
 
-1. **P5 收银一期**：先做 `manual`（手动录入）+ 会员余额/卡项支付，跑通订单状态机与金额计算；`ManualPay` 占位。
-2. **加密组件前置**：引入 AES/SM4 加密组件（与 form-sensitive-mask 对齐），渠道参数才能安全入库。
-3. **直连渠道（self_merchant）**：先做微信 Native（PC 扫码）一家，跑通"下单-回调-查单-退款"全链路，再扩支付宝、JSAPI。
-4. **聚合拉单（aggregate_pull）**：先对接一家（建议收钱吧，开放平台 API 相对完善），实现 `pullTransactions` + 匹配引擎 + 收银台待确认交互。
-5. **对账（P8 联动）**：聚合拉单的对账差异报表纳入 P8 日结/财务导出。
-6. **每加一家聚合服务商**：仅新增 `PayAggregator` 实现 + 字典项，不动核心流程。
+**已落地**：一期 manual 手动确认（P5 收银一期）-> 加密组件 + 租户支付配置（salon_tenant_pay_config + SM4 + 在线验参）-> 微信 Native 直连（充值）-> 支付宝当面付直连（充值）-> 流水手续费/实收字段（sql/migrate-pay-fee-fields.sql，含 biz_form 快照列）-> 订单收银台扫码（阶段 4，2026-08-28）-> **P6 订单退款（阶段 5，2026-08-28）**。
+
+以下待办按依赖与优先级排序，顺序可按业务需要调整：
+
+### 阶段 4：订单收银台扫码（✅ 2026-08-28 落地）
+
+- 接口：POST /orders/{id}/prepay（表单快照存流水 biz_form 列）+ /{id}/prepay-cancel + /{id}/pay-status（perm 均 biz:order:pay，零新菜单）。组合支付支持：扫码行金额出码，余额/积分/现金部分确认时一并结算。
+- 确认链路：OrderPayConfirmExecutor（订单占坑 0->1 + OrderService.settle 反序列化快照重放，与手动结算同口径）；PayConfirmDispatcher 按 bizType 分发充值/订单（回调/查单补偿统一入口）。
+- 金额口径修正（一并落地）：ChannelQueryResult 拆 totalFen（校验锚点）/payerTotalFen（记录）；微信回调/查单校验从 payer_total 改 total（修立减金误拒隐患）；payer_amount 回调/查单落库。
+- 出码前校验：calcPay（与结算同口径）+ 库存预检；重复出码关旧流水；out_trade_no = 订单号-P序号；挂单修改与扫码挂起互斥；取消挂单同步关流水。前端 OrderPayDialog 扫码视图（QrCode + 3 秒轮询 + 取消回表单）。
+
+### 阶段 5：P6 退款（✅ 2026-08-28 落地）
+
+- **数据模型**：新表 `salon_refund_order`（退款单头：退款总额/积分退回/余额退回/原因/状态 0处理中 1成功 2失败）+ `salon_refund_payment`（分摊明细，含渠道侧字段：退款手续费 fee_amount（P8 回填）/手续费是否返还 fee_returned（直连退款手续费不返还属常态，商家承担，默认 0）/渠道退款单号/退款处理状态）。**退款单是整体生效/失败的事务边界**。
+- **渠道 SPI**：`PayChannel.refund()`（支付宝 `alipay.trade.refund` 同步 / 微信 V3 `refunds`，out_refund_no=退款单号幂等）+ `queryRefundStatus()`（微信查单兜底 default 方法，同步渠道不覆写）；微信退款回调 `POST /pay/notify/wxpay-refund/{tenantId}`（复用 ignore-urls notify/** 通配，零 yml 改动）；`RefundQueryCompensateService` 并入 PayQueryCompensateJob（同 cron 扫 processing 渠道退款行）。
+- **分摊策略（服务端贪心，先系统内后外部）**：余额 -> 现金 -> 银行卡 -> 其他 -> 微信 -> 支付宝；外部渠道行绑定原支付流水（paid pay_record）原路退回，手动记账无流水的微信/支付宝行按线下退款记系统内；容量=原支付行金额-该方式累计已退（处理中+成功均占用，防超退）。
+- **积分退回**：退款后资金全额退光（订单置已退款）时一并退回积分抵扣（changeType 新增 9=退款退回，写新批次）；部分退款不动积分。
+- **余额退回先本后赠**（与扣款先赠后本对称）：先退本金（可提现的自己的钱），超本金额度部分退赠送；桶级流水 changeType=4 退款退回、bizType=REFUND。
+- **订单状态 2/3 落地**：累计退款（成功退款单汇总）达 received 置 3 已退款，否则 2 部分退款；渠道支付流水全额退光置 refunded + refund_id（精确分摊看 salon_refund_payment.pay_record_id）。
+- **确认链路**：`OrderRefundConfirmExecutor`（独立 bean 事务，退款单 0->1 占坑幂等）：积分/余额退回 + 订单状态流转 + 流水 refunded 同事务；渠道退款失败置 2（系统内未生效，可重新发起）。
+- **接口**：POST /orders/{id}/refund + GET /{id}/refunds（perm biz:order:refund，新按钮 id 200 挂 166，店长授权店员不给）；订单分页/详情透出 refundedAmount + 退款记录。存量库跑 `sql/migrate-p6-refund.sql`。
+- **刻意不做（一期）**：服务/商品按行退款（行级分摊复杂度高，后续迭代）；充值订单退款（赠送追回逻辑独立）；退款审批流（需求 14.5，一期用 perm 控制授权面，P10 配置化再谈）；提成扣回（需求 18.4，依赖 P9 提成模块）；并发极端场景下（绕过防重提交）同订单双退款单可能超退，靠对账兜底。
+
+### 阶段 6：服务商聚合通道（收钱吧 / 富掌柜，客户低费率诉求）
+
+- `PayChannel` SPI 加实现：**系统出码、回调入账**（通道模式），回调自带 `fee` / `merchant_amount` 直接落库（`fee_source=callback`）。
+- 与 §4「聚合拉单」（商家自有码、系统事后匹配）是两种接法：按客户费率诉求先走通道模式，拉单模式待客户有自有码习惯再启用。
+- 拍板项：首家选收钱吧还是富掌柜（见 §10）。
+
+### 阶段 7：P8 对账（三层漏斗闭环，依赖前序流水积累）
+
+数据层设计（详见对话拍板，2026-08-28）：
+
+- **三道校验不变式**：① 单笔恒等式（`merchant_amount` ≈ `amount` - 商家侧优惠 - `fee_amount`）；② 单据匹配（账单按 `out_trade_no`/`transaction_id` 唯一命中、金额一致）；③ 日级合计（账单汇总行 vs 我方流水合计，防系统性错误）。
+- **账单获取**：每日定时任务申请下载（支付宝 `alipay.data.dataservice.bill.downloadurl.query` 出 zip；微信 V3 `/v3/bill/tradebill` + 资金账单出 gzip CSV）→ 下载解压 → 原始文件 MinIO 留档（**biz=pay-bill**：`tenant-path=true` objectKey 已含租户前缀 + `sys_file` 行级 tenant_id 隔离 + 归属校验三重保障，biz 不带租户 ID）。
+- **BillParser SPI**：微信/支付宝各自解析（列名不同、**支付宝 CSV 为 GBK 编码、微信 UTF-8**，汇总行做日级合计校验），归一统一 BillRecord，核对引擎一份代码。
+- **回填幂等防覆盖**：`bill` 只填 NULL 字段、不碰人工调整值（`fee_source` 区分层次）。
+- **新表**：对账批次表（日期×渠道：账单拉取状态 / 两侧总笔数总金额 / 差异数 / 批次状态——**服务商故障标记的载体**，拉取失败自动重试、连续 3 天失败升级告警）+ 差异表（处理人 / 原因 / 调整前后值）。
+- `salon_pay_record` 加 `recon_status`（`unreconciled` / `reconciled` / `exception` / `adjusted`）；**未对账 24h 内是正常态不告警**，超 48h 告警、超 7 天强制进老板报表「待处理」。
+- **手动补录三原则**：只补缺不改渠道值（原值与 `raw_payload` 永久保留）/ 独立权限 `biz:recon:*`（财务或 ROOT，店长不给）/ 原因必填+操作留痕。
+- 前端差异处理工作台（一个列表页，复用现有组件）；刻意不做：实时手续费预估、差异自动修正、外部 IM 告警（单店日单量人工处理足够）。
+
+### 阶段 8：C 端 JSAPI（远期）
+
+- uni-app 一套代码 → 微信小程序 + H5；挂单 `status=0` 即待支付态，复用同一回调记账链路。
+- 前提：小程序 appid 与商户号绑定 + 会员绑 openid。
+
+### 纪律项（非代码，对账体系成立的前提）
+
+- **渠道侧（支付宝/微信商家后台）不配商家券**：优惠统一走系统内（储值赠送/积分/优惠券），渠道侧每多一种优惠，对账恒等式多一个变量、差异队列多一类噪音。
 
 ---
 
 ## 10. 待确认问题
 
-- [ ] 直连渠道一期先做微信还是支付宝？是否需要小程序 JSAPI（依赖小程序端进度，P11/暂缓）？
-- [ ] 聚合支付首家对接选收钱吧 / 扫呗 / 富掌柜？（取决于目标商户现有用码习惯）
+- [x] 直连渠道一期先做微信还是支付宝？→ 已落地：微信商户号暂无法获取，**支付宝当面付先行**（充值场景，沙箱已联调）；JSAPI 依赖小程序端进度（阶段 8）。
+- [ ] 聚合支付首家对接选收钱吧 / 扫呗 / 富掌柜？（取决于目标商户现有用码习惯与费率谈判）
 - [ ] 聚合拉单匹配"金额+时间"窗口设多少？撞单时强制人工确认还是允许置信度自动确认？
 - [ ] 手动录入金额与应收不符时，强提示还是允许提交（需备注）？
 - [ ] 退款对聚合拉单模式：聚合固定码无系统下单，退款是否仅做系统内账务退回（不调渠道）？需与商户退款流程对齐。

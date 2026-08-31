@@ -1,7 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { orderApi } from '@/shared/api/modules/orderApi';
 import type { OrderDetailVO } from '@/features/order/model/orderTypes';
-import { ORDER_STATUS_LABEL } from '@/features/order/model/orderTypes';
+import {
+  ORDER_STATUS_LABEL,
+  REFUND_CHANNEL_STATUS_LABEL,
+  REFUND_STATUS_LABEL,
+} from '@/features/order/model/orderTypes';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
@@ -9,11 +13,24 @@ import { Drawer } from '@/shared/ui/Drawer';
 import { PageLoading } from '@/shared/ui/PageLoading';
 import { StatCard } from '@/shared/ui/StatCard';
 import { formatCurrency } from '@/shared/lib/format';
+import { OrderRefundDialog } from './OrderRefundDialog';
 
 function statusBadge(status: number): ReactNode {
   const label = ORDER_STATUS_LABEL[status] ?? '未知';
   const tone =
-    status === 1 ? 'success' : status === 0 ? 'info' : status === 4 ? 'neutral' : 'warning';
+    status === 1
+      ? 'success'
+      : status === 0
+        ? 'info'
+        : status === 4
+          ? 'neutral'
+          : 'warning';
+  return <Badge tone={tone}>{label}</Badge>;
+}
+
+function refundStatusBadge(status: number): ReactNode {
+  const label = REFUND_STATUS_LABEL[status] ?? '未知';
+  const tone = status === 1 ? 'success' : status === 2 ? 'danger' : 'warning';
   return <Badge tone={tone}>{label}</Badge>;
 }
 
@@ -21,20 +38,32 @@ function payMethodText(m: { payMethod: number; payMethodLabel?: string }): strin
   return m.payMethodLabel ?? `方式${m.payMethod}`;
 }
 
-/** 订单详情抽屉：汇总金额 + 明细 + 支付方式 */
+/** 订单详情抽屉：汇总金额 + 明细 + 支付方式 + 退款记录；已支付可退款（biz:order:refund） */
 export function OrderDetailDrawer({
   id,
   onClose,
   onCancel,
+  onRefund,
   canCancel,
+  canRefund,
 }: {
   id: string | null;
   onClose: () => void;
   onCancel?: (id: string) => void;
+  onRefund?: () => void;
   canCancel?: boolean;
+  canRefund?: boolean;
 }) {
   const [detail, setDetail] = useState<OrderDetailVO | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
+
+  const load = (orderId: string): void => {
+    orderApi
+      .detail(orderId)
+      .then(setDetail)
+      .catch(() => setDetail(null));
+  };
 
   useEffect(() => {
     if (!id) {
@@ -65,17 +94,29 @@ export function OrderDetailDrawer({
     };
   }, [id]);
 
+  const refundable =
+    detail && (detail.status === 1 || detail.status === 2)
+      ? Math.max(0, detail.receivedAmount - (detail.refundedAmount ?? 0))
+      : 0;
+
   return (
     <Drawer
       footer={
-        canCancel && detail && detail.status === 0 && onCancel ? (
-          <Button
-            onClick={() => onCancel(String(detail.id))}
-            variant="secondary"
-          >
-            取消挂单
-          </Button>
-        ) : undefined
+        <>
+          {detail && (detail.status === 1 || detail.status === 2) && canRefund && refundable > 0 ? (
+            <Button onClick={() => setRefundOpen(true)} variant="secondary">
+              退款
+            </Button>
+          ) : null}
+          {canCancel && detail && detail.status === 0 && onCancel ? (
+            <Button
+              onClick={() => onCancel(String(detail.id))}
+              variant="secondary"
+            >
+              取消挂单
+            </Button>
+          ) : null}
+        </>
       }
       onClose={onClose}
       open={id !== null}
@@ -117,6 +158,17 @@ export function OrderDetailDrawer({
                   {detail.changeAmount > 0 ? formatCurrency(detail.changeAmount) : '暂无'}
                 </div>
               </div>
+              {(detail.refundedAmount ?? 0) > 0 ? (
+                <div className="rounded-md bg-amber-50 p-3 dark:bg-amber-950/40">
+                  <div className="text-xs text-amber-600 dark:text-amber-400">已退款</div>
+                  <div className="mt-1 text-lg font-semibold text-amber-700 dark:text-amber-300">
+                    {formatCurrency(detail.refundedAmount ?? 0)}
+                    <span className="ml-1 text-xs font-normal text-zinc-500">
+                      （可退 {formatCurrency(refundable)}）
+                    </span>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </Card>
           <Card title={`消费明细（${detail.items?.length ?? 0} 项）`}>
@@ -157,6 +209,55 @@ export function OrderDetailDrawer({
               {detail.payments?.length ? null : <div className="text-zinc-400">暂无支付记录</div>}
             </div>
           </Card>
+          <Card title={`退款记录（${detail.refunds?.length ?? 0} 笔）`}>
+            <div className="space-y-3">
+              {(detail.refunds ?? []).map((r) => (
+                <div
+                  className="rounded-md border border-salon-line p-3 text-sm dark:border-zinc-800"
+                  key={String(r.id)}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{formatCurrency(r.refundAmount)}</span>
+                    {refundStatusBadge(r.status)}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">
+                    {r.refundNo}
+                    {r.createTime ? ` · ${r.createTime}` : ''}
+                  </div>
+                  <div className="mt-1 text-xs text-zinc-500">原因：{r.reason ?? '暂无'}</div>
+                  {(r.pointRefundPoints ?? 0) > 0 || (r.balanceRefundAmount ?? 0) > 0 ? (
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-zinc-500">
+                      {(r.balanceRefundAmount ?? 0) > 0 ? (
+                        <span>退回余额 {formatCurrency(r.balanceRefundAmount ?? 0)}（先本金后赠送）</span>
+                      ) : null}
+                      {(r.pointRefundPoints ?? 0) > 0 ? (
+                        <span>退回积分 {r.pointRefundPoints} 分</span>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {r.payments?.length ? (
+                    <div className="mt-2 space-y-1 border-t border-salon-line pt-2 text-xs dark:border-zinc-800">
+                      {r.payments.map((p) => (
+                        <div className="flex justify-between" key={String(p.id)}>
+                          <span className="text-zinc-500">
+                            {payMethodText(p)}
+                            {p.channel ? `（${p.channel === 'wxpay' ? '微信原路' : '支付宝原路'}）` : ''}
+                          </span>
+                          <span className="flex items-center gap-2">
+                            <span>{formatCurrency(p.amount)}</span>
+                            <Badge tone={p.channelStatus === 'success' ? 'success' : p.channelStatus === 'failed' ? 'danger' : 'warning'}>
+                              {REFUND_CHANNEL_STATUS_LABEL[p.channelStatus] ?? p.channelStatus}
+                            </Badge>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+              {detail.refunds?.length ? null : <div className="text-zinc-400">暂无退款记录</div>}
+            </div>
+          </Card>
           <Card title="基础信息">
             <dl className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -187,6 +288,18 @@ export function OrderDetailDrawer({
           </Card>
         </div>
       ) : null}
+
+      <OrderRefundDialog
+        onClose={() => setRefundOpen(false)}
+        onRefunded={() => {
+          if (id) {
+            load(id);
+          }
+          onRefund?.();
+        }}
+        open={refundOpen}
+        order={refundable > 0 ? detail : null}
+      />
     </Drawer>
   );
 }

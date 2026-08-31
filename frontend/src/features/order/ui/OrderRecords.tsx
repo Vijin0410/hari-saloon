@@ -15,16 +15,32 @@ import { useDebounce } from '@/shared/hooks/useDebounce';
 import { formatCurrency } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
 import { OrderDetailDrawer } from './OrderDetailDrawer';
+import { OrderRefundDialog } from './OrderRefundDialog';
 
 const PAGE_SIZE = 10;
 
 function statusBadge(status: number): ReactNode {
   const label = ORDER_STATUS_LABEL[status] ?? '未知';
-  const tone = status === 1 ? 'success' : status === 0 ? 'info' : status === 4 ? 'neutral' : 'warning';
+  const tone =
+    status === 1
+      ? 'success'
+      : status === 0
+        ? 'info'
+        : status === 4
+          ? 'neutral'
+          : 'warning';
   return <Badge tone={tone}>{label}</Badge>;
 }
 
-/** 订单记录列表：挂单可取消（biz:order:cancel），详情抽屉含明细与支付 */
+/** 可发起退款：已支付/部分退款且尚有可退金额 */
+function refundableOf(r: OrderPageVO): number {
+  if (r.status !== 1 && r.status !== 2) {
+    return 0;
+  }
+  return Math.max(0, r.receivedAmount - (r.refundedAmount ?? 0));
+}
+
+/** 订单记录列表：挂单可取消（biz:order:cancel），已支付可退款（biz:order:refund） */
 export function OrderRecords({ refreshKey }: { refreshKey: number }) {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const [rows, setRows] = useState<OrderPageVO[]>([]);
@@ -36,6 +52,7 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
   const debounced = useDebounce(keyword, 300);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [refundRow, setRefundRow] = useState<OrderPageVO | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -100,6 +117,11 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
               取消
             </Button>
           ) : null}
+          {hasPermission('biz:order:refund') && refundableOf(r) > 0 ? (
+            <Button onClick={() => setRefundRow(r)} size="sm" variant="secondary">
+              退款
+            </Button>
+          ) : null}
         </div>
       ),
     },
@@ -128,6 +150,8 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
             <option value="">全部状态</option>
             <option value={0}>挂单</option>
             <option value={1}>已支付</option>
+            <option value={2}>部分退款</option>
+            <option value={3}>已退款</option>
             <option value={4}>已取消</option>
           </Select>
           <Button className="lg:w-24" icon={<Search className="size-4" />} onClick={load} variant="secondary">
@@ -148,9 +172,20 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
 
       <OrderDetailDrawer
         canCancel={hasPermission('biz:order:cancel')}
+        canRefund={hasPermission('biz:order:refund')}
         id={detailId}
         onClose={() => setDetailId(null)}
         onCancel={(id) => setCancelId(id)}
+        onRefund={load}
+      />
+
+      <OrderRefundDialog
+        onClose={() => setRefundRow(null)}
+        onRefunded={() => {
+          void load();
+        }}
+        open={refundRow !== null}
+        order={refundRow}
       />
 
       <ConfirmDialog

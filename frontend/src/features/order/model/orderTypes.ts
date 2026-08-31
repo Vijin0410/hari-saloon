@@ -14,6 +14,8 @@ export interface OrderPageVO {
   payableAmount: number;
   pointDeductAmount: number;
   receivedAmount: number;
+  /** 累计已退款金额（成功退款单汇总；可退=实收-已退） */
+  refundedAmount: number;
   changeAmount: number;
   status: OrderStatus;
   statusLabel?: string;
@@ -52,6 +54,8 @@ export interface OrderDetailVO extends OrderPageVO {
   pointDeductPoints?: number;
   items: OrderItemVO[];
   payments: OrderPaymentVO[];
+  /** 退款记录（时间倒序，含分摊明细） */
+  refunds?: OrderRefundVO[];
 }
 
 export interface OrderPageQuery {
@@ -102,6 +106,62 @@ export interface OrderPrepayVO {
   codeUrl: string;
   amount: number;
 }
+
+/** 退款分摊明细行 */
+export interface OrderRefundPaymentVO {
+  id: EntityId;
+  payMethod: number;
+  payMethodLabel?: string;
+  amount: number;
+  /** 退款渠道（wxpay/alipay 原路退回；空=系统内退回/线下退款） */
+  channel?: string;
+  channelRefundNo?: string;
+  /** 退款处理状态（processing/success/failed） */
+  channelStatus: string;
+  feeAmount?: number;
+  feeReturned?: number;
+  remark?: string;
+}
+
+/** 退款记录 */
+export interface OrderRefundVO {
+  id: EntityId;
+  refundNo: string;
+  orderId: EntityId;
+  orderNo?: string;
+  refundAmount: number;
+  pointRefundPoints?: number;
+  pointRefundAmount?: number;
+  balanceRefundAmount?: number;
+  reason?: string;
+  /** 退款单状态（0=处理中 1=成功 2=失败） */
+  status: number;
+  successTime?: string;
+  remark?: string;
+  createBy?: EntityId;
+  createTime?: string;
+  payments: OrderRefundPaymentVO[];
+}
+
+/** 退款发起表单 */
+export interface OrderRefundPayload {
+  refundAmount: number;
+  reason: string;
+}
+
+/** 退款单状态文案（后端 salon_refund_order.status） */
+export const REFUND_STATUS_LABEL: Record<number, string> = {
+  0: '处理中',
+  1: '已退款',
+  2: '退款失败',
+};
+
+/** 退款分摊渠道状态文案（salon_refund_payment.channel_status） */
+export const REFUND_CHANNEL_STATUS_LABEL: Record<string, string> = {
+  processing: '处理中',
+  success: '已生效',
+  failed: '失败',
+};
 
 /** 订单支付状态（扫码轮询） */
 export interface OrderPayStatusVO {

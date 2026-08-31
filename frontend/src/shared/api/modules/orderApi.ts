@@ -7,6 +7,8 @@ import type {
   OrderPayPayload,
   OrderPayStatusVO,
   OrderPrepayVO,
+  OrderRefundPayload,
+  OrderRefundVO,
   OrderSavePayload,
 } from '@/features/order/model/orderTypes';
 import type { EntityId } from '@/features/system/model/systemTypes';
@@ -43,6 +45,12 @@ export const orderApi = {
   cancel(id: EntityId): Promise<void> {
     return post<void, unknown>(`/v1/orders/${id}/cancel`, {});
   },
+  /** 发起退款（整单或部分金额；微信/支付宝原路退回，余额/积分退回会员） */
+  refund(id: EntityId, payload: OrderRefundPayload): Promise<OrderRefundVO> {
+    return post<OrderRefundVO, OrderRefundPayload>(`/v1/orders/${id}/refund`, payload);
   },
+  /** 订单退款记录（含分摊明细） */
+  refunds(id: EntityId): Promise<OrderRefundVO[]> {
+    return get<OrderRefundVO[]>(`/v1/orders/${id}/refunds`);
   },
 };

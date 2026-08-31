@@ -260,6 +260,7 @@ const POINT_CHANGE_TYPE_LABEL: Record<number, string> = {
   6: '兑换商品',
   7: '手工扣减',
   8: '过期清零',
+  9: '退款退回',
 };
 
 export function MemberPage() {

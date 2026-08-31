@@ -3,7 +3,6 @@ package com.wangjin.salon.service.service.impl;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.RandomUtil;
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wangjin.common.exception.BizException;
@@ -203,7 +202,8 @@ public class RechargeOrderServiceImpl implements RechargeOrderService {
         // 渠道扫码下单（HTTP 调用在事务内：失败整体回滚，无脏单；充值低频可接受）
         String codeUrl = payChannel.nativePrepay(
                 new PayPrepayCommand(outTradeNo, form.getAmount(),
-                        "会员充值-" + member.getName(), buildNotifyUrl(channel)),
+                        "会员充值-" + member.getName(),
+                        payProperties.buildNotifyUrl(channel, SecurityUtils.getTenantId())),
                 payConfig);
 
         RechargePrepayVO vo = new RechargePrepayVO();
@@ -310,19 +310,6 @@ public class RechargeOrderServiceImpl implements RechargeOrderService {
                 .setSql("total_recharge_amount = COALESCE(total_recharge_amount, 0) + " + order.getPrincipalAmount())
                 .eq(SalonMember::getId, order.getMemberId()));
         memberLevelService.checkAndUpgrade(order.getMemberId());
-    }
-
-    /**
-     * 渠道回调地址：租户标识放路径段（支付宝/微信均要求 notify_url 为可直接访问地址、
-     * 不允许携带查询串自定义参数，原 ?tenantId= 会触发 ACQ.INVALID_PARAMETER），
-     * 回调侧按路径 {tenantId} 切租户定位商户配置，验签兜底防伪造。
-     */
-    private String buildNotifyUrl(String channel) {
-        String base = payProperties.getNotifyBaseUrl();
-        if (StrUtil.isBlank(base)) {
-            throw new BizException("支付回调地址未配置（wj.salon.pay.notify-base-url，须公网可达）");
-        }
-        return StrUtil.removeSuffix(base, "/") + "/api/v1/pay/notify/" + channel + "/" + SecurityUtils.getTenantId();
     }
 
     /** 赠送计算：活动优先（门槛最高档），无活动走会员等级 rechargeGiftRate 兜底（向下取整到分） */

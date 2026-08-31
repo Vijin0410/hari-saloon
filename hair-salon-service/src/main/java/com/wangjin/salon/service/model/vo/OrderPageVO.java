@@ -32,6 +32,8 @@ public class OrderPageVO {
     private BigDecimal pointDeductAmount;
     @Schema(description = "实收金额")
     private BigDecimal receivedAmount;
+    @Schema(description = "累计已退款金额（成功退款单汇总；可退=实收-已退）")
+    private BigDecimal refundedAmount;
     @Schema(description = "找零金额")
     private BigDecimal changeAmount;
     @Schema(description = "状态（字典 order_status）")

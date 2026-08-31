@@ -9,7 +9,9 @@
             o.payable_amount, o.point_deduct_amount, o.received_amount, o.change_amount, o.status,
             o.remark, o.create_time, o.paid_time,
             m.name AS member_name, m.phone AS member_phone,
-            s.name AS store_name
+            s.name AS store_name,
+            (SELECT COALESCE(SUM(r.refund_amount), 0) FROM salon_refund_order r
+             WHERE r.order_id = o.id AND r.deleted = 0 AND r.status = 1) AS refunded_amount
         FROM salon_order o
         LEFT JOIN salon_member m ON m.id = o.member_id AND m.deleted = 0
         LEFT JOIN salon_store s ON s.id = o.store_id AND s.deleted = 0

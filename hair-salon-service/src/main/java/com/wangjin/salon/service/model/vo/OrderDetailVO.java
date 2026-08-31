@@ -20,4 +20,6 @@ public class OrderDetailVO extends OrderPageVO {
     private List<OrderItemVO> items;
     @Schema(description = "支付明细（组合支付）")
     private List<OrderPaymentVO> payments;
+    @Schema(description = "退款记录（时间倒序，含分摊明细）")
+    private List<OrderRefundVO> refunds;
 }

@@ -3,6 +3,7 @@ package com.wangjin.salon.service.controller;
 import com.wangjin.common.exception.BizException;
 import com.wangjin.salon.service.pay.AlipayNotifyService;
 import com.wangjin.salon.service.pay.WxpayNotifyService;
+import com.wangjin.salon.service.pay.WxpayRefundNotifyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class PayNotifyController {
 
     private final WxpayNotifyService wxpayNotifyService;
     private final AlipayNotifyService alipayNotifyService;
+    private final WxpayRefundNotifyService wxpayRefundNotifyService;
 
     /**
      * 微信支付结果回调。
@@ -100,6 +102,46 @@ public class PayNotifyController {
             // 验签失败/入账异常等：支付宝按失败重试，确认链路幂等兜底
             log.error("支付宝回调处理异常 tenantId={}", tenantId, e);
             return "failure";
+        }
+    }
+
+    /**
+     * 微信退款结果回调（P6）。
+     * <p>
+     * 退款请求 notify_url 按租户拼路径段（/{tenantId}），到达后切租户上下文定位商户配置，
+     * NotificationParser 平台证书验签 + APIv3 key 解密；refund_status=SUCCESS 走退款确认链路（幂等），
+     * ABNORMAL/CLOSED 置退款单失败（系统内未生效，可重新发起）。应答协议与支付回调一致。
+     */
+    @Operation(summary = "微信退款回调（免鉴权，验签兜底）")
+    @PostMapping("/notify/wxpay-refund/{tenantId}")
+    public ResponseEntity<Map<String, String>> wxpayRefundNotify(
+            @PathVariable("tenantId") Long tenantId,
+            @RequestHeader(value = "Wechatpay-Serial", required = false) String serial,
+            @RequestHeader(value = "Wechatpay-Nonce", required = false) String nonce,
+            @RequestHeader(value = "Wechatpay-Timestamp", required = false) String timestamp,
+            @RequestHeader(value = "Wechatpay-Signature", required = false) String signature,
+            @RequestBody String body) {
+        if (tenantId == null || serial == null || nonce == null || timestamp == null || signature == null) {
+            return fail(HttpStatus.BAD_REQUEST, "回调参数缺失");
+        }
+        try {
+            com.wechat.pay.java.core.notification.RequestParam requestParam =
+                    new com.wechat.pay.java.core.notification.RequestParam.Builder()
+                            .serialNumber(serial)
+                            .nonce(nonce)
+                            .timestamp(timestamp)
+                            .signature(signature)
+                            .body(body)
+                            .build();
+            wxpayRefundNotifyService.handle(tenantId, requestParam);
+            return ResponseEntity.ok(Map.of("code", "SUCCESS", "message", "成功"));
+        } catch (BizException e) {
+            log.warn("微信退款回调处理失败 tenantId={}：{}", tenantId, e.getMessage());
+            return fail(HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+        } catch (Exception e) {
+            // 验签失败/解密失败等：微信按失败重试，确认链路幂等兜底
+            log.error("微信退款回调处理异常 tenantId={}", tenantId, e);
+            return fail(HttpStatus.UNAUTHORIZED, "回调验签或处理失败");
         }
     }
 

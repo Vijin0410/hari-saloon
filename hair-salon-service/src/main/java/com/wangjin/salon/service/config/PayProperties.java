@@ -1,5 +1,7 @@
 package com.wangjin.salon.service.config;
 
+import cn.hutool.core.util.StrUtil;
+import com.wangjin.common.exception.BizException;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -42,4 +44,18 @@ public class PayProperties {
 
     /** 查单兜底任务 cron（默认每 2 分钟） */
     private String queryCron = "0 */2 * * * ?";
+
+    /**
+     * 渠道回调地址拼装（充值下单/订单下单/微信退款共用）：
+     * 租户标识放路径段（支付宝/微信均要求 notify_url 不携带查询串），回调侧按路径 {tenantId} 切租户定位商户配置。
+     *
+     * @param channel  回调路由段（wxpay / alipay / wxpay-refund，见 PayNotifyController）
+     * @param tenantId 租户ID
+     */
+    public String buildNotifyUrl(String channel, Long tenantId) {
+        if (StrUtil.isBlank(notifyBaseUrl)) {
+            throw new BizException("支付回调地址未配置（wj.salon.pay.notify-base-url，须公网可达）");
+        }
+        return StrUtil.removeSuffix(notifyBaseUrl, "/") + "/api/v1/pay/notify/" + channel + "/" + tenantId;
+    }
 }

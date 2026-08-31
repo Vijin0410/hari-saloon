@@ -6,12 +6,15 @@ import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
 import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.salon.service.model.form.OrderPayForm;
+import com.wangjin.salon.service.model.form.OrderRefundForm;
 import com.wangjin.salon.service.model.form.OrderSaveForm;
 import com.wangjin.salon.service.model.query.OrderPageQuery;
 import com.wangjin.salon.service.model.vo.OrderDetailVO;
 import com.wangjin.salon.service.model.vo.OrderPageVO;
 import com.wangjin.salon.service.model.vo.OrderPayStatusVO;
 import com.wangjin.salon.service.model.vo.OrderPrepayVO;
+import com.wangjin.salon.service.model.vo.OrderRefundVO;
+import com.wangjin.salon.service.service.OrderRefundService;
 import com.wangjin.salon.service.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,6 +29,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @Tag(name = "18.收银订单接口")
 @RestController
 @RequestMapping("/api/v1/orders")
@@ -33,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController {
 
     private final OrderService orderService;
+    private final OrderRefundService orderRefundService;
 
     @Operation(summary = "订单分页（status=0 即挂单列表）")
     @GetMapping("/page")
@@ -104,9 +110,20 @@ public class OrderController {
     public Result<Void> cancel(@PathVariable Long id) {
         return Result.judge(orderService.cancel(id));
     }
+
+    @Operation(summary = "订单退款（整单或部分金额；微信/支付宝原路退回，余额/积分退回会员，现金等线下退）")
+    @PostMapping("/{id}/refund")
     @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('biz:order:refund')")
+    public Result<OrderRefundVO> refund(@PathVariable Long id, @Valid @RequestBody OrderRefundForm form) {
+        return Result.success(orderRefundService.apply(id, form));
     }
+
+    @Operation(summary = "订单退款记录（含分摊明细）")
+    @GetMapping("/{id}/refunds")
     @QueryDict
     @PreAuthorize("hasAuthority('biz:order:view')")
+    public Result<List<OrderRefundVO>> refunds(@PathVariable Long id) {
+        return Result.success(orderRefundService.listByOrder(id));
     }
 }

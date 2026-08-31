@@ -43,6 +43,7 @@ import com.wangjin.salon.service.pay.PayPrepayCommand;
 import com.wangjin.salon.service.pay.WxpayChannelService;
 import com.wangjin.salon.service.service.MemberAssetService;
 import com.wangjin.salon.service.service.MemberLevelService;
+import com.wangjin.salon.service.service.OrderRefundService;
 import com.wangjin.salon.service.service.OrderService;
 import com.wangjin.salon.service.service.SalonStorePermissionService;
 import com.wangjin.salon.service.service.TenantPayConfigService;
@@ -83,6 +84,7 @@ public class OrderServiceImpl implements OrderService {
     private final SalonStorePermissionService storePermissionService;
     private final SalonPayRecordMapper payRecordMapper;
     private final TenantPayConfigService tenantPayConfigService;
+    private final OrderRefundService orderRefundService;
     private final List<PayChannel> payChannels;
     private final PayProperties payProperties;
 
@@ -166,6 +168,8 @@ public class OrderServiceImpl implements OrderService {
                     return pvo;
                 }).toList();
         vo.setPayments(payments);
+        // 退款记录（P6：含分摊明细，时间倒序）
+        vo.setRefunds(orderRefundService.listByOrder(id));
         return vo;
     }
 

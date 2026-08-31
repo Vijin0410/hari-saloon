@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @TableName("salon_order")
 public class SalonOrder extends BaseTenantEntity<Long> {
 
-    /** 订单状态：0=挂单 1=已支付 2=部分退款 3=已退款 4=已取消（2/3 预留 P6） */
+    /** 订单状态：0=挂单 1=已支付 2=部分退款 3=已退款 4=已取消 */
     public static final int STATUS_PENDING = 0;
     public static final int STATUS_PAID = 1;
     public static final int STATUS_PART_REFUNDED = 2;

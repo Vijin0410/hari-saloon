@@ -36,7 +36,7 @@ public interface MemberAssetService {
      *
      * @param memberId     会员ID
      * @param changePoints 变动积分（正=增加 负=减少）
-     * @param changeType   变动类型（1消费获得 2充值获得 3活动赠送 4手工调整 5抵扣消费 6兑换商品 7手工扣减 8过期清零）
+     * @param changeType   变动类型（1消费获得 2充值获得 3活动赠送 4手工调整 5抵扣消费 6兑换商品 7手工扣减 8过期清零 9退款退回）
      * @param bizType      关联业务类型（ORDER/RECHARGE/ACTIVITY/MANUAL/EXCHANGE）
      * @param bizId        关联业务单据ID
      * @param bizNo        关联业务单号

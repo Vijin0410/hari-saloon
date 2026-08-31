@@ -45,7 +45,7 @@ public class SalonPayRecord extends BaseTenantEntity<Long> {
     private Long bizId;
     /** 关联收银订单ID（收银场景） */
     private Long orderId;
-    /** 关联退款单ID（退款时，预留 P6） */
+    /** 关联退款单ID（渠道流水被退款全额退光置 refunded 时记录首次触发的退款单；精确分摊见 salon_refund_payment.pay_record_id） */
     private Long refundId;
     /** 支付渠道（字典 pay_channel：wxpay 等） */
     private String channel;

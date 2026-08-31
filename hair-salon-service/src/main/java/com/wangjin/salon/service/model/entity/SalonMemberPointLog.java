@@ -19,7 +19,7 @@ public class SalonMemberPointLog extends BaseTenantEntity<Long> {
     private Long memberId;
     /** 发生门店ID（冗余，便于门店维度查询） */
     private Long storeId;
-    /** 变动类型（1=消费获得 2=充值获得 3=活动赠送 4=手工调整 5=抵扣消费 6=兑换商品 7=手工扣减 8=过期清零） */
+    /** 变动类型（1=消费获得 2=充值获得 3=活动赠送 4=手工调整 5=抵扣消费 6=兑换商品 7=手工扣减 8=过期清零 9=退款退回） */
     private Integer changeType;
     /** 变动前积分 */
     private Integer beforePoints;
@@ -33,7 +33,7 @@ public class SalonMemberPointLog extends BaseTenantEntity<Long> {
     private Integer remainingPoints;
     /** 被扣减的获得批次流水ID（消费/过期类指向源批次） */
     private Long sourceLogId;
-    /** 关联业务类型（ORDER/RECHARGE/ACTIVITY/MANUAL/EXCHANGE） */
+    /** 关联业务类型（ORDER/RECHARGE/ACTIVITY/MANUAL/EXCHANGE/REFUND） */
     private String bizType;
     /** 关联业务单据ID */
     private Long bizId;

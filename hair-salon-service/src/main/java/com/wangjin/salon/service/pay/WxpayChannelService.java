@@ -7,6 +7,11 @@ import com.wechat.pay.java.service.payments.nativepay.model.Amount;
 import com.wechat.pay.java.service.payments.nativepay.model.PrepayRequest;
 import com.wechat.pay.java.service.payments.nativepay.model.PrepayResponse;
 import com.wechat.pay.java.service.payments.nativepay.model.QueryOrderByOutTradeNoRequest;
+import com.wechat.pay.java.service.refund.RefundService;
+import com.wechat.pay.java.service.refund.model.CreateRequest;
+import com.wechat.pay.java.service.refund.model.QueryByOutRefundNoRequest;
+import com.wechat.pay.java.service.refund.model.Refund;
+import com.wechat.pay.java.service.refund.model.Status;
 import com.wangjin.common.exception.BizException;
 import com.wangjin.salon.service.model.entity.SalonTenantPayConfig;
 import lombok.RequiredArgsConstructor;
@@ -89,6 +94,66 @@ public class WxpayChannelService implements PayChannel {
     private NativePayService nativePayService(SalonTenantPayConfig config) {
         Config sdkConfig = configHolder.get(config);
         return new NativePayService.Builder().config(sdkConfig).build();
+    }
+
+    @Override
+    public ChannelRefundResult refund(RefundCommand command, SalonTenantPayConfig config) {
+        try {
+            RefundService service = refundService(config);
+            CreateRequest request = new CreateRequest();
+            request.setOutTradeNo(command.outTradeNo());
+            request.setOutRefundNo(command.outRefundNo());
+            request.setReason(command.reason());
+            request.setNotifyUrl(command.notifyUrl());
+            com.wechat.pay.java.service.refund.model.AmountReq amount = new com.wechat.pay.java.service.refund.model.AmountReq();
+            amount.setRefund((long) toFen(command.amount()));
+            amount.setTotal((long) toFen(command.totalAmount()));
+            amount.setCurrency("CNY");
+            request.setAmount(amount);
+            Refund refund = service.create(request);
+            log.info("微信退款受理成功 outRefundNo={} refundId={} status={}",
+                    command.outRefundNo(), refund.getRefundId(),
+                    refund.getStatus() == null ? null : refund.getStatus().name());
+            return new ChannelRefundResult(normalizeRefundStatus(refund.getStatus()), refund.getRefundId(), refund.toString());
+        } catch (BizException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("微信退款失败 outRefundNo={}", command.outRefundNo(), e);
+            throw new BizException("微信退款失败：" + e.getMessage());
+        }
+    }
+
+    @Override
+    public ChannelRefundResult queryRefundStatus(String outRefundNo, SalonTenantPayConfig config) {
+        try {
+            RefundService service = refundService(config);
+            QueryByOutRefundNoRequest request = new QueryByOutRefundNoRequest();
+            request.setOutRefundNo(outRefundNo);
+            Refund refund = service.queryByOutRefundNo(request);
+            return new ChannelRefundResult(normalizeRefundStatus(refund.getStatus()), refund.getRefundId(), refund.toString());
+        } catch (BizException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("微信退款查单失败 outRefundNo={}", outRefundNo, e);
+            throw new BizException("微信退款查单失败：" + e.getMessage());
+        }
+    }
+
+    /** 微信退款状态归一：SUCCESS 原样；PROCESSING 待回调/查单；CLOSED/ABNORMAL 均为失败终态 */
+    private String normalizeRefundStatus(Status status) {
+        if (status == null) {
+            return ChannelRefundResult.PROCESSING;
+        }
+        return switch (status) {
+            case SUCCESS -> ChannelRefundResult.SUCCESS;
+            case PROCESSING -> ChannelRefundResult.PROCESSING;
+            case CLOSED, ABNORMAL -> ChannelRefundResult.FAILED;
+        };
+    }
+
+    private RefundService refundService(SalonTenantPayConfig config) {
+        Config sdkConfig = configHolder.get(config);
+        return new RefundService.Builder().config(sdkConfig).build();
     }
 
     /** 元转分（支付金额两位小数，四舍五入兜底） */

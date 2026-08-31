@@ -6,8 +6,10 @@ import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
 import com.alipay.api.request.AlipayTradePrecreateRequest;
 import com.alipay.api.request.AlipayTradeQueryRequest;
+import com.alipay.api.request.AlipayTradeRefundRequest;
 import com.alipay.api.response.AlipayTradePrecreateResponse;
 import com.alipay.api.response.AlipayTradeQueryResponse;
+import com.alipay.api.response.AlipayTradeRefundResponse;
 import com.wangjin.common.exception.BizException;
 import com.wangjin.salon.service.model.entity.SalonTenantPayConfig;
 import lombok.RequiredArgsConstructor;
@@ -113,6 +115,38 @@ public class AlipayChannelService implements PayChannel {
             case "TRADE_CLOSED" -> "CLOSED";
             default -> tradeStatus;
         };
+    }
+
+    @Override
+    public ChannelRefundResult refund(RefundCommand command, SalonTenantPayConfig config) {
+        try {
+            AlipayClient client = clientHolder.get(config);
+            AlipayTradeRefundRequest request = new AlipayTradeRefundRequest();
+            request.setBizContent(JSONUtil.createObj()
+                    .set("out_trade_no", command.outTradeNo())
+                    .set("refund_amount", toAmountYuan(command.amount()))
+                    .set("out_request_no", command.outRefundNo())
+                    .set("refund_reason", StrUtil.nullToEmpty(command.reason()))
+                    .toString());
+            AlipayTradeRefundResponse response = client.execute(request);
+            if (!response.isSuccess()) {
+                log.error("支付宝退款失败 outRequestNo={} code={} subCode={} subMsg={}",
+                        command.outRefundNo(), response.getCode(), response.getSubCode(), response.getSubMsg());
+                throw new BizException("支付宝退款失败：" + subMessage(response));
+            }
+            // fund_change=Y 本次资金退回；N=同 out_request_no 重复请求（此前已退成功，幂等成功）
+            log.info("支付宝退款成功 outRequestNo={} tradeNo={} fundChange={}",
+                    command.outRefundNo(), response.getTradeNo(), response.getFundChange());
+            return new ChannelRefundResult(ChannelRefundResult.SUCCESS, response.getTradeNo(), response.getBody());
+        } catch (BizException e) {
+            throw e;
+        } catch (AlipayApiException e) {
+            log.error("支付宝退款异常 outRequestNo={}", command.outRefundNo(), e);
+            throw new BizException("支付宝退款失败：" + e.getErrMsg());
+        } catch (Exception e) {
+            log.error("支付宝退款异常 outRequestNo={}", command.outRefundNo(), e);
+            throw new BizException("支付宝退款失败：" + e.getMessage());
+        }
     }
 
     /** 金额（元，BigDecimal）-> 支付宝金额串（两位小数） */

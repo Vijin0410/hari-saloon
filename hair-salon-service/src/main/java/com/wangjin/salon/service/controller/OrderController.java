@@ -10,6 +10,8 @@ import com.wangjin.salon.service.model.form.OrderSaveForm;
 import com.wangjin.salon.service.model.query.OrderPageQuery;
 import com.wangjin.salon.service.model.vo.OrderDetailVO;
 import com.wangjin.salon.service.model.vo.OrderPageVO;
+import com.wangjin.salon.service.model.vo.OrderPayStatusVO;
+import com.wangjin.salon.service.model.vo.OrderPrepayVO;
 import com.wangjin.salon.service.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -72,10 +74,39 @@ public class OrderController {
         return Result.success(orderService.pay(id, form));
     }
 
+    @Operation(summary = "订单扫码预下单（组合支付含微信/支付宝行时出码，渠道按支付方式推导；确认结算由回调驱动）")
+    @PostMapping("/{id}/prepay")
+    @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('biz:order:pay')")
+    public Result<OrderPrepayVO> prepay(@PathVariable Long id, @Valid @RequestBody OrderPayForm form) {
+        return Result.success(orderService.prepayScan(id, form));
+    }
+
+    @Operation(summary = "取消订单扫码支付（关流水，订单保持挂单可重新支付）")
+    @PostMapping("/{id}/prepay-cancel")
+    @PreventDuplicateResubmit
+    @PreAuthorize("hasAuthority('biz:order:pay')")
+    public Result<Void> prepayCancel(@PathVariable Long id) {
+        orderService.cancelPrepay(id);
+        return Result.success(null);
+    }
+
+    @Operation(summary = "订单支付状态（收银台扫码轮询）")
+    @GetMapping("/{id}/pay-status")
+    @PreAuthorize("hasAuthority('biz:order:pay')")
+    public Result<OrderPayStatusVO> payStatus(@PathVariable Long id) {
+        return Result.success(orderService.getPayStatus(id));
+    }
+
     @Operation(summary = "取消挂单")
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAuthority('biz:order:cancel')")
     public Result<Void> cancel(@PathVariable Long id) {
         return Result.judge(orderService.cancel(id));
+    }
+    @PreventDuplicateResubmit
+    }
+    @QueryDict
+    @PreAuthorize("hasAuthority('biz:order:view')")
     }
 }

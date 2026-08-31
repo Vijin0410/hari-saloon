@@ -76,6 +76,7 @@ public class WxpayChannelService implements PayChannel {
                     normalizeTradeState(transaction.getTradeState()),
                     transaction.getTransactionId(),
                     parseSuccessTime(transaction.getSuccessTime()),
+                    transaction.getAmount() == null ? null : transaction.getAmount().getTotal(),
                     transaction.getAmount() == null ? null : transaction.getAmount().getPayerTotal());
         } catch (BizException e) {
             throw e;

@@ -3,9 +3,12 @@ package com.wangjin.salon.service.service.impl;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.lang.Assert;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wangjin.common.exception.BizException;
+import com.wangjin.common.security.util.SecurityUtils;
+import com.wangjin.salon.service.config.PayProperties;
 import com.wangjin.salon.service.mapper.SalonGoodsMapper;
 import com.wangjin.salon.service.mapper.SalonMemberBalanceMapper;
 import com.wangjin.salon.service.mapper.SalonMemberLevelMapper;
@@ -13,6 +16,7 @@ import com.wangjin.salon.service.mapper.SalonMemberMapper;
 import com.wangjin.salon.service.mapper.SalonOrderItemMapper;
 import com.wangjin.salon.service.mapper.SalonOrderMapper;
 import com.wangjin.salon.service.mapper.SalonOrderPaymentMapper;
+import com.wangjin.salon.service.mapper.SalonPayRecordMapper;
 import com.wangjin.salon.service.mapper.SalonServiceItemMapper;
 import com.wangjin.salon.service.model.entity.SalonGoods;
 import com.wangjin.salon.service.model.entity.SalonMember;
@@ -21,21 +25,31 @@ import com.wangjin.salon.service.model.entity.SalonMemberLevel;
 import com.wangjin.salon.service.model.entity.SalonOrder;
 import com.wangjin.salon.service.model.entity.SalonOrderItem;
 import com.wangjin.salon.service.model.entity.SalonOrderPayment;
+import com.wangjin.salon.service.model.entity.SalonPayRecord;
 import com.wangjin.salon.service.model.entity.SalonServiceItem;
+import com.wangjin.salon.service.model.entity.SalonTenantPayConfig;
 import com.wangjin.salon.service.model.form.OrderPayForm;
 import com.wangjin.salon.service.model.form.OrderSaveForm;
 import com.wangjin.salon.service.model.query.OrderPageQuery;
 import com.wangjin.salon.service.model.vo.OrderDetailVO;
 import com.wangjin.salon.service.model.vo.OrderItemVO;
 import com.wangjin.salon.service.model.vo.OrderPageVO;
+import com.wangjin.salon.service.model.vo.OrderPayStatusVO;
 import com.wangjin.salon.service.model.vo.OrderPaymentVO;
+import com.wangjin.salon.service.model.vo.OrderPrepayVO;
+import com.wangjin.salon.service.pay.AlipayChannelService;
+import com.wangjin.salon.service.pay.PayChannel;
+import com.wangjin.salon.service.pay.PayPrepayCommand;
+import com.wangjin.salon.service.pay.WxpayChannelService;
 import com.wangjin.salon.service.service.MemberAssetService;
 import com.wangjin.salon.service.service.MemberLevelService;
 import com.wangjin.salon.service.service.OrderService;
 import com.wangjin.salon.service.service.SalonStorePermissionService;
+import com.wangjin.salon.service.service.TenantPayConfigService;
 import com.wangjin.salon.system.mapper.SysUserMapper;
 import com.wangjin.salon.system.model.entity.SysUser;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +64,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
@@ -66,6 +81,10 @@ public class OrderServiceImpl implements OrderService {
     private final MemberAssetService memberAssetService;
     private final MemberLevelService memberLevelService;
     private final SalonStorePermissionService storePermissionService;
+    private final SalonPayRecordMapper payRecordMapper;
+    private final TenantPayConfigService tenantPayConfigService;
+    private final List<PayChannel> payChannels;
+    private final PayProperties payProperties;
 
     /** 余额桶：1本金 2赠送 */
     private static final int BUCKET_PRINCIPAL = 1;
@@ -75,8 +94,10 @@ public class OrderServiceImpl implements OrderService {
     private static final int PT_EARN = 1;
     private static final int PT_DEDUCT = 5;
 
-    /** 支付方式：1现金 5会员余额 6赠送余额 7积分抵扣 */
+    /** 支付方式：1现金 2微信 3支付宝 5会员余额 7积分抵扣（6赠送余额由余额支付内部先扣，不单独收银） */
     private static final int METHOD_CASH = 1;
+    private static final int METHOD_WXPAY = 2;
+    private static final int METHOD_ALIPAY = 3;
     private static final int METHOD_BALANCE = 5;
     private static final int METHOD_POINT = 7;
 
@@ -164,6 +185,14 @@ public class OrderServiceImpl implements OrderService {
         Assert.notNull(exists, "订单不存在");
         Assert.isTrue(SalonOrder.STATUS_PENDING == exists.getStatus(), "仅挂单订单可修改");
         storePermissionService.assertStoreAccessible(exists.getStoreId(), "无权限修改该订单");
+        // 扫码支付挂起期间禁改挂单：已出码金额基于当前明细，改单须先取消扫码支付
+        Long paying = payRecordMapper.selectCount(Wrappers.<SalonPayRecord>lambdaQuery()
+                .eq(SalonPayRecord::getBizType, SalonPayRecord.BIZ_TYPE_ORDER)
+                .eq(SalonPayRecord::getBizId, id)
+                .eq(SalonPayRecord::getStatus, SalonPayRecord.STATUS_PENDING));
+        if (paying != null && paying > 0) {
+            throw new BizException("订单扫码支付进行中，请先取消支付再修改");
+        }
         SalonOrder order = buildOrder(form);
         order.setId(id);
         orderMapper.updateById(order);
@@ -186,89 +215,145 @@ public class OrderServiceImpl implements OrderService {
         if (rows == 0) {
             throw new BizException("订单已结算或已取消，请刷新");
         }
+        settle(order, form);
+        return orderId;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public OrderPrepayVO prepayScan(Long orderId, OrderPayForm form) {
+        SalonOrder order = orderMapper.selectById(orderId);
+        Assert.notNull(order, "订单不存在");
+        Assert.isTrue(SalonOrder.STATUS_PENDING == order.getStatus(), "仅挂单订单可发起扫码支付");
+        storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限结算该订单");
         SalonMember member = order.getMemberId() == null ? null : memberMapper.selectById(order.getMemberId());
-        BigDecimal payable = order.getPayableAmount();
+        // 全量校验（与确认结算同口径，防出码后确认时校验失败顾客白付）+ 库存预检
+        calcPay(order, member, form);
+        assertStockEnough(orderId);
 
-        // 支付方式合法性
-        for (OrderPayForm.OrderPaymentForm p : form.getPayments()) {
-            if (!ORDER_PAY_METHODS.contains(p.getPayMethod())) {
-                throw new BizException("不支持的支付方式");
-            }
-            if (p.getPayMethod() != METHOD_POINT && p.getPayMethod() != METHOD_BALANCE && p.getPayMethod() != METHOD_CASH
-                    && p.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new BizException("支付金额必须大于0");
-            }
+        // 扫码行：微信2/支付宝3 恰好一行（一次只出一种码；渠道由支付方式推导）
+        List<OrderPayForm.OrderPaymentForm> scanRows = form.getPayments().stream()
+                .filter(p -> p.getPayMethod() == METHOD_WXPAY || p.getPayMethod() == METHOD_ALIPAY)
+                .toList();
+        if (scanRows.size() != 1) {
+            throw new BizException("扫码支付仅支持一行微信或支付宝（一次只出一种码）");
+        }
+        OrderPayForm.OrderPaymentForm scanRow = scanRows.get(0);
+        String channel = scanRow.getPayMethod() == METHOD_WXPAY
+                ? WxpayChannelService.CHANNEL : AlipayChannelService.CHANNEL;
+        SalonTenantPayConfig payConfig = tenantPayConfigService.requireActiveConfig(channel);
+        PayChannel payChannel = payChannels.stream()
+                .filter(c -> c.channel().equals(channel))
+                .findFirst()
+                .orElseThrow(() -> new BizException("支付渠道未接入：" + channel));
+
+        // 重复出码：关旧 pending 流水（旧码作废，渠道侧自然过期）
+        payRecordMapper.update(null, Wrappers.<SalonPayRecord>lambdaUpdate()
+                .set(SalonPayRecord::getStatus, SalonPayRecord.STATUS_FAILED)
+                .set(SalonPayRecord::getRemark, "重新出码关闭")
+                .eq(SalonPayRecord::getBizType, SalonPayRecord.BIZ_TYPE_ORDER)
+                .eq(SalonPayRecord::getBizId, orderId)
+                .eq(SalonPayRecord::getStatus, SalonPayRecord.STATUS_PENDING));
+
+        // 流水：out_trade_no = 订单号-P序号（多次出码递增保证租户内唯一，渠道对账可直读订单归属）
+        Long attempt = payRecordMapper.selectCount(Wrappers.<SalonPayRecord>lambdaQuery()
+                .eq(SalonPayRecord::getBizType, SalonPayRecord.BIZ_TYPE_ORDER)
+                .eq(SalonPayRecord::getBizId, orderId));
+        String outTradeNo = order.getOrderNo() + "-P" + (attempt + 1);
+        SalonPayRecord record = new SalonPayRecord();
+        record.setBizType(SalonPayRecord.BIZ_TYPE_ORDER);
+        record.setBizId(orderId);
+        record.setOrderId(orderId);
+        record.setChannel(channel);
+        record.setSettleType(payConfig.getSettleType());
+        record.setOutTradeNo(outTradeNo);
+        record.setAmount(scanRow.getAmount());
+        record.setStatus(SalonPayRecord.STATUS_PENDING);
+        // 表单快照：确认链路（回调/查单）反序列化重放结算，保证出码与结算口径一致
+        record.setBizForm(JSONUtil.toJsonStr(form));
+        payRecordMapper.insert(record);
+
+        // 渠道扫码下单（HTTP 调用在事务内：失败整体回滚，无脏单）
+        String codeUrl = payChannel.nativePrepay(
+                new PayPrepayCommand(outTradeNo, scanRow.getAmount(),
+                        "订单结算-" + (member != null ? member.getName() : order.getOrderNo()),
+                        payProperties.buildNotifyUrl(channel, SecurityUtils.getTenantId())),
+                payConfig);
+
+        OrderPrepayVO vo = new OrderPrepayVO();
+        vo.setOrderId(orderId);
+        vo.setOutTradeNo(outTradeNo);
+        vo.setCodeUrl(codeUrl);
+        vo.setAmount(scanRow.getAmount());
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelPrepay(Long orderId) {
+        SalonOrder order = orderMapper.selectById(orderId);
+        Assert.notNull(order, "订单不存在");
+        storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限操作该订单");
+        int rows = payRecordMapper.update(null, Wrappers.<SalonPayRecord>lambdaUpdate()
+                .set(SalonPayRecord::getStatus, SalonPayRecord.STATUS_FAILED)
+                .set(SalonPayRecord::getRemark, "收银员取消扫码支付")
+                .eq(SalonPayRecord::getBizType, SalonPayRecord.BIZ_TYPE_ORDER)
+                .eq(SalonPayRecord::getBizId, orderId)
+                .eq(SalonPayRecord::getStatus, SalonPayRecord.STATUS_PENDING));
+        if (rows == 0) {
+            throw new BizException("无待支付的扫码流水");
+        }
+        log.info("订单扫码支付已取消 orderId={} orderNo={}", orderId, order.getOrderNo());
+    }
+
+    @Override
+    public OrderPayStatusVO getPayStatus(Long orderId) {
+        SalonOrder order = orderMapper.selectById(orderId);
+        Assert.notNull(order, "订单不存在");
+        OrderPayStatusVO vo = new OrderPayStatusVO();
+        vo.setOrderId(order.getId());
+        vo.setStatus(order.getStatus());
+        vo.setPaidTime(order.getPaidTime());
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void settle(SalonOrder order, OrderPayForm form) {
+        Long orderId = order.getId();
+        SalonMember member = order.getMemberId() == null ? null : memberMapper.selectById(order.getMemberId());
+        PayContext ctx = calcPay(order, member, form);
+
+        // 1) 余额支付：先扣赠送再扣本金（赠送不可退优先消耗；各行独立流水）
+        if (ctx.balancePay().compareTo(BigDecimal.ZERO) > 0) {
+            payWithBalance(member, orderId, order.getOrderNo(), ctx.balancePay());
         }
 
-        // 1) 积分抵扣（仅会员）
-        BigDecimal pointDeductAmount = BigDecimal.ZERO;
-        int usePoints = form.getUsePoints() == null ? 0 : form.getUsePoints();
-        if (usePoints > 0) {
-            Assert.notNull(member, "散客订单不能使用积分抵扣");
-            pointDeductAmount = new BigDecimal(usePoints).divide(POINTS_PER_YUAN, 2, RoundingMode.DOWN);
-            if (pointDeductAmount.compareTo(payable) > 0) {
-                throw new BizException("积分抵扣金额不能超过应收金额");
-            }
-        }
-        BigDecimal receivable = payable.subtract(pointDeductAmount);
-
-        // 2) 渠道支付合计须与应收一致（含余额支付，多退少补不允许；差额找零仅现金场景）
-        BigDecimal channelTotal = form.getPayments().stream()
-                .map(OrderPayForm.OrderPaymentForm::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (channelTotal.compareTo(receivable) != 0) {
-            throw new BizException("支付合计与应收金额不一致");
-        }
-
-        // 3) 余额支付：先扣赠送再扣本金（赠送不可退优先消耗；各行独立流水）
-        BigDecimal balancePay = form.getPayments().stream()
-                .filter(p -> p.getPayMethod() == METHOD_BALANCE)
-                .map(OrderPayForm.OrderPaymentForm::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (balancePay.compareTo(BigDecimal.ZERO) > 0) {
-            Assert.notNull(member, "散客订单不能使用会员余额支付");
-            payWithBalance(member, orderId, order.getOrderNo(), balancePay);
-        }
-
-        // 4) 积分抵扣扣减
-        if (usePoints > 0) {
-            memberAssetService.changePoints(member.getId(), -usePoints, PT_DEDUCT,
+        // 2) 积分抵扣扣减
+        if (ctx.usePoints() > 0) {
+            memberAssetService.changePoints(member.getId(), -ctx.usePoints(), PT_DEDUCT,
                     "ORDER", orderId, order.getOrderNo(), null, "积分抵扣消费");
         }
 
-        // 5) 找零（现金投入 >= 现金应收）
-        BigDecimal cashPayable = form.getPayments().stream()
-                .filter(p -> p.getPayMethod() == METHOD_CASH)
-                .map(OrderPayForm.OrderPaymentForm::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal cashReceived = form.getCashReceived() == null ? BigDecimal.ZERO : form.getCashReceived();
-        BigDecimal change = BigDecimal.ZERO;
-        if (cashPayable.compareTo(BigDecimal.ZERO) > 0) {
-            if (cashReceived.compareTo(cashPayable) < 0) {
-                throw new BizException("现金投入不足");
-            }
-            change = cashReceived.subtract(cashPayable);
-        }
-
-        // 6) 支付明细入库（payments 原样 + 积分抵扣行）
+        // 3) 支付明细入库（payments 原样 + 积分抵扣行）
         for (OrderPayForm.OrderPaymentForm p : form.getPayments()) {
             insertPayment(orderId, p.getPayMethod(), p.getAmount());
         }
-        if (pointDeductAmount.compareTo(BigDecimal.ZERO) > 0) {
-            insertPayment(orderId, METHOD_POINT, pointDeductAmount);
+        if (ctx.pointDeductAmount().compareTo(BigDecimal.ZERO) > 0) {
+            insertPayment(orderId, METHOD_POINT, ctx.pointDeductAmount());
         }
 
-        // 7) 订单金额落定
+        // 4) 订单金额落定
         SalonOrder update = new SalonOrder();
         update.setId(orderId);
-        update.setPointDeductPoints(usePoints);
-        update.setPointDeductAmount(pointDeductAmount);
-        update.setReceivedAmount(receivable);
-        update.setChangeAmount(change);
+        update.setPointDeductPoints(ctx.usePoints());
+        update.setPointDeductAmount(ctx.pointDeductAmount());
+        update.setReceivedAmount(ctx.receivable());
+        update.setChangeAmount(ctx.change());
         update.setPaidTime(LocalDateTime.now());
         orderMapper.updateById(update);
 
-        // 8) 商品库存扣减（条件更新防超卖）
+        // 5) 商品库存扣减（条件更新防超卖）
         List<SalonOrderItem> items = orderItemMapper.selectList(
                 Wrappers.<SalonOrderItem>lambdaQuery().eq(SalonOrderItem::getOrderId, orderId));
         for (SalonOrderItem item : items) {
@@ -283,19 +368,99 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // 9) 消费送积分 + 累计消费 + 等级升级检查（仅会员）
+        // 6) 消费送积分 + 累计消费 + 等级升级检查（仅会员）
         if (member != null) {
-            int earned = receivable.multiply(pointRateOf(member)).setScale(0, RoundingMode.DOWN).intValueExact();
+            int earned = ctx.receivable().multiply(pointRateOf(member)).setScale(0, RoundingMode.DOWN).intValueExact();
             if (earned > 0) {
                 memberAssetService.changePoints(member.getId(), earned, PT_EARN,
                         "ORDER", orderId, order.getOrderNo(), null, "消费赠送积分");
             }
             memberMapper.update(null, Wrappers.<SalonMember>lambdaUpdate()
-                    .setSql("total_consume_amount = COALESCE(total_consume_amount, 0) + " + receivable)
+                    .setSql("total_consume_amount = COALESCE(total_consume_amount, 0) + " + ctx.receivable())
                     .eq(SalonMember::getId, member.getId()));
             memberLevelService.checkAndUpgrade(member.getId());
         }
-        return orderId;
+    }
+
+    /** 结算校验与中间金额（手动结算/扫码出码/确认结算共用，保证三处口径一致；纯校验计算无副作用） */
+    private PayContext calcPay(SalonOrder order, SalonMember member, OrderPayForm form) {
+        BigDecimal payable = order.getPayableAmount();
+
+        // 支付方式合法性
+        for (OrderPayForm.OrderPaymentForm p : form.getPayments()) {
+            if (!ORDER_PAY_METHODS.contains(p.getPayMethod())) {
+                throw new BizException("不支持的支付方式");
+            }
+            if (p.getPayMethod() != METHOD_POINT && p.getPayMethod() != METHOD_BALANCE && p.getPayMethod() != METHOD_CASH
+                    && p.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BizException("支付金额必须大于0");
+            }
+        }
+
+        // 积分抵扣（仅会员）
+        BigDecimal pointDeductAmount = BigDecimal.ZERO;
+        int usePoints = form.getUsePoints() == null ? 0 : form.getUsePoints();
+        if (usePoints > 0) {
+            Assert.notNull(member, "散客订单不能使用积分抵扣");
+            pointDeductAmount = new BigDecimal(usePoints).divide(POINTS_PER_YUAN, 2, RoundingMode.DOWN);
+            if (pointDeductAmount.compareTo(payable) > 0) {
+                throw new BizException("积分抵扣金额不能超过应收金额");
+            }
+        }
+        BigDecimal receivable = payable.subtract(pointDeductAmount);
+
+        // 渠道支付合计须与应收一致（含余额支付，多退少补不允许；差额找零仅现金场景）
+        BigDecimal channelTotal = form.getPayments().stream()
+                .map(OrderPayForm.OrderPaymentForm::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (channelTotal.compareTo(receivable) != 0) {
+            throw new BizException("支付合计与应收金额不一致");
+        }
+
+        // 余额支付合计（足额校验在 payWithBalance 内）
+        BigDecimal balancePay = form.getPayments().stream()
+                .filter(p -> p.getPayMethod() == METHOD_BALANCE)
+                .map(OrderPayForm.OrderPaymentForm::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (balancePay.compareTo(BigDecimal.ZERO) > 0) {
+            Assert.notNull(member, "散客订单不能使用会员余额支付");
+        }
+
+        // 找零（现金投入 >= 现金应收）
+        BigDecimal cashPayable = form.getPayments().stream()
+                .filter(p -> p.getPayMethod() == METHOD_CASH)
+                .map(OrderPayForm.OrderPaymentForm::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal cashReceived = form.getCashReceived() == null ? BigDecimal.ZERO : form.getCashReceived();
+        BigDecimal change = BigDecimal.ZERO;
+        if (cashPayable.compareTo(BigDecimal.ZERO) > 0) {
+            if (cashReceived.compareTo(cashPayable) < 0) {
+                throw new BizException("现金投入不足");
+            }
+            change = cashReceived.subtract(cashPayable);
+        }
+        return new PayContext(usePoints, pointDeductAmount, receivable, balancePay, cashPayable, cashReceived, change);
+    }
+
+    /** 库存预检（出码前拦截，防顾客付款后结算失败；结算时条件扣减仍防并发超卖） */
+    private void assertStockEnough(Long orderId) {
+        List<SalonOrderItem> items = orderItemMapper.selectList(
+                Wrappers.<SalonOrderItem>lambdaQuery().eq(SalonOrderItem::getOrderId, orderId));
+        for (SalonOrderItem item : items) {
+            if (item.getItemType() == SalonOrderItem.TYPE_GOODS) {
+                SalonGoods goods = goodsMapper.selectById(item.getItemId());
+                if (goods == null || goods.getStockQuantity() == null
+                        || goods.getStockQuantity() < item.getQuantity()) {
+                    throw new BizException("商品【" + item.getItemName() + "】库存不足");
+                }
+            }
+        }
+    }
+
+    /** 结算中间金额（calcPay 产出） */
+    private record PayContext(int usePoints, BigDecimal pointDeductAmount, BigDecimal receivable,
+                              BigDecimal balancePay, BigDecimal cashPayable, BigDecimal cashReceived,
+                              BigDecimal change) {
     }
 
     @Override
@@ -311,6 +476,13 @@ public class OrderServiceImpl implements OrderService {
         if (rows == 0) {
             throw new BizException("仅挂单订单可取消");
         }
+        // 挂起的扫码流水同步关闭（渠道侧订单自然过期；顾客后续仍支付成功则回调无 pending 可确认，P8 对账处理）
+        payRecordMapper.update(null, Wrappers.<SalonPayRecord>lambdaUpdate()
+                .set(SalonPayRecord::getStatus, SalonPayRecord.STATUS_FAILED)
+                .set(SalonPayRecord::getRemark, "订单取消关闭")
+                .eq(SalonPayRecord::getBizType, SalonPayRecord.BIZ_TYPE_ORDER)
+                .eq(SalonPayRecord::getBizId, id)
+                .eq(SalonPayRecord::getStatus, SalonPayRecord.STATUS_PENDING));
         return true;
     }
 

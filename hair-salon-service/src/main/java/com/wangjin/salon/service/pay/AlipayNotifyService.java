@@ -28,7 +28,7 @@ import java.util.Map;
  * 回调为 form 表单明文参数（非微信的加密报文），租户标识由回调路径段携带（支付宝不允许
  * notify_url 携带查询串，Controller 的 /{tenantId} 传入），到达后切租户上下文定位商户配置，
  * 再用支付宝公钥 rsaCheckV1 验签（tenantId 伪造会导致验签失败）；
- * 仅 trade_status=TRADE_SUCCESS/TRADE_FINISHED 入账，确认链路见 {@link RechargePayConfirmExecutor}（幂等）。
+ * 仅 trade_status=TRADE_SUCCESS/TRADE_FINISHED 入账，确认链路见 {@link PayConfirmDispatcher}（幂等）。
  */
 @Slf4j
 @Service
@@ -41,7 +41,7 @@ public class AlipayNotifyService {
     private final AlipayClientHolder clientHolder;
     private final SalonTenantPayConfigMapper payConfigMapper;
     private final SalonPayRecordMapper payRecordMapper;
-    private final RechargePayConfirmExecutor confirmExecutor;
+    private final PayConfirmDispatcher confirmDispatcher;
     private final Sm4Cipher sm4Cipher;
 
     /**
@@ -84,12 +84,13 @@ public class AlipayNotifyService {
             log.info("支付宝回调无待处理流水（已处理或未知单号），应答成功 outTradeNo={}", outTradeNo);
             return;
         }
-        confirmExecutor.confirm(record,
+        confirmDispatcher.confirm(record, new PayConfirmParams(
                 params.get("trade_no"),
                 parsePayTime(params.get("gmt_payment")),
                 toFen(params.get("total_amount")),
+                toFen(params.get("buyer_pay_amount")),
                 SalonPayRecord.SOURCE_REALTIME_CALLBACK,
-                JSONUtil.toJsonStr(params));
+                JSONUtil.toJsonStr(params)));
     }
 
     /** 支付宝公钥验签（RSA2）；防御性剔除 tenantId（路径式回调本不含，防 URL 被附加 query 参数破坏验签） */

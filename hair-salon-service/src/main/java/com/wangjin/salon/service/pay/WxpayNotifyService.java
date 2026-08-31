@@ -25,7 +25,7 @@ import java.time.format.DateTimeFormatter;
  * <p>
  * 回调 URL 按租户带参（notify_url 拼接 tenantId），到达后切租户上下文定位商户配置，
  * 用 NotificationParser（平台证书验签 + APIv3 key 解密）解析出 Transaction；
- * 验签即保证 tenantId 参数不可伪造。确认入账见 {@link RechargePayConfirmExecutor}（幂等）。
+ * 验签即保证 tenantId 参数不可伪造。确认入账见 {@link PayConfirmDispatcher}（幂等）。
  */
 @Slf4j
 @Service
@@ -35,7 +35,7 @@ public class WxpayNotifyService {
     private final WxpayConfigHolder configHolder;
     private final SalonTenantPayConfigMapper payConfigMapper;
     private final SalonPayRecordMapper payRecordMapper;
-    private final RechargePayConfirmExecutor confirmExecutor;
+    private final PayConfirmDispatcher confirmDispatcher;
 
     /**
      * 处理微信支付结果回调。
@@ -78,12 +78,13 @@ public class WxpayNotifyService {
             log.info("微信回调无待处理流水（已处理或未知单号），应答成功 outTradeNo={}", transaction.getOutTradeNo());
             return;
         }
-        confirmExecutor.confirm(record,
+        confirmDispatcher.confirm(record, new PayConfirmParams(
                 transaction.getTransactionId(),
                 parseSuccessTime(transaction.getSuccessTime()),
+                transaction.getAmount() == null ? null : transaction.getAmount().getTotal(),
                 transaction.getAmount() == null ? null : transaction.getAmount().getPayerTotal(),
                 SalonPayRecord.SOURCE_REALTIME_CALLBACK,
-                requestParam.getBody());
+                requestParam.getBody()));
     }
 
     /** RFC3339 时间串（如 2018-06-08T10:34:56+08:00）转本地时间；空返回 null */

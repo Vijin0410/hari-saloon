@@ -41,7 +41,7 @@ public class PayQueryCompensateService {
     private final SalonPayRecordMapper payRecordMapper;
     private final SalonRechargeOrderMapper rechargeOrderMapper;
     private final List<PayChannel> payChannels;
-    private final RechargePayConfirmExecutor confirmExecutor;
+    private final PayConfirmDispatcher confirmDispatcher;
     private final SysTenantService sysTenantService;
 
     /**
@@ -105,9 +105,11 @@ public class PayQueryCompensateService {
             try {
                 ChannelQueryResult result = channel.queryByOutTradeNo(record.getOutTradeNo(), cfg);
                 if (result.isSuccess()) {
-                    confirmExecutor.confirm(record, result.transactionId(), result.successTime(),
-                            result.payerTotalFen(), SalonPayRecord.SOURCE_QUERY_COMPENSATE,
-                            JSONUtil.toJsonStr(result));
+                    confirmDispatcher.confirm(record, new PayConfirmParams(
+                            result.transactionId(), result.successTime(),
+                            result.totalFen(), result.payerTotalFen(),
+                            SalonPayRecord.SOURCE_QUERY_COMPENSATE,
+                            JSONUtil.toJsonStr(result)));
                     confirmed++;
                     log.info("查单补偿确认支付 channel={} outTradeNo={} transactionId={}",
                             channel.channel(), record.getOutTradeNo(), result.transactionId());
@@ -137,7 +139,7 @@ public class PayQueryCompensateService {
                 && record.getCreateTime().isBefore(LocalDateTime.now().minusMinutes(TIMEOUT_MINUTES));
     }
 
-    /** 流水关闭：pending -> failed；充值单同步 0->2 已取消（顾客未支付放弃，重新充值会生成新单；若渠道侧后续仍支付成功，回调无 pending 流水不入账，P8 对账处理） */
+    /** 流水关闭：pending -> failed；充值单同步 0->2 已取消（顾客未支付放弃，重新充值会生成新单）；订单保持挂单（收银员可重新发起支付）。若渠道侧后续仍支付成功，回调无 pending 流水不入账，P8 对账处理 */
     private void closeRecord(SalonPayRecord record, String reason) {
         payRecordMapper.update(null, Wrappers.<SalonPayRecord>lambdaUpdate()
                 .set(SalonPayRecord::getStatus, SalonPayRecord.STATUS_FAILED)

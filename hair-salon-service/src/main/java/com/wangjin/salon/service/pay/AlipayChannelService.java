@@ -89,7 +89,8 @@ public class AlipayChannelService implements PayChannel {
                     normalizeTradeState(response.getTradeStatus()),
                     response.getTradeNo(),
                     toLocalDateTime(response.getSendPayDate()),
-                    toFen(response.getTotalAmount()));
+                    toFen(response.getTotalAmount()),
+                    toFen(response.getBuyerPayAmount()));
         } catch (BizException e) {
             throw e;
         } catch (AlipayApiException e) {

@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
 
 /**
  * 扫码支付充值确认执行器（回调与查单补偿共用入账链路，渠道无关：微信/支付宝同链路）。
@@ -35,58 +34,55 @@ public class RechargePayConfirmExecutor {
     /**
      * 确认支付并入账（幂等：重复回调/回调与查单补偿竞争时只入账一次）。
      *
-     * @param record        支付流水（pending）
-     * @param transactionId 渠道交易单号
-     * @param paidAt        支付完成时间（渠道口径，空则取当前时间）
-     * @param payerTotalFen 渠道实付金额（分，与下单金额校验一致才入账）
-     * @param source        确认来源（realtime_callback / query_compensate）
-     * @param rawPayload    渠道原始报文（留痕）
+     * @param record 支付流水（pending）
+     * @param params 渠道确认参数（金额口径见 {@link PayConfirmParams}）
      * @return true=本次完成入账；false=此前已处理（幂等跳过）
      */
     @Transactional(rollbackFor = Exception.class)
-    public boolean confirm(SalonPayRecord record, String transactionId, LocalDateTime paidAt,
-                           Integer payerTotalFen, String source, String rawPayload) {
-        if (record.getBizType() == null || record.getBizType() != SalonPayRecord.BIZ_TYPE_RECHARGE) {
-            throw new BizException("不支持的支付业务类型：" + record.getBizType());
-        }
-        // 金额校验：渠道实付须与下单金额一致（分）；不一致拒绝自动入账（告警人工介入，微信重试也无害）
+    public boolean confirm(SalonPayRecord record, PayConfirmParams params) {
+        // 金额校验：渠道订单金额须与下单金额一致（分）；不一致拒绝自动入账（告警人工介入，渠道重试也无害）
         int expectedFen = record.getAmount().multiply(BigDecimal.valueOf(100))
                 .setScale(0, RoundingMode.HALF_UP).intValueExact();
-        if (payerTotalFen == null || payerTotalFen != expectedFen) {
-            log.error("支付金额与下单金额不一致，拒绝自动入账 outTradeNo={} 下单分={} 实付分={}",
-                    record.getOutTradeNo(), expectedFen, payerTotalFen);
+        if (params.totalFen() == null || params.totalFen() != expectedFen) {
+            log.error("支付金额与下单金额不一致，拒绝自动入账 outTradeNo={} 下单分={} 渠道分={}",
+                    record.getOutTradeNo(), expectedFen, params.totalFen());
             throw new BizException("支付金额与下单金额不一致，已拒绝自动入账");
         }
         // 充值单占坑：status 0->1 条件更新（并发/重试只成功一次）
         int claimed = rechargeOrderMapper.update(null, Wrappers.<SalonRechargeOrder>lambdaUpdate()
                 .set(SalonRechargeOrder::getStatus, SalonRechargeOrder.STATUS_PAID)
-                .set(SalonRechargeOrder::getPayTime, paidAt != null ? paidAt : LocalDateTime.now())
+                .set(SalonRechargeOrder::getPayTime, params.paidAt() != null ? params.paidAt() : java.time.LocalDateTime.now())
                 .eq(SalonRechargeOrder::getId, record.getBizId())
                 .eq(SalonRechargeOrder::getStatus, SalonRechargeOrder.STATUS_PENDING));
         if (claimed == 0) {
             log.info("充值单已确认过，幂等跳过入账 rechargeId={} outTradeNo={}", record.getBizId(), record.getOutTradeNo());
-            markRecordPaid(record, transactionId, paidAt, source, rawPayload);
+            markRecordPaid(record, params);
             return false;
         }
         SalonRechargeOrder order = rechargeOrderMapper.selectById(record.getBizId());
         // 入账：与手动确认共用链路（本金/赠送流水 + 累计充值 + 等级升级检查）
         rechargeOrderService.settleRecharge(order);
-        markRecordPaid(record, transactionId, paidAt, source, rawPayload);
+        markRecordPaid(record, params);
         log.info("扫码支付充值确认完成 rechargeId={} outTradeNo={} transactionId={} source={}",
-                record.getBizId(), record.getOutTradeNo(), transactionId, source);
+                record.getBizId(), record.getOutTradeNo(), params.transactionId(), params.source());
         return true;
     }
 
-    /** 流水 pending->paid（条件更新兜底，已 paid 时无变化） */
-    private void markRecordPaid(SalonPayRecord record, String transactionId, LocalDateTime paidAt,
-                                String source, String rawPayload) {
+    /** 流水 pending->paid（条件更新兜底，已 paid 时无变化；同时落用户实付） */
+    private void markRecordPaid(SalonPayRecord record, PayConfirmParams params) {
         payRecordMapper.update(null, Wrappers.<SalonPayRecord>lambdaUpdate()
                 .set(SalonPayRecord::getStatus, SalonPayRecord.STATUS_PAID)
-                .set(SalonPayRecord::getTransactionId, transactionId)
-                .set(SalonPayRecord::getSource, source)
-                .set(SalonPayRecord::getPaidAt, paidAt)
-                .set(SalonPayRecord::getRawPayload, rawPayload)
+                .set(SalonPayRecord::getTransactionId, params.transactionId())
+                .set(SalonPayRecord::getSource, params.source())
+                .set(SalonPayRecord::getPaidAt, params.paidAt())
+                .set(SalonPayRecord::getRawPayload, params.rawPayload())
+                .set(SalonPayRecord::getPayerAmount, fenToYuan(params.payerTotalFen()))
                 .eq(SalonPayRecord::getId, record.getId())
                 .eq(SalonPayRecord::getStatus, SalonPayRecord.STATUS_PENDING));
+    }
+
+    /** 分 -> 元（null 透传） */
+    static BigDecimal fenToYuan(Integer fen) {
+        return fen == null ? null : BigDecimal.valueOf(fen, 2);
     }
 }

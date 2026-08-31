@@ -957,7 +957,7 @@ COMMENT ON COLUMN salon_order.point_deduct_points IS '积分抵扣使用的积�
 COMMENT ON COLUMN salon_order.point_deduct_amount IS '积分抵扣金额';
 COMMENT ON COLUMN salon_order.received_amount IS '实收金额（应收-积分抵扣；含会员余额支付部分）';
 COMMENT ON COLUMN salon_order.change_amount IS '找零金额（现金投入-现金应收，>=0）';
-COMMENT ON COLUMN salon_order.status IS '状态（0=挂单 1=已支付 2=部分退款 3=已退款 4=已取消；2/3预留P6）';
+COMMENT ON COLUMN salon_order.status IS '状态（0=挂单 1=已支付 2=部分退款 3=已退款 4=已取消）';
 COMMENT ON COLUMN salon_order.paid_time IS '支付完成时间';
 COMMENT ON COLUMN salon_order.remark IS '备注';
 COMMENT ON COLUMN salon_order.create_by IS '创建人ID（0=系统）';
@@ -1134,7 +1134,7 @@ COMMENT ON COLUMN salon_pay_record.tenant_id IS '租户ID';
 COMMENT ON COLUMN salon_pay_record.biz_type IS '业务类型（1=充值订单 2=收银订单，预留）';
 COMMENT ON COLUMN salon_pay_record.biz_id IS '业务单据ID（biz_type 对应表主键）';
 COMMENT ON COLUMN salon_pay_record.order_id IS '关联收银订单ID（收银场景）';
-COMMENT ON COLUMN salon_pay_record.refund_id IS '关联退款单ID（退款时，预留 P6）';
+COMMENT ON COLUMN salon_pay_record.refund_id IS '关联退款单ID（渠道流水被退款全额退光置 refunded 时记录首次触发的退款单；精确分摊见 salon_refund_payment.pay_record_id）';
 COMMENT ON COLUMN salon_pay_record.channel IS '支付渠道（字典 pay_channel：wxpay 等）';
 COMMENT ON COLUMN salon_pay_record.settle_type IS '结算模式（字典 pay_settle_type：self_merchant 直连）';
 COMMENT ON COLUMN salon_pay_record.out_trade_no IS '系统内部交易单号（租户内唯一，下单传渠道；回调反查键）';
@@ -1156,4 +1156,99 @@ COMMENT ON COLUMN salon_pay_record.create_time IS '创建时间';
 COMMENT ON COLUMN salon_pay_record.update_by IS '更新人ID';
 COMMENT ON COLUMN salon_pay_record.update_time IS '更新时间';
 COMMENT ON COLUMN salon_pay_record.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 退款单（P6，docs/payment-design.md §9 阶段5）：一次退款动作一行，退款单是整体生效/失败的事务边界；
+-- 分摊明细（每支付方式一行，含渠道侧字段）见 salon_refund_payment
+CREATE TABLE IF NOT EXISTS salon_refund_order (
+    id                   int8          NOT NULL PRIMARY KEY,
+    tenant_id            int8          NOT NULL,
+    store_id             int8          NOT NULL,
+    refund_no            varchar(32)   NOT NULL,
+    order_id             int8          NOT NULL,
+    order_no             varchar(32),
+    member_id            int8,
+    refund_amount        numeric(12, 2) NOT NULL,
+    point_refund_points  int4          DEFAULT 0,
+    point_refund_amount  numeric(12, 2) DEFAULT 0,
+    balance_refund_amount numeric(12, 2) DEFAULT 0,
+    reason               varchar(255),
+    status               int4          NOT NULL DEFAULT 0,
+    success_time         timestamp,
+    remark               varchar(255),
+    create_by            int8,
+    create_time          timestamp,
+    update_by            int8,
+    update_time          timestamp,
+    deleted              int4          DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_salon_refund_no ON salon_refund_order (tenant_id, refund_no) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_refund_order ON salon_refund_order (tenant_id, order_id, create_time) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_refund_processing ON salon_refund_order (tenant_id, create_time) WHERE deleted = 0 AND status = 0;
+COMMENT ON TABLE salon_refund_order IS '退款单（一次退款动作一行；0=处理中 1=成功 2=失败，整体生效/失败）';
+COMMENT ON COLUMN salon_refund_order.id IS '退款单ID';
+COMMENT ON COLUMN salon_refund_order.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_refund_order.store_id IS '原订单开单门店ID（冗余，门店权限校验）';
+COMMENT ON COLUMN salon_refund_order.refund_no IS '退款单号（SR+时间+随机；渠道侧商户退款单号 out_refund_no 复用此号）';
+COMMENT ON COLUMN salon_refund_order.order_id IS '原订单ID';
+COMMENT ON COLUMN salon_refund_order.order_no IS '原订单号（冗余展示）';
+COMMENT ON COLUMN salon_refund_order.member_id IS '会员ID（NULL=散客）';
+COMMENT ON COLUMN salon_refund_order.refund_amount IS '退款总额（元，资金口径=退回顾客的钱，含退回会员余额部分，不含积分退回折算）';
+COMMENT ON COLUMN salon_refund_order.point_refund_points IS '退回积分数（订单资金全额退光时一并退回积分抵扣）';
+COMMENT ON COLUMN salon_refund_order.point_refund_amount IS '退回积分折算金额（100积分=1元，留痕）';
+COMMENT ON COLUMN salon_refund_order.balance_refund_amount IS '其中退回会员余额的金额（先本后赠，分桶流水见 salon_member_balance_log）';
+COMMENT ON COLUMN salon_refund_order.reason IS '退款原因（必填）';
+COMMENT ON COLUMN salon_refund_order.status IS '退款单状态（0=处理中 1=成功 2=失败；系统内退回与订单状态流转在置 1 时同事务生效）';
+COMMENT ON COLUMN salon_refund_order.success_time IS '退款成功时间';
+COMMENT ON COLUMN salon_refund_order.remark IS '备注（失败原因等）';
+COMMENT ON COLUMN salon_refund_order.create_by IS '创建人ID（0=系统，退款申请人）';
+COMMENT ON COLUMN salon_refund_order.create_time IS '创建时间';
+COMMENT ON COLUMN salon_refund_order.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_refund_order.update_time IS '更新时间';
+COMMENT ON COLUMN salon_refund_order.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+-- 退款分摊明细（P6）：退款按原支付方式贪心分摊（先系统内后外部），每方式一行；对称 salon_order_payment
+CREATE TABLE IF NOT EXISTS salon_refund_payment (
+    id                  int8          NOT NULL PRIMARY KEY,
+    tenant_id           int8          NOT NULL,
+    refund_id           int8          NOT NULL,
+    pay_method          int4          NOT NULL,
+    amount              numeric(12, 2) NOT NULL,
+    pay_record_id       int8,
+    channel             varchar(16),
+    out_refund_no       varchar(32),
+    channel_refund_no   varchar(64),
+    channel_status      varchar(16)   NOT NULL DEFAULT 'processing',
+    fee_amount          numeric(12, 2),
+    fee_returned        int4          DEFAULT 0,
+    raw_payload         text,
+    remark              varchar(255),
+    create_by           int8,
+    create_time         timestamp,
+    update_by           int8,
+    update_time         timestamp,
+    deleted             int4          DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_refund_payment ON salon_refund_payment (tenant_id, refund_id) WHERE deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_salon_refund_payment_record ON salon_refund_payment (tenant_id, pay_record_id) WHERE deleted = 0 AND pay_record_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_salon_refund_payment_processing ON salon_refund_payment (tenant_id, channel, update_time) WHERE deleted = 0 AND channel_status = 'processing';
+COMMENT ON TABLE salon_refund_payment IS '退款分摊明细（每支付方式一行；外部渠道行绑定原支付流水调渠道退款，系统内退回行渠道为空）';
+COMMENT ON COLUMN salon_refund_payment.id IS '退款分摊行ID';
+COMMENT ON COLUMN salon_refund_payment.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_refund_payment.refund_id IS '退款单ID';
+COMMENT ON COLUMN salon_refund_payment.pay_method IS '退回支付方式（字典 pay_method；7积分退回记退款单头不落行）';
+COMMENT ON COLUMN salon_refund_payment.amount IS '本行退款金额';
+COMMENT ON COLUMN salon_refund_payment.pay_record_id IS '绑定的原支付流水ID（渠道退款的调用依据；系统内退回/线下退款为空）';
+COMMENT ON COLUMN salon_refund_payment.channel IS '退款渠道（wxpay/alipay 调渠道原路退回；系统内退回为空）';
+COMMENT ON COLUMN salon_refund_payment.out_refund_no IS '商户退款单号（渠道幂等键，=退款单号；微信 out_refund_no / 支付宝 out_request_no）';
+COMMENT ON COLUMN salon_refund_payment.channel_refund_no IS '渠道退款单号（微信 refund_id / 支付宝 trade_no；回调/查单回填）';
+COMMENT ON COLUMN salon_refund_payment.channel_status IS '退款处理状态（processing=处理中 success=已生效 failed=失败；系统内退回在退款单确认时置 success）';
+COMMENT ON COLUMN salon_refund_payment.fee_amount IS '渠道退款手续费（元；直连退款响应无此数据由 P8 对账单回填）';
+COMMENT ON COLUMN salon_refund_payment.fee_returned IS '手续费是否返还（0=否 1=是；直连退款手续费不返还属常态，商家承担，默认 0）';
+COMMENT ON COLUMN salon_refund_payment.raw_payload IS '渠道退款响应原始报文（JSON 留痕）';
+COMMENT ON COLUMN salon_refund_payment.remark IS '备注（如：线下退款-无系统支付流水）';
+COMMENT ON COLUMN salon_refund_payment.create_by IS '创建人ID（0=系统）';
+COMMENT ON COLUMN salon_refund_payment.create_time IS '创建时间';
+COMMENT ON COLUMN salon_refund_payment.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_refund_payment.update_time IS '更新时间';
+COMMENT ON COLUMN salon_refund_payment.deleted IS '逻辑删除（0=未删除 1=已删除）';
 

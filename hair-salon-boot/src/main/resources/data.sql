@@ -248,7 +248,8 @@ FROM (VALUES
   (65::int8, '抵扣消费', '5', 5),
   (66::int8, '兑换商品', '6', 6),
   (67::int8, '手工扣减', '7', 7),
-  (68::int8, '过期清零', '8', 8)
+  (68::int8, '过期清零', '8', 8),
+  (69::int8, '退款退回', '9', 9)
 ) AS v(id, name, value, sort)
 WHERE NOT EXISTS (SELECT 1 FROM sys_dict d WHERE d.type_code = 'point_change_type' AND d.value = v.value AND d.tenant_id = 1);
 
@@ -533,6 +534,7 @@ FROM (VALUES
   (183::int8, 166::int8, 'orderAdd',    '0,20,166', '{"title":"开单挂单"}', 'biz:order:add'),
   (184::int8, 166::int8, 'orderPay',    '0,20,166', '{"title":"订单结算"}', 'biz:order:pay'),
   (185::int8, 166::int8, 'orderCancel', '0,20,166', '{"title":"取消订单"}', 'biz:order:cancel'),
+  (200::int8, 166::int8, 'orderRefund', '0,20,166', '{"title":"订单退款"}', 'biz:order:refund'),
   (186::int8, 168::int8, 'rechargeList', '0,17,168', '{"title":"查看记录"}', 'biz:recharge:list'),
   (187::int8, 168::int8, 'rechargeView', '0,17,168', '{"title":"查看详情"}', 'biz:recharge:view'),
   (188::int8, 168::int8, 'rechargeAdd',  '0,17,168', '{"title":"会员充值"}', 'biz:recharge:add'),
@@ -547,7 +549,7 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 -- 店长(role 2)：收银全按钮 + 充值记录全按钮 + 充值活动全按钮
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 2, m.id, 1 FROM sys_menu m
-WHERE m.id IN (20, 166, 181, 182, 183, 184, 185,
+WHERE m.id IN (20, 166, 181, 182, 183, 184, 185, 200,
                17, 168, 186, 187, 188,
                19, 169, 189, 190, 191, 192, 193)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 2 AND rm.menu_id = m.id AND rm.type = 1);

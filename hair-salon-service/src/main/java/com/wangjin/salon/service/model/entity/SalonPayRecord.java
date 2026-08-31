@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -54,8 +55,20 @@ public class SalonPayRecord extends BaseTenantEntity<Long> {
     private String outTradeNo;
     /** 渠道交易单号（微信 transaction_id；回调/查单回填） */
     private String transactionId;
-    /** 支付金额（下单金额，元） */
+    /** 订单金额（商家应收，元；渠道下单金额，入账与回调校验锚点） */
     private BigDecimal amount;
+    /** 用户实付金额（元；微信 payer_total / 支付宝 buyer_pay_amount，平台补贴优惠时小于订单金额，仅留痕解释不参与入账） */
+    private BigDecimal payerAmount;
+    /** 渠道手续费（元；直连回调无此字段由 P8 对账单回填，服务商（收钱吧/富掌柜）回调可带） */
+    private BigDecimal feeAmount;
+    /** 商家实收金额（元 = 订单金额 - 商家侧优惠 - 手续费；直连对账回填，服务商回调可带，老板到手口径） */
+    private BigDecimal merchantAmount;
+    /** 结算到账日期（服务商 D+1 等；直连对账回填） */
+    private LocalDate settleDate;
+    /** 手续费来源（callback=回调实时获取 bill=对账单回填） */
+    private String feeSource;
+    /** 业务支付表单快照（JSON；订单扫码两阶段确认反序列化重放结算，充值等单据自含场景为空） */
+    private String bizForm;
     /** 流水状态（pending/paid/refunded/failed） */
     private String status;
     /** 确认来源（realtime_callback/query_compensate/aggregate_pull/manual_input） */

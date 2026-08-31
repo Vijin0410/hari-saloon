@@ -1107,6 +1107,12 @@ CREATE TABLE IF NOT EXISTS salon_pay_record (
     out_trade_no        varchar(32)   NOT NULL,
     transaction_id      varchar(64),
     amount              numeric(12, 2) NOT NULL,
+    payer_amount        numeric(12, 2),
+    fee_amount          numeric(12, 2),
+    merchant_amount     numeric(12, 2),
+    settle_date         date,
+    fee_source          varchar(16),
+    biz_form            text,
     status              varchar(16)   NOT NULL DEFAULT 'pending',
     source              varchar(24),
     paid_at             timestamp,
@@ -1133,7 +1139,13 @@ COMMENT ON COLUMN salon_pay_record.channel IS '支付渠道（字典 pay_channel
 COMMENT ON COLUMN salon_pay_record.settle_type IS '结算模式（字典 pay_settle_type：self_merchant 直连）';
 COMMENT ON COLUMN salon_pay_record.out_trade_no IS '系统内部交易单号（租户内唯一，下单传渠道；回调反查键）';
 COMMENT ON COLUMN salon_pay_record.transaction_id IS '渠道交易单号（微信 transaction_id；回调/查单回填）';
-COMMENT ON COLUMN salon_pay_record.amount IS '支付金额（下单金额，元）';
+COMMENT ON COLUMN salon_pay_record.amount IS '订单金额（商家应收，元；渠道下单金额，入账与回调校验锚点）';
+COMMENT ON COLUMN salon_pay_record.payer_amount IS '用户实付金额（元；微信payer_total/支付宝buyer_pay_amount，平台补贴优惠时小于订单金额，仅留痕解释不参与入账）';
+COMMENT ON COLUMN salon_pay_record.fee_amount IS '渠道手续费（元；直连回调无此字段由P8对账单回填，服务商（收钱吧/富掌柜）回调可带）';
+COMMENT ON COLUMN salon_pay_record.merchant_amount IS '商家实收金额（元=订单金额-商家侧优惠-手续费；直连对账回填，服务商回调可带，老板到手口径）';
+COMMENT ON COLUMN salon_pay_record.settle_date IS '结算到账日期（服务商D+1等；直连对账回填）';
+COMMENT ON COLUMN salon_pay_record.fee_source IS '手续费来源（callback=回调实时获取 bill=对账单回填）';
+COMMENT ON COLUMN salon_pay_record.biz_form IS '业务支付表单快照（JSON；订单扫码两阶段确认反序列化重放结算，充值等单据自含场景为空）';
 COMMENT ON COLUMN salon_pay_record.status IS '流水状态（pending=已下单待支付 paid=已支付 refunded=已退款 failed=失败/超时关闭）';
 COMMENT ON COLUMN salon_pay_record.source IS '确认来源（realtime_callback=实时回调 query_compensate=查单补偿 aggregate_pull=聚合拉单 manual_input=手动录入）';
 COMMENT ON COLUMN salon_pay_record.paid_at IS '支付完成时间（渠道口径）';

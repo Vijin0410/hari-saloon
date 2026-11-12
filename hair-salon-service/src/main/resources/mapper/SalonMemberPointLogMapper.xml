@@ -5,7 +5,7 @@
 
     <select id="getLogPage" resultType="com.wangjin.salon.service.model.vo.MemberPointLogVO">
         SELECT l.id, l.member_id, l.change_type, l.before_points, l.change_points,
-               l.after_points, l.expire_time, l.biz_no, u.nickname AS operator_name, l.remark, l.create_time
+               l.after_points, l.expire_time, l.debt_change_points, l.source_log_id, l.biz_no, u.nickname AS operator_name, l.remark, l.create_time
         FROM salon_member_point_log l
         LEFT JOIN sys_user u ON u.id = l.operator_id AND u.deleted = 0
         <where>

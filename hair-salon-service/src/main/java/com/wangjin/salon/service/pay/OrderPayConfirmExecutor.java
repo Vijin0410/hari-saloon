@@ -64,6 +64,11 @@ public class OrderPayConfirmExecutor {
         SalonOrder order = orderMapper.selectById(record.getBizId());
         // 结算：反序列化出码时的表单快照重放（校验/扣减/明细/库存/积分，与手动结算同链路）
         OrderPayForm form = parseBizForm(record);
+        var snapshot = JSONUtil.parseObj(record.getBizForm());
+        if (snapshot.containsKey("pointsEnabledSnapshot")) {
+            order.setPointsEnabledSnapshot(snapshot.getInt("pointsEnabledSnapshot"));
+            order.setPointRateSnapshot(snapshot.getBigDecimal("pointRateSnapshot"));
+        }
         orderService.settle(order, form);
         markRecordPaid(record, params);
         log.info("订单扫码支付确认完成 orderId={} outTradeNo={} transactionId={} source={}",

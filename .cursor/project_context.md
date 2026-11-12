@@ -1,6 +1,17 @@
 # 项目上下文记忆
 
-> 最后更新：2026-11-12（全系统字典响应与展示核查；本轮允许修复字典相关前后端及框架链路）
+> 最后更新：2026-11-12（退款积分回冲与租户积分开关实施完成）
+
+
+## 退款积分与租户积分开关（2026-11-12）
+
+- `GET /api/v1/member-settings/capabilities`（登录）；`GET /detail`（`biz:memberSettings:list`）；`PUT /update`（`biz:memberSettings:edit`）。业务配置→会员设置；管理员可改、店长只读。开关直接读租户表，审计表记录前后值。
+- `GET /api/v1/orders/{id}/refund-preview?amount=`（`biz:order:refund`）预览资金及积分；`RefundPointService`统一预览/确认。订单行锁与状态占坑保护；同订单仅一笔处理中退款。
+- 原抵扣和原奖励按累计成功资金比例分摊，末笔补差；纯积分订单0元全单退回。退回保留原有效期，已过期原批次增加30天宽限；奖励过期免扣、已用形成`pointDebt`，新奖励抵扣，欠账期间禁止积分抵扣。
+- 流水9=退款退回、10=退款奖励回收、11=奖励抵扣待追回；VO包含`debtChangePoints`/`sourceLogId`；退款VO区分应回收/实扣/过期免扣/新增待追回。
+- 支付开始保存`pointsEnabledSnapshot`/`pointRateSnapshot`及扫码流水JSON快照，异步确认沿用出码规则。积分关闭隐藏日常组件、停止新消费赠送/抵扣/人工调整，历史退款与过期继续。
+- 存量迁移：`sql/migrate-refund-points-toggle.sql`（幂等，已有租户开、新租户关）；本地数据库已执行，其他环境需显式迁移。历史成功退款不追补旧奖励。
+- 自动回归：`RefundPointsIntegrationTest`，设置`SALON_TEST_DB_URL`（JDBC URL）、`SALON_TEST_DB_USER`、`SALON_TEST_DB_PASSWORD`后执行`mvn -pl hair-salon-service -am test`；只在临时schema写数据并清理，渠道使用桩。
 
 ## 本轮前端可复用能力
 
@@ -8,7 +19,7 @@
 - `shared/hooks/useDialog`：Drawer/Modal 共用滚动锁定、焦点进入/恢复、Tab 边界、Esc 栈顶关闭和叠层顺序；面板统一 portal 到 body。
 - `shared/ui/RequestError`：请求失败与真实空数据分开；权限失败展示友好说明与重新加载。服务/商品 ROOT 分页权限错误尚未修后端。
 - 工作台现使用 `features/dashboard/ui/SalonDashboard`，仅展示已有接口的真实档案、订单和库存数据。收银在手机固定结算摘要、平板双栏、桌面三栏。
-- 最新范围：仅前端；积分开关、退款积分回冲、卡项核销与其他后端功能继续暂缓。
+- 最新范围：退款积分回冲与积分开关已获授权并完成；卡项核销继续暂缓。
 
 ## 字典响应与展示（2026-11-12 核查）
 
@@ -66,7 +77,7 @@
 - `POST /api/v1/pay/notify/wxpay/{tenantId}` - 微信支付回调【公开免鉴权 ignore-urls，NotificationParser 平台证书验签；应答按微信规范非 Result：200 SUCCESS / 4xx/5xx FAIL 触发重试】
 - `POST /api/v1/pay/notify/wxpay-refund/{tenantId}` - 微信退款结果回调【公开免鉴权（notify/** 通配已覆盖零 yml 改动）；NotificationParser 验签解密 RefundNotification，refund_status=SUCCESS 走退款确认链路（幂等）、ABNORMAL/CLOSED 置退款单失败；应答协议与支付回调一致】
 - `POST /api/v1/pay/notify/alipay/{tenantId}` - 支付宝支付回调【公开免鉴权；form 表单参数，支付宝公钥 rsaCheckV1 RSA2 验签；应答纯文本 success/failure（failure 触发 4m/10m/1h/6h… 重试）。**租户标识走路径段——支付宝/微信均不允许 notify_url 带查询串，?tenantId= 会触发 ACQ.INVALID_PARAMETER**】
-- `GET /api/v1/orders/page|{id}/detail` / `POST /add|{id}/pay|{id}/refund|{id}/cancel` / `PUT /{id}/update` / `GET /{id}/refunds` - 收银订单；`biz:order:list/view/add/pay/cancel/refund`（挂单=status 0；结算=add/update+pay 两步；金额服务端算不信前端；**refund=P6 退款**：整单/部分金额，服务端贪心分摊先系统内后外部（余额->现金->银行卡->其他->微信->支付宝），微信/支付宝原路退回（绑 paid pay_record），余额退回先本后赠、积分整单退光时一并退回；退款单整体生效/失败（0处理中 1成功 2失败）；refunds=退款记录含分摊明细；分页/详情透出 refundedAmount）
+- `GET /api/v1/orders/page|{id}/detail` / `POST /add|{id}/pay|{id}/refund|{id}/cancel` / `PUT /{id}/update` / `GET /{id}/refunds` - 收银订单；`biz:order:list/view/add/pay/cancel/refund`（挂单=status 0；结算=add/update+pay 两步；金额服务端算不信前端；**refund=P6 退款**：整单/部分金额，服务端贪心分摊先系统内后外部（余额->现金->银行卡->其他->微信->支付宝），微信/支付宝原路退回（绑 paid pay_record），余额退回先本后赠、积分按累计成功资金比例退回并回收原奖励，纯积分订单支持0元全单退积分；退款单整体生效/失败（0处理中 1成功 2失败）；refunds=退款记录含分摊明细；分页/详情透出 refundedAmount）
 - `GET /api/v1/pay-configs/page|{id}/detail` / `POST /add|{id}/verify` / `PUT /{id}/update` / `DELETE /delete?ids=` / `GET /options` - 租户支付配置；`biz:pay:config:list/view/add/edit/delete/verify`（options=启用且 active 渠道，isAuthenticated；敏感字段 SM4 加密入库、detail 只回掩码；verify=保存即自检：微信直连调 V3 只读接口、manual 直通、其余本地校验保持 pending）
 - `GET /api/v1/users/options` - 员工下拉（isAuthenticated，开单选服务人员）
 
@@ -121,12 +132,13 @@
 - `wj.salon.pay.alipay-gateway-url` - 支付宝网关（默认正式 `https://openapi.alipay.com/gateway.do`；沙箱联调切 `https://openapi-sandbox.dl.alipaydev.com/gateway.do`，配套沙箱控制台 APPID/密钥 + 「支付宝沙箱钱包」App 扫码）
 - `wj.salon.pay.query-enabled` / `query-cron` - 查单兜底任务（渠道无关，默认启用，每 2 分钟；扫 pending 流水防回调丢失）
 - `wj.salon.point-expire-enabled`（默认 true 启用积分过期清零）/ `wj.salon.point-expire-cron`（默认 `0 0 2 * * ?` 每天 02:00）；定时任务跨租户须 `TenantContextRunner` 逐租户切换
-- **积分功能总开关（需求，尚未实现）**：用户要求店铺按需启停；按租户配置，关闭时隐藏日常积分界面并后端禁止新增积分业务，保留历史资产/退款。不能用 `point-expire-enabled` 代替。方案见 `docs/refund-points-and-feature-toggle.md`；默认值、部分退款与已用奖励回收策略为待确认建议。
+- **积分功能总开关（已实现）**：按租户启停，关闭后隐藏日常积分界面并禁止新消费积分与人工调整，保留历史售后；存量开启、新租户关闭。累计比例、30天宽限与待追回规则见 `docs/refund-points-and-feature-toggle.md`。
 - `wj.minio.*` - common-minio；`public-read=false`（私有桶，全预签名 + `getAccessibleUrl` 归属校验；存量桶须 `mc anonymous set none`）；`default-expiry-seconds=86400`（与 JWT `expire-seconds` 对齐）；`endpoint-enabled=false`（用 SysFileController）；本地 Docker `../wj-framework/docs/minio-deploy.md`
 - 文件字段约定：业务表（如 `sys_user.avatar`）存 `object_key`；`UserPageVO` 返回时转预签名 URL；表单回显给 object_key，预览调 `GET /files/url?objectKey=`
 
 ## 最近更新
 
+- 2026-11-12：退款积分与租户积分开关实施完成。新增会员设置、预览、批次回收、待追回、扫码快照、迁移与13项PostgreSQL集成回归；本地数据库已升级。前端构建/lint和后端打包通过。
 - 2026-11-12：全系统 11 类字典核查与修复。收银支付/退款明细改读 `payMethod_text`，wj-framework DictAspect 从原始 VO 递归，补齐充值/会员详情、通用状态及支付配置翻译入口；工作台状态改读 `status_text`；字典类型分组查询改返回 VO。新增 `shared/lib/dict.ts#getDictText` 与 `docs/dict-response-audit.md`。
 - 2026-11-12：**进度与产品文档同步（无业务代码改动）**。`docs/hair-salon-implementation-plan.md` 按当前代码更新 P1/P2/P4/P5/P6，区分代码实现与联调验收；前端优化文档 `docs/frontend-product-ui-review-2026-11-12.md` 固化页面问题、动态登录方向、AI 路线及素材清单。**用户明确卡项核销暂缓，不作为当前收银/退款/日结或 UI 优化的前置条件**；其余卡项需求保留，另行安排。新增 `docs/refund-points-and-feature-toggle.md`：核对现状仅资金全退时返抵扣积分，部分退款不返、消费赠送未回收、退回批次无到期日、纯积分单无法走正金额退款；积分可选化列为 P10 前置需求（尚未实现），关闭不清资产、不阻断旧订单退款。默认值、比例分摊及已用奖励处理均明确为待确认建议。需求文档同步上述范围与验收目标。
 - 2026-08-28: **P6 订单退款落地**（payment-design §9 阶段5）。新表 `salon_refund_order`（退款单头：退款总额/积分退回/余额退回/原因/状态 0处理中 1成功 2失败）+ `salon_refund_payment`（分摊明细，含渠道侧字段 fee_amount/fee_returned/渠道退款单号/退款处理状态；外部渠道行绑 pay_record_id）；存量库跑 `sql/migrate-p6-refund.sql`（幂等：两表 + point_change_type 字典加 9=退款退回 id69 含租户副本 + 按钮 200 biz:order:refund 挂 166 店长授权店员不给 + 注释刷新），跑后重启刷 Redis 字典缓存。**退款单是整体生效/失败的事务边界**：`OrderRefundServiceImpl.apply`（校验可退=received-已退-处理中 -> 贪心分摊先系统内后外部：余额->现金->银行卡->其他->微信->支付宝 -> 落单+分摊行 -> 渠道行调退款 API 事务内失败整体回滚 -> 无异步渠道行同步 confirm）；微信 PROCESSING 由回调 `POST /pay/notify/wxpay-refund/{tenantId}`（`WxpayRefundNotifyService`，复用 notify/** ignore 通配）或查单兜底 `RefundQueryCompensateService`（并入 PayQueryCompensateJob 同 cron）驱动 `OrderRefundConfirmExecutor.confirm`（独立 bean 事务：退款单 0->1 占坑幂等 + 积分退回 changeType=9 写新批次 + 余额退回**先本后赠**（与扣款先赠后本对称，桶流水 changeType=4 bizType=REFUND）+ 订单状态流转（累计退款达 received 置 3 否则 2）+ pay_record 全额退光置 refunded）；渠道失败 `fail()` 置 2 系统内不生效可重新发起。积分退回条件=资金全额退光时一并退（部分退款不动）。**PayChannel SPI 扩 refund/queryRefundStatus**（支付宝 alipay.trade.refund 同步 fund_change=Y|N 均成功、微信 V3 RefundService create/queryByOutRefundNo 状态归一 SUCCESS/PROCESSING/FAILED）；`PayProperties.buildNotifyUrl(channel, tenantId)` 公共化（充值/订单/退款三处消重）。前端：OrderRefundDialog（金额默认全额+全部退款快捷+原因必填+处理中提示）、OrderRecords 行退款按钮+状态筛选 2/3、OrderDetailDrawer 退款按钮+已退款金额格+退款记录卡（分摊明细渠道状态）、MemberPage 积分类型映射加 9。刻意不做：按行退款/充值退款/审批流/提成扣回（见 payment-design §9 阶段5 尾部）。

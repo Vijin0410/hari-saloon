@@ -660,3 +660,26 @@ INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 2, m.id, 1 FROM sys_menu m
 WHERE m.id IN (19, 170, 194, 195, 196, 197, 198, 199)
   AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 2 AND rm.menu_id = m.id AND rm.type = 1);
+
+
+-- 会员设置（业务配置）；租户管理员可管理，店长仅查看，店员不授权。
+INSERT INTO sys_menu (id,parent_id,name,type,path,component,tree_path,meta,perm,tenant_id,create_by,create_time,deleted)
+SELECT v.id,v.parent_id,v.name,v.type,v.path,v.component,v.tree_path,v.meta,v.perm,1,0,CURRENT_TIMESTAMP,0
+FROM (VALUES
+ (201::int8,19::int8,'memberSettings',1,'member-settings','biz/member-settings/index','0,19','{"title":"会员设置","icon":"settings","rank":1,"showLink":true}',NULL),
+ (202::int8,201::int8,'memberSettingsList',4,NULL,NULL,'0,19,201','{"title":"查看会员设置"}','biz:memberSettings:list'),
+ (203::int8,201::int8,'memberSettingsEdit',4,NULL,NULL,'0,19,201','{"title":"修改会员设置"}','biz:memberSettings:edit')
+) v(id,parent_id,name,type,path,component,tree_path,meta,perm)
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id=v.id);
+INSERT INTO sys_role_menu (role_id,menu_id,type)
+SELECT r.id,m.id,1 FROM sys_role r CROSS JOIN sys_menu m
+WHERE r.deleted=0 AND ((r.code='ROOT' AND r.tenant_id=1 AND m.id IN (201,202,203)) OR (r.code='TENANT_ADMIN' AND m.id IN (19,201,202,203)) OR (r.code='STORE_MANAGER' AND m.id IN (19,201,202)))
+AND NOT EXISTS(SELECT 1 FROM sys_role_menu rm WHERE rm.role_id=r.id AND rm.menu_id=m.id AND rm.type=1);
+INSERT INTO sys_dict(id,type_code,name,value,sort,status,defaulted,tenant_id)
+SELECT v.id,'point_change_type',v.name,v.value,v.id::int4,1,0,1
+FROM (VALUES (70::int8,'退款奖励回收','10'),(71::int8,'奖励抵扣待追回','11')) v(id,name,value)
+WHERE NOT EXISTS(SELECT 1 FROM sys_dict d WHERE d.type_code='point_change_type' AND d.value=v.value AND d.tenant_id=1);
+INSERT INTO sys_dict(id,type_code,name,value,sort,status,defaulted,tenant_id)
+SELECT d.id+1000,d.type_code,d.name,d.value,d.sort,d.status,d.defaulted,2084880957290426370
+FROM sys_dict d WHERE d.tenant_id=1 AND d.type_code='point_change_type' AND d.value IN ('10','11')
+AND NOT EXISTS(SELECT 1 FROM sys_dict t WHERE t.tenant_id=2084880957290426370 AND t.type_code=d.type_code AND t.value=d.value);

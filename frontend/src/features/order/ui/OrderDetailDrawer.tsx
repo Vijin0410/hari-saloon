@@ -103,7 +103,7 @@ export function OrderDetailDrawer({
     <Drawer
       footer={
         <>
-          {detail && (detail.status === 1 || detail.status === 2) && canRefund && refundable > 0 ? (
+          {detail && (detail.status === 1 || detail.status === 2) && canRefund && (refundable > 0 || (detail.pointDeductAmount > 0 && detail.receivedAmount === 0)) ? (
             <Button onClick={() => setRefundOpen(true)} variant="secondary">
               退款
             </Button>
@@ -144,6 +144,7 @@ export function OrderDetailDrawer({
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">会员折扣优惠</div>
                 <div className="mt-1 text-lg font-semibold">{formatCurrency(detail.discountAmount)}</div>
               </div>
+              {detail.pointDeductAmount > 0 ? (
               <div className="rounded-md bg-stone-50 p-3 dark:bg-zinc-900">
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">积分抵扣</div>
                 <div className="mt-1 text-lg font-semibold">
@@ -152,6 +153,7 @@ export function OrderDetailDrawer({
                     : '暂无'}
                 </div>
               </div>
+              ) : null}
               <div className="rounded-md bg-stone-50 p-3 dark:bg-zinc-900">
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">找零</div>
                 <div className="mt-1 text-lg font-semibold">
@@ -225,16 +227,17 @@ export function OrderDetailDrawer({
                     {r.createTime ? ` · ${r.createTime}` : ''}
                   </div>
                   <div className="mt-1 text-xs text-zinc-500">原因：{r.reason ?? '暂无'}</div>
-                  {(r.pointRefundPoints ?? 0) > 0 || (r.balanceRefundAmount ?? 0) > 0 ? (
+                  {(r.pointRefundPoints ?? 0) > 0 || (r.pointClawbackPoints ?? 0) > 0 || (r.balanceRefundAmount ?? 0) > 0 ? (
                     <div className="mt-1 flex flex-wrap gap-2 text-xs text-zinc-500">
                       {(r.balanceRefundAmount ?? 0) > 0 ? (
                         <span>退回余额 {formatCurrency(r.balanceRefundAmount ?? 0)}（先本金后赠送）</span>
                       ) : null}
                       {(r.pointRefundPoints ?? 0) > 0 ? (
-                        <span>退回积分 {r.pointRefundPoints} 分</span>
+                        <span>{r.status === 1 ? "退回抵扣积分" : "预计退回抵扣积分"} {r.pointRefundPoints} 分</span>
                       ) : null}
                     </div>
                   ) : null}
+                  {(r.pointClawbackPoints ?? 0) > 0 ? <p className="mt-2 text-xs text-amber-700">消费奖励应回收 {r.pointClawbackPoints} 分；{r.status === 1 ? <>已扣回 {r.pointClawbackDeducted ?? 0}，过期免扣 {r.pointClawbackExpired ?? 0}，待追回 {r.pointClawbackDebt ?? 0}</> : '成功后处理'}</p> : null}
                   {r.payments?.length ? (
                     <div className="mt-2 space-y-1 border-t border-salon-line pt-2 text-xs dark:border-zinc-800">
                       {r.payments.map((p) => (
@@ -298,7 +301,7 @@ export function OrderDetailDrawer({
           onRefund?.();
         }}
         open={refundOpen}
-        order={refundable > 0 ? detail : null}
+        order={detail}
       />
     </Drawer>
   );

@@ -37,6 +37,8 @@ public class MemberPageVO {
     private BigDecimal balance;
     @Schema(description = "积分")
     private Integer points;
+    @Schema(description = "待追回积分")
+    private Integer pointDebt;
     @Schema(description = "来源（字典 member_source）")
     @Dict(dictCode = "member_source")
     private String source;

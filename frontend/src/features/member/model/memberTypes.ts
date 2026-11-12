@@ -12,6 +12,7 @@ export interface MemberPageVO {
   levelName?: string;
   balance?: number;
   points?: number;
+  pointDebt?: number;
   source?: string;
   source_text?: string;
   status?: number;
@@ -63,6 +64,7 @@ export interface MemberDetailVO {
   levelName?: string;
   balance?: number;
   points?: number;
+  pointDebt?: number;
   source?: string;
   source_text?: string;
   status?: number;
@@ -142,6 +144,8 @@ export interface MemberPointLogVO {
   changeType_text?: string;
   beforePoints?: number;
   changePoints?: number;
+  debtChangePoints?: number;
+  sourceLogId?: EntityId;
   afterPoints?: number;
   expireTime?: string;
   bizNo?: string;

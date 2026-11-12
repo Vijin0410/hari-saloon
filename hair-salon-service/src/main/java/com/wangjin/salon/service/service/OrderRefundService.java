@@ -22,6 +22,8 @@ public interface OrderRefundService {
      */
     OrderRefundVO apply(Long orderId, OrderRefundForm form);
 
+    OrderRefundVO preview(Long orderId, java.math.BigDecimal amount);
+
     /**
      * 订单退款记录（含分摊明细，时间倒序）。
      */

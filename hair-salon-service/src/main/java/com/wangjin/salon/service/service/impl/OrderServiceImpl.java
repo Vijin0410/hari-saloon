@@ -80,6 +80,7 @@ public class OrderServiceImpl implements OrderService {
     private final SalonGoodsMapper goodsMapper;
     private final SysUserMapper sysUserMapper;
     private final MemberAssetService memberAssetService;
+    private final com.wangjin.salon.service.service.MemberSettingsService memberSettingsService;
     private final MemberLevelService memberLevelService;
     private final SalonStorePermissionService storePermissionService;
     private final SalonPayRecordMapper payRecordMapper;
@@ -208,7 +209,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long pay(Long orderId, OrderPayForm form) {
-        SalonOrder order = orderMapper.selectById(orderId);
+        SalonOrder order = orderMapper.selectOne(Wrappers.<SalonOrder>lambdaQuery()
+                .eq(SalonOrder::getId, orderId).last("FOR UPDATE"));
         Assert.notNull(order, "订单不存在");
         storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限结算该订单");
         // 条件更新占坑：防并发重复结算（rows=0 即已非挂单）
@@ -219,6 +221,7 @@ public class OrderServiceImpl implements OrderService {
         if (rows == 0) {
             throw new BizException("订单已结算或已取消，请刷新");
         }
+        snapshotPoints(order);
         settle(order, form);
         return orderId;
     }
@@ -226,11 +229,13 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OrderPrepayVO prepayScan(Long orderId, OrderPayForm form) {
-        SalonOrder order = orderMapper.selectById(orderId);
+        SalonOrder order = orderMapper.selectOne(Wrappers.<SalonOrder>lambdaQuery()
+                .eq(SalonOrder::getId, orderId).last("FOR UPDATE"));
         Assert.notNull(order, "订单不存在");
         Assert.isTrue(SalonOrder.STATUS_PENDING == order.getStatus(), "仅挂单订单可发起扫码支付");
         storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限结算该订单");
         SalonMember member = order.getMemberId() == null ? null : memberMapper.selectById(order.getMemberId());
+        snapshotPoints(order);
         // 全量校验（与确认结算同口径，防出码后确认时校验失败顾客白付）+ 库存预检
         calcPay(order, member, form);
         assertStockEnough(orderId);
@@ -274,7 +279,9 @@ public class OrderServiceImpl implements OrderService {
         record.setAmount(scanRow.getAmount());
         record.setStatus(SalonPayRecord.STATUS_PENDING);
         // 表单快照：确认链路（回调/查单）反序列化重放结算，保证出码与结算口径一致
-        record.setBizForm(JSONUtil.toJsonStr(form));
+        record.setBizForm(JSONUtil.parseObj(form)
+                .set("pointsEnabledSnapshot", order.getPointsEnabledSnapshot())
+                .set("pointRateSnapshot", order.getPointRateSnapshot()).toString());
         payRecordMapper.insert(record);
 
         // 渠道扫码下单（HTTP 调用在事务内：失败整体回滚，无脏单）
@@ -295,7 +302,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void cancelPrepay(Long orderId) {
-        SalonOrder order = orderMapper.selectById(orderId);
+        SalonOrder order = orderMapper.selectOne(Wrappers.<SalonOrder>lambdaQuery()
+                .eq(SalonOrder::getId, orderId).last("FOR UPDATE"));
         Assert.notNull(order, "订单不存在");
         storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限操作该订单");
         int rows = payRecordMapper.update(null, Wrappers.<SalonPayRecord>lambdaUpdate()
@@ -325,7 +333,12 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(rollbackFor = Exception.class)
     public void settle(SalonOrder order, OrderPayForm form) {
         Long orderId = order.getId();
-        SalonMember member = order.getMemberId() == null ? null : memberMapper.selectById(order.getMemberId());
+        SalonMember member = order.getMemberId() == null ? null : memberMapper.selectOne(Wrappers.<SalonMember>lambdaQuery()
+                .eq(SalonMember::getId, order.getMemberId()).last("FOR UPDATE"));
+        if (member != null) {
+            memberAssetService.expireMemberPoints(member.getId(), LocalDateTime.now());
+            member = memberMapper.selectById(member.getId());
+        }
         PayContext ctx = calcPay(order, member, form);
 
         // 1) 余额支付：先扣赠送再扣本金（赠送不可退优先消耗；各行独立流水）
@@ -350,6 +363,8 @@ public class OrderServiceImpl implements OrderService {
         // 4) 订单金额落定
         SalonOrder update = new SalonOrder();
         update.setId(orderId);
+        update.setPointsEnabledSnapshot(order.getPointsEnabledSnapshot());
+        update.setPointRateSnapshot(order.getPointRateSnapshot());
         update.setPointDeductPoints(ctx.usePoints());
         update.setPointDeductAmount(ctx.pointDeductAmount());
         update.setReceivedAmount(ctx.receivable());
@@ -374,7 +389,8 @@ public class OrderServiceImpl implements OrderService {
 
         // 6) 消费送积分 + 累计消费 + 等级升级检查（仅会员）
         if (member != null) {
-            int earned = ctx.receivable().multiply(pointRateOf(member)).setScale(0, RoundingMode.DOWN).intValueExact();
+            int earned = Integer.valueOf(1).equals(order.getPointsEnabledSnapshot())
+                    ? ctx.receivable().multiply(order.getPointRateSnapshot()).setScale(0, RoundingMode.DOWN).intValueExact() : 0;
             if (earned > 0) {
                 memberAssetService.changePoints(member.getId(), earned, PT_EARN,
                         "ORDER", orderId, order.getOrderNo(), null, "消费赠送积分");
@@ -392,7 +408,7 @@ public class OrderServiceImpl implements OrderService {
 
         // 支付方式合法性
         for (OrderPayForm.OrderPaymentForm p : form.getPayments()) {
-            if (!ORDER_PAY_METHODS.contains(p.getPayMethod())) {
+            if (p.getPayMethod() == METHOD_POINT || !ORDER_PAY_METHODS.contains(p.getPayMethod())) {
                 throw new BizException("不支持的支付方式");
             }
             if (p.getPayMethod() != METHOD_POINT && p.getPayMethod() != METHOD_BALANCE && p.getPayMethod() != METHOD_CASH
@@ -406,6 +422,13 @@ public class OrderServiceImpl implements OrderService {
         int usePoints = form.getUsePoints() == null ? 0 : form.getUsePoints();
         if (usePoints > 0) {
             Assert.notNull(member, "散客订单不能使用积分抵扣");
+            if (!Integer.valueOf(1).equals(order.getPointsEnabledSnapshot())) {
+                throw new BizException("当前店铺已关闭会员积分，不能使用积分抵扣");
+            }
+            if (member.getPointDebt() != null && member.getPointDebt() > 0) {
+                throw new BizException("会员有待追回积分，暂不能使用积分抵扣");
+            }
+            if (member.getPoints() == null || usePoints > member.getPoints()) throw new BizException("积分不足");
             pointDeductAmount = new BigDecimal(usePoints).divide(POINTS_PER_YUAN, 2, RoundingMode.DOWN);
             if (pointDeductAmount.compareTo(payable) > 0) {
                 throw new BizException("积分抵扣金额不能超过应收金额");
@@ -591,6 +614,15 @@ public class OrderServiceImpl implements OrderService {
             memberAssetService.changeBalance(member.getId(), BUCKET_PRINCIPAL, rest.negate(),
                     CT_CONSUME, "ORDER", orderId, orderNo, "会员余额支付（本金）");
         }
+    }
+
+    private void snapshotPoints(SalonOrder order) {
+        SalonMember member = order.getMemberId() == null ? null : memberMapper.selectById(order.getMemberId());
+        order.setPointsEnabledSnapshot(memberSettingsService.pointsEnabled(order.getTenantId()) ? 1 : 0);
+        order.setPointRateSnapshot(member == null ? BigDecimal.ZERO : pointRateOf(member));
+        orderMapper.update(null, Wrappers.<SalonOrder>lambdaUpdate()
+                .set(SalonOrder::getPointsEnabledSnapshot, order.getPointsEnabledSnapshot())
+                .set(SalonOrder::getPointRateSnapshot, order.getPointRateSnapshot()).eq(SalonOrder::getId, order.getId()));
     }
 
     private BigDecimal pointRateOf(SalonMember member) {

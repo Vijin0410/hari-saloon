@@ -19,7 +19,7 @@ public class OrderRefundForm {
 
     @Schema(description = "退款金额（元，资金口径；<= 可退余额=实收-已退-处理中）")
     @NotNull(message = "退款金额不能为空")
-    @DecimalMin(value = "0.01", message = "退款金额必须大于0")
+    @DecimalMin(value = "0", message = "退款金额不能为负")
     @Digits(integer = 9, fraction = 2, message = "退款金额最多两位小数")
     private BigDecimal refundAmount;
 

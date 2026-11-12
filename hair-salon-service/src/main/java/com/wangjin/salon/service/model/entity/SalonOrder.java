@@ -37,6 +37,10 @@ public class SalonOrder extends BaseTenantEntity<Long> {
     private BigDecimal payableAmount;
     /** 积分抵扣使用的积分数 */
     private Integer pointDeductPoints;
+    /** 支付开始时积分启用快照（1=启用 0=停用） */
+    private Integer pointsEnabledSnapshot;
+    /** 支付开始时消费积分倍率快照 */
+    private BigDecimal pointRateSnapshot;
     /** 积分抵扣金额 */
     private BigDecimal pointDeductAmount;
     /** 实收金额（应收-积分抵扣；含会员余额支付部分） */

@@ -1,196 +1,76 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { orderApi } from '@/shared/api/modules/orderApi';
-import type { OrderPageVO } from '@/features/order/model/orderTypes';
-import { Badge } from '@/shared/ui/Badge';
+import type { OrderPageVO, OrderRefundVO } from '@/features/order/model/orderTypes';
+import { orderRefundSchema, type OrderRefundValues } from '@/features/order/model/orderSchemas';
 import { Button } from '@/shared/ui/Button';
 import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
 import { Textarea } from '@/shared/ui/Textarea';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 import { formatCurrency } from '@/shared/lib/format';
 
-/** 金额：最多两位小数（中间态正则，与后端 @Digits 一致） */
-const AMOUNT_RE = /^\d{1,9}(\.\d{1,2})?$/;
-
-/**
- * 订单退款弹窗（P6）：金额默认可退上限（整单），原因必填；
- * 微信/支付宝原路退回（微信异步处理中见详情进度），余额/积分退回会员。
- */
-export function OrderRefundDialog({
-  onClose,
-  onRefunded,
-  open,
-  order,
-}: {
+interface OrderRefundDialogProps {
   onClose: () => void;
   onRefunded: () => void;
   open: boolean;
   order: OrderPageVO | null;
-}) {
-  const [amount, setAmount] = useState('');
-  const [reason, setReason] = useState('');
+}
+
+/** 退款确认：资金、抵扣积分、消费奖励分别预览；支持纯积分全单退回。 */
+export function OrderRefundDialog({ onClose, onRefunded, open, order }: OrderRefundDialogProps) {
+  const [preview, setPreview] = useState<OrderRefundVO | null>(null);
+  const [previewError, setPreviewError] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState('');
-  const [reasonError, setReasonError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [pendingMessage, setPendingMessage] = useState('');
-
-  const refundable = Math.max(
-    0,
-    (order?.receivedAmount ?? 0) - (order?.refundedAmount ?? 0),
-  );
-  const amountNum = Number(amount);
-  // 整单退光时后端会一并退回积分抵扣
-  const pointHint =
-    order && amountNum >= refundable && (order.pointDeductAmount ?? 0) > 0
-      ? `本单积分抵扣 ${order.pointDeductAmount} 元将一并退回会员积分`
-      : undefined;
-
+  const [pending, setPending] = useState(false);
+  const { register, watch, reset, setError: setFieldError, setValue, handleSubmit, formState: { errors, isSubmitting } } = useForm<OrderRefundValues>({
+    resolver: zodResolver(orderRefundSchema), defaultValues: { refundAmount: '', reason: '' },
+  });
+  const amount = watch('refundAmount');
+  const debouncedAmount = useDebounce(amount, 300);
+  const refundable = Math.max(0, (order?.receivedAmount ?? 0) - (order?.refundedAmount ?? 0));
+  const pointsOnly = order?.receivedAmount === 0 && (order?.pointDeductAmount ?? 0) > 0;
   useEffect(() => {
-    if (open) {
-      setAmount(refundable > 0 ? String(refundable) : '');
-      setReason('');
-      setError('');
-      setReasonError('');
-      setPendingMessage('');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, order?.id]);
-
-  if (!order) {
-    return null;
-  }
-  const current = order;
-
-  async function handleConfirm(): Promise<void> {
-    if (!amount || !AMOUNT_RE.test(amount)) {
-      setError('退款金额格式不正确（最多两位小数）');
-      return;
-    }
-    if (amountNum <= 0) {
-      setError('退款金额必须大于0');
-      return;
-    }
-    if (amountNum > refundable) {
-      setError(`退款金额不能超过可退金额 ${refundable}`);
-      return;
-    }
-    if (!reason.trim()) {
-      setReasonError('退款原因不能为空');
-      return;
-    }
-    setSubmitting(true);
+    if (open) { reset({ refundAmount: String(refundable), reason: '' }); setError(''); setPending(false); setPreview(null); }
+  }, [open, order?.id, refundable, reset]);
+  useEffect(() => {
+    if (!open || !order || !/^\d{1,9}(\.\d{1,2})?$/.test(debouncedAmount)) { setPreview(null); setPreviewLoading(false); return; }
+    let active = true;
+    setPreview(null); setPreviewError(''); setPreviewLoading(true);
+    orderApi.refundPreview(order.id, Number(debouncedAmount))
+      .then((data) => { if (active) setPreview(data); })
+      .catch((e: unknown) => { if (active) setPreviewError(e instanceof Error ? e.message : '退款预览加载失败'); })
+      .finally(() => { if (active) setPreviewLoading(false); });
+    return () => { active = false; };
+  }, [open, order, debouncedAmount]);
+  async function submit(values: OrderRefundValues) {
+    if (!order) return;
+    const value = Number(values.refundAmount);
+    if ((!pointsOnly && value <= 0) || value > refundable) { setFieldError('refundAmount', { message: pointsOnly ? '纯积分订单仅支持0元全单退回' : '退款金额须大于0且不超过 ' + refundable }); return; }
+    setError('');
     try {
-      const result = await orderApi.refund(String(current.id), {
-        refundAmount: amountNum,
-        reason: reason.trim(),
-      });
-      if (result.status === 0) {
-        // 微信退款异步：渠道处理中，详情/列表可见进度
-        setPendingMessage('退款已发起，微信渠道处理中，可在订单详情查看进度');
-      } else {
-        onRefunded();
-        onClose();
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '退款失败，请重试');
-    } finally {
-      setSubmitting(false);
-    }
+      const result = await orderApi.refund(order.id, { refundAmount: value, reason: values.reason });
+      if (result.status === 0) { setPending(true); onRefunded(); }
+      else { onRefunded(); onClose(); }
+    } catch (e) { setError(e instanceof Error ? e.message : '退款失败，请重试'); }
   }
-
-  return (
-    <Modal
-      description={`订单 ${order.orderNo}：实收 ${formatCurrency(order.receivedAmount)}，已退 ${formatCurrency(order.refundedAmount ?? 0)}，可退 ${formatCurrency(refundable)}。`}
-      footer={
-        pendingMessage ? (
-          <Button onClick={onRefundedAndClose} variant="secondary">
-            知道了
-          </Button>
-        ) : (
-          <>
-            <Button onClick={onClose} variant="secondary">
-              取消
-            </Button>
-            <Button
-              disabled={refundable <= 0}
-              loading={submitting}
-              onClick={() => void handleConfirm()}
-              variant="danger"
-            >
-              确认退款
-            </Button>
-          </>
-        )
-      }
-      onClose={onClose}
-      open={open}
-      title="订单退款"
-      maxWidthClassName="max-w-md"
-    >
-      {pendingMessage ? (
-        <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <div>{pendingMessage}</div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <Field error={error} hint="余额退回会员（先本金后赠送）；微信/支付宝原路退回；现金等由门店线下退给顾客" label="退款金额" required>
-            <div className="flex gap-2">
-              <Input
-                inputMode="decimal"
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === '' || AMOUNT_RE.test(v)) {
-                    setAmount(v);
-                    setError('');
-                  }
-                }}
-                placeholder="如：100"
-                value={amount}
-              />
-              {refundable > 0 && amountNum !== refundable ? (
-                <Button
-                  className="shrink-0"
-                  onClick={() => {
-                    setAmount(String(refundable));
-                    setError('');
-                  }}
-                  size="sm"
-                  variant="secondary"
-                >
-                  全部退款
-                </Button>
-              ) : null}
-            </div>
-          </Field>
-          <Field hint={pointHint} label="退款原因" required>
-            <Textarea
-              onChange={(e) => {
-                setReason(e.target.value);
-                setReasonError('');
-              }}
-              placeholder="如：顾客对服务不满意，协商退款"
-              rows={3}
-              value={reason}
-            />
-            {reasonError ? (
-              <span className="block text-xs text-rose-600 dark:text-rose-300">{reasonError}</span>
-            ) : null}
-          </Field>
-          {order.status === 2 ? (
-            <div className="flex items-center gap-2 text-sm text-zinc-500">
-              <Badge tone="warning">部分退款</Badge>
-              本单已有退款记录，剩余可退 {formatCurrency(refundable)}
-            </div>
-          ) : null}
-        </div>
-      )}
-    </Modal>
-  );
-
-  function onRefundedAndClose(): void {
-    onRefunded();
-    onClose();
-  }
+  if (!order) return null;
+  return <Modal open={open} onClose={onClose} title={pointsOnly ? '全单退回积分' : '订单退款'} description={'订单 ' + order.orderNo + '，可退资金 ' + formatCurrency(refundable)} maxWidthClassName="max-w-md"
+    footer={pending ? <Button onClick={onClose} variant="secondary">知道了</Button> : <><Button onClick={onClose} variant="secondary">取消</Button><Button loading={isSubmitting} disabled={previewLoading || !preview || amount !== debouncedAmount} onClick={() => void handleSubmit(submit)()} variant="danger">{pointsOnly ? '确认退回积分' : '确认退款'}</Button></>}>
+    {pending ? <p role="status" className="text-sm text-amber-700">退款已发起，渠道处理中。积分在成功确认后处理，可在退款记录查看结果。</p> : <div className="space-y-4">
+      <Field label="资金退款额" required error={errors.refundAmount?.message} hint="填写退回顾客的资金，不含积分抵扣折算。余额原桶退回；现金等由门店线下退给顾客。">
+        <div className="flex gap-2"><Input type="text" inputMode="decimal" readOnly={pointsOnly} invalid={Boolean(errors.refundAmount)} {...register('refundAmount')} /><Button variant="secondary" onClick={() => setValue('refundAmount', String(refundable), { shouldValidate: true })}>全部退回</Button></div>
+      </Field>
+      {previewLoading ? <p className="text-sm text-zinc-500">计算退款权益中…</p> : previewError ? <p role="alert" className="text-sm text-rose-600">{previewError}</p> : preview ? <div className="space-y-2 rounded-lg bg-stone-50 p-4 text-sm dark:bg-zinc-900">
+        <div className="flex justify-between"><span>资金退回</span><strong>{formatCurrency(preview.refundAmount)}</strong></div>
+        {(preview.pointRefundPoints ?? 0) > 0 ? <div className="flex justify-between"><span>预计退回抵扣积分</span><strong>+{preview.pointRefundPoints} 分</strong></div> : null}
+        {(preview.pointClawbackPoints ?? 0) > 0 ? <><div className="flex justify-between"><span>预计回收消费奖励</span><strong>{preview.pointClawbackPoints} 分</strong></div><p className="text-xs leading-5 text-zinc-500">优先回收原奖励批次；已过期部分免扣，已使用部分记为待追回。成功确认后显示实际结果。</p></> : null}
+      </div> : null}
+      <Field label="退款原因" required error={errors.reason?.message}><Textarea rows={3} maxLength={255} {...register('reason')} placeholder="请填写退款原因" /></Field>
+      {error ? <p role="alert" className="text-sm text-rose-600">{error}</p> : null}
+    </div>}
+  </Modal>;
 }

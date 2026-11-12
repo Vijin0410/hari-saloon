@@ -5,7 +5,7 @@
 
     <select id="getMemberPage" resultType="com.wangjin.salon.service.model.vo.MemberPageVO">
         SELECT
-            m.id, m.name, m.phone, m.gender, m.birthday, m.level_id, m.balance, m.points,
+            m.id, m.name, m.phone, m.gender, m.birthday, m.level_id, m.balance, m.points, m.point_debt,
             m.source, m.status, m.store_id, s.name AS store_name, l.name AS level_name,
             m.remark, m.create_time
         FROM salon_member m

@@ -33,6 +33,10 @@ public class SalonMemberPointLog extends BaseTenantEntity<Long> {
     private Integer remainingPoints;
     /** 被扣减的获得批次流水ID（消费/过期类指向源批次） */
     private Long sourceLogId;
+    /** 已处理退款权益数量（含已退回、已扣回、过期免扣、待追回） */
+    private Integer refundProcessedPoints;
+    /** 待追回积分变动（正=新增待追回 负=奖励抵扣） */
+    private Integer debtChangePoints;
     /** 关联业务类型（ORDER/RECHARGE/ACTIVITY/MANUAL/EXCHANGE/REFUND） */
     private String bizType;
     /** 关联业务单据ID */

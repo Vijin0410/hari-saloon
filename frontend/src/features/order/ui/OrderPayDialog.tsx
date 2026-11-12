@@ -1,3 +1,4 @@
+import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import type { OrderPayPayload, OrderPrepayVO } from '@/features/order/model/orderTypes';
@@ -57,6 +58,7 @@ export function OrderPayDialog({
   onPrepay: (payload: OrderPayPayload) => Promise<OrderPrepayVO>;
   onPaid: () => void | Promise<void>;
 }) {
+  const pointsEnabled = useMemberSettingsStore((s) => s.pointsEnabled);
   const [usePoints, setUsePoints] = useState('');
   const [cashReceived, setCashReceived] = useState('');
   const [payments, setPayments] = useState<PaymentRow[]>([]);
@@ -117,12 +119,12 @@ export function OrderPayDialog({
   const memberBalance = member?.balance ?? 0;
 
   const pointDeductAmount = useMemo(() => {
-    const p = Number(usePoints) || 0;
+    const p = pointsEnabled ? Number(usePoints) || 0 : 0;
     if (p <= 0) {
       return 0;
     }
     return Math.floor((p / POINTS_PER_YUAN) * 100) / 100;
-  }, [usePoints]);
+  }, [usePoints, pointsEnabled]);
 
   const receivable = round2(payable - pointDeductAmount);
   const payTotal = useMemo(
@@ -157,7 +159,9 @@ export function OrderPayDialog({
   const isScan = Boolean(scanChannel && scanChannels.includes(scanChannel));
 
   const pointsError =
-    Number(usePoints) > memberPoints
+    pointsEnabled && (member?.pointDebt ?? 0) > 0 && Number(usePoints) > 0
+      ? '会员有待追回积分，暂不能使用积分抵扣'
+      : pointsEnabled && Number(usePoints) > memberPoints
       ? '积分不足'
       : pointDeductAmount > payable
         ? '积分抵扣不能超过应收'
@@ -204,7 +208,7 @@ export function OrderPayDialog({
     setSubmitting(true);
     try {
       const payload: OrderPayPayload = {
-        usePoints: Number(usePoints) || 0,
+        usePoints: pointsEnabled ? Number(usePoints) || 0 : 0,
         cashReceived: Number(cashReceived) || 0,
         payments: payments
           .filter((p) => (Number(p.amount) || 0) > 0)
@@ -306,7 +310,7 @@ export function OrderPayDialog({
           value={formatCurrency(payable)}
         />
 
-        {member ? (
+        {member && pointsEnabled ? (
           <Field
             error={pointsError}
             hint={pointDeductAmount > 0 ? `本次抵扣 ${formatCurrency(pointDeductAmount)}` : undefined}

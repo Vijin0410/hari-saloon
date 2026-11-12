@@ -49,6 +49,9 @@ export const orderApi = {
   refund(id: EntityId, payload: OrderRefundPayload): Promise<OrderRefundVO> {
     return post<OrderRefundVO, OrderRefundPayload>(`/v1/orders/${id}/refund`, payload);
   },
+  refundPreview(id: EntityId, amount: number): Promise<OrderRefundVO> {
+    return get<OrderRefundVO>(`/v1/orders/${id}/refund-preview`, { params: { amount } });
+  },
   /** 订单退款记录（含分摊明细） */
   refunds(id: EntityId): Promise<OrderRefundVO[]> {
     return get<OrderRefundVO[]>(`/v1/orders/${id}/refunds`);

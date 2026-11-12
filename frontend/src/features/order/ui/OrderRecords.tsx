@@ -117,7 +117,7 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
               取消
             </Button>
           ) : null}
-          {hasPermission('biz:order:refund') && refundableOf(r) > 0 ? (
+          {hasPermission('biz:order:refund') && (refundableOf(r) > 0 || ((r.status === 1 || r.status === 2) && r.receivedAmount === 0 && r.pointDeductAmount > 0)) ? (
             <Button onClick={() => setRefundRow(r)} size="sm" variant="secondary">
               退款
             </Button>

@@ -1,3 +1,4 @@
+import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
 import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -102,6 +103,7 @@ function MemberLevelFormDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const pointsEnabled = useMemberSettingsStore((s) => s.pointsEnabled);
   const [loadingForm, setLoadingForm] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const {
@@ -248,6 +250,7 @@ function MemberLevelFormDialog({
               )}
             />
           </Field>
+          {pointsEnabled ? (
           <Field error={errors.pointRate?.message} label="积分倍率" hint="1.5 表示 1.5 倍积分">
             <Controller
               control={control}
@@ -269,6 +272,7 @@ function MemberLevelFormDialog({
               )}
             />
           </Field>
+          ) : null}
           <Field error={errors.rechargeGiftRate?.message} label="充值赠送率" hint="如 0.1 表示充 100 送 10">
             <Controller
               control={control}
@@ -356,6 +360,7 @@ function MemberLevelFormDialog({
 }
 
 export function MemberLevelPage() {
+  const pointsEnabled = useMemberSettingsStore((s) => s.pointsEnabled);
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const [rows, setRows] = useState<MemberLevelPageVO[]>([]);
   const [loading, setLoading] = useState(false);
@@ -405,7 +410,7 @@ export function MemberLevelPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">会员等级</h1>
-          <p className="text-sm text-zinc-500">配置等级折扣、积分倍率、充值赠送率与权益。</p>
+          <p className="text-sm text-zinc-500">{pointsEnabled ? '配置等级折扣、积分倍率、充值赠送率与权益。' : '配置等级折扣、充值赠送率与权益。'}</p>
         </div>
         {hasPermission('biz:memberLevel:add') ? (
           <Button icon={<Plus className="size-4" />} onClick={openCreate}>
@@ -478,12 +483,14 @@ export function MemberLevelPage() {
                     {formatDiscount(level.goodsDiscount)}
                   </div>
                 </div>
+                {pointsEnabled ? (
                 <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
                   <div className="text-zinc-500 dark:text-zinc-400">积分倍率</div>
                   <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">
                     {level.pointRate != null ? `${level.pointRate} 倍` : '暂无'}
                   </div>
                 </div>
+                ) : null}
                 <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
                   <div className="text-zinc-500 dark:text-zinc-400">充值赠送</div>
                   <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">

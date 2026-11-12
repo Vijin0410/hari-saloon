@@ -121,6 +121,14 @@ public class OrderController {
         return Result.success(orderRefundService.apply(id, form));
     }
 
+    @Operation(summary = "退款资金与积分权益预览（成功确认时最终计算）")
+    @GetMapping("/{id}/refund-preview")
+    @PreAuthorize("hasAuthority('biz:order:refund')")
+    public Result<OrderRefundVO> refundPreview(@PathVariable Long id,
+            @org.springframework.web.bind.annotation.RequestParam java.math.BigDecimal amount) {
+        return Result.success(orderRefundService.preview(id, amount));
+    }
+
     @Operation(summary = "订单退款记录（含分摊明细）")
     @GetMapping("/{id}/refunds")
     @QueryDict

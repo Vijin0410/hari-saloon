@@ -34,6 +34,8 @@ public class SalonMember extends BaseTenantEntity<Long> {
     private BigDecimal balance;
     /** 积分 */
     private Integer points;
+    /** 待追回积分（后续消费奖励抵扣，非可用积分负债余额） */
+    private Integer pointDebt;
     /** 累计充值金额（本金，不含赠送；升级口径=与累计消费取大） */
     private BigDecimal totalRechargeAmount;
     /** 累计消费金额（订单实收，含余额支付；升级口径=与累计充值取大） */

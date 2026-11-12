@@ -62,14 +62,14 @@ public class OrderRefundServiceImpl implements OrderRefundService {
 
     /**
      * 分摊优先级（贪心，先系统内后外部，商家资金占用最少）：
-     * 余额 -> 现金 -> 银行卡 -> 其他 -> 微信 -> 支付宝；7 积分抵扣不参与资金分摊（整单退光时另行退回）。
+     * 余额 -> 现金 -> 银行卡 -> 其他 -> 微信 -> 支付宝；7 积分抵扣不参与资金分摊（积分按累计成功资金比例处理）。
      */
     private static final List<Integer> ALLOCATE_PRIORITY = List.of(
             METHOD_BALANCE, METHOD_CASH, METHOD_BANK_CARD, METHOD_OTHER, METHOD_WXPAY, METHOD_ALIPAY);
 
-    /** 积分抵扣比例：100积分=1元（与 OrderServiceImpl.POINTS_PER_YUAN 一致） */
-    private static final BigDecimal POINTS_PER_YUAN = new BigDecimal("100");
 
+
+    private final com.wangjin.salon.service.converter.OrderRefundConverter refundConverter;
     private final SalonOrderMapper orderMapper;
     private final SalonOrderPaymentMapper orderPaymentMapper;
     private final SalonPayRecordMapper payRecordMapper;
@@ -80,11 +80,13 @@ public class OrderRefundServiceImpl implements OrderRefundService {
     private final List<PayChannel> payChannels;
     private final PayProperties payProperties;
     private final OrderRefundConfirmExecutor confirmExecutor;
+    private final com.wangjin.salon.service.service.RefundPointService refundPointService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OrderRefundVO apply(Long orderId, OrderRefundForm form) {
-        SalonOrder order = orderMapper.selectById(orderId);
+        SalonOrder order = orderMapper.selectOne(Wrappers.<SalonOrder>lambdaQuery()
+                .eq(SalonOrder::getId, orderId).last("FOR UPDATE"));
         Assert.notNull(order, "订单不存在");
         storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限退款该订单");
         Assert.isTrue(order.getStatus() == SalonOrder.STATUS_PAID
@@ -98,22 +100,20 @@ public class OrderRefundServiceImpl implements OrderRefundService {
             throw new BizException("退款金额不能超过可退金额 " + refundable.stripTrailingZeros().toPlainString());
         }
 
-        // 积分退回判定：退款后资金全额退光（订单将置已退款）且积分未退过 -> 一并退回积分抵扣
-        int pointRefund = 0;
-        BigDecimal totalAfter = occupied.add(form.getRefundAmount());
-        if (totalAfter.compareTo(order.getReceivedAmount()) >= 0
-                && order.getPointDeductPoints() != null && order.getPointDeductPoints() > 0) {
-            int pointRefunded = refundOrderMapper.selectList(Wrappers.<SalonRefundOrder>lambdaQuery()
-                            .select(SalonRefundOrder::getPointRefundPoints)
-                            .eq(SalonRefundOrder::getOrderId, orderId)
-                            .in(SalonRefundOrder::getStatus, SalonRefundOrder.STATUS_SUCCESS))
-                    .stream().mapToInt(r -> r.getPointRefundPoints() == null ? 0 : r.getPointRefundPoints()).sum();
-            pointRefund = Math.max(0, order.getPointDeductPoints() - pointRefunded);
+        if (refundOrderMapper.selectCount(Wrappers.<SalonRefundOrder>lambdaQuery()
+                .eq(SalonRefundOrder::getOrderId, orderId)
+                .eq(SalonRefundOrder::getStatus, SalonRefundOrder.STATUS_PROCESSING)) > 0) {
+            throw new BizException("该订单已有处理中退款，请等待结果后重试");
+        }
+        boolean pointsOnly = order.getReceivedAmount().signum() == 0
+                && order.getPointDeductPoints() != null && order.getPointDeductPoints() > 0;
+        if (form.getRefundAmount().signum() < 0 || (!pointsOnly && form.getRefundAmount().signum() == 0)) {
+            throw new BizException("资金退款金额必须大于0；纯积分订单请提交0元全单退积分");
         }
 
         // 分摊（服务端贪心，不信前端）
         List<Allocation> allocations = allocate(orderId, form.getRefundAmount());
-        if (allocations.isEmpty()) {
+        if (allocations.isEmpty() && !pointsOnly) {
             throw new BizException("无可退款的支付方式");
         }
         BigDecimal balanceRefund = allocations.stream()
@@ -129,9 +129,7 @@ public class OrderRefundServiceImpl implements OrderRefundService {
         refund.setOrderNo(order.getOrderNo());
         refund.setMemberId(order.getMemberId());
         refund.setRefundAmount(form.getRefundAmount());
-        refund.setPointRefundPoints(pointRefund);
-        refund.setPointRefundAmount(pointRefund > 0
-                ? new BigDecimal(pointRefund).divide(POINTS_PER_YUAN, 2, java.math.RoundingMode.DOWN) : BigDecimal.ZERO);
+        refundPointService.preview(order, refund);
         refund.setBalanceRefundAmount(balanceRefund);
         refund.setReason(form.getReason());
         refund.setStatus(SalonRefundOrder.STATUS_PROCESSING);
@@ -177,13 +175,16 @@ public class OrderRefundServiceImpl implements OrderRefundService {
             confirmExecutor.confirm(refund.getId());
         }
         log.info("订单退款发起完成 orderId={} refundNo={} 金额={} 积分退回={} 状态={}",
-                orderId, refund.getRefundNo(), refund.getRefundAmount(), pointRefund,
+                orderId, refund.getRefundNo(), refund.getRefundAmount(), refund.getPointRefundPoints(),
                 channelPending ? "处理中(渠道异步)" : "已生效");
         return getRefundVO(refund.getId());
     }
 
     @Override
     public List<OrderRefundVO> listByOrder(Long orderId) {
+        SalonOrder order = orderMapper.selectById(orderId);
+        Assert.notNull(order, "订单不存在");
+        storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限查看该订单退款");
         List<SalonRefundOrder> refunds = refundOrderMapper.selectList(
                 Wrappers.<SalonRefundOrder>lambdaQuery()
                         .eq(SalonRefundOrder::getOrderId, orderId)
@@ -288,6 +289,20 @@ public class OrderRefundServiceImpl implements OrderRefundService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    @Override
+    public OrderRefundVO preview(Long orderId, BigDecimal amount) {
+        SalonOrder order = orderMapper.selectById(orderId);
+        Assert.notNull(order, "订单不存在");
+        storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限退款该订单");
+        Assert.isTrue(order.getStatus() == SalonOrder.STATUS_PAID || order.getStatus() == SalonOrder.STATUS_PART_REFUNDED, "仅已支付订单可退款");
+        BigDecimal available = order.getReceivedAmount().subtract(sumOccupied(orderId));
+        Assert.isTrue(amount.signum() >= 0 && amount.compareTo(available) <= 0, "退款金额超出可退范围");
+        SalonRefundOrder refund = new SalonRefundOrder();
+        refund.setOrderId(orderId); refund.setRefundAmount(amount);
+        refundPointService.preview(order, refund);
+        return toVO(refund, List.of());
+    }
+
     private OrderRefundVO getRefundVO(Long refundId) {
         SalonRefundOrder refund = refundOrderMapper.selectById(refundId);
         List<SalonRefundPayment> rows = refundPaymentMapper.selectList(
@@ -296,36 +311,10 @@ public class OrderRefundServiceImpl implements OrderRefundService {
     }
 
     private OrderRefundVO toVO(SalonRefundOrder refund, List<SalonRefundPayment> rows) {
-        OrderRefundVO vo = new OrderRefundVO();
-        vo.setId(refund.getId());
-        vo.setRefundNo(refund.getRefundNo());
-        vo.setOrderId(refund.getOrderId());
-        vo.setOrderNo(refund.getOrderNo());
-        vo.setRefundAmount(refund.getRefundAmount());
-        vo.setPointRefundPoints(refund.getPointRefundPoints());
-        vo.setPointRefundAmount(refund.getPointRefundAmount());
-        vo.setBalanceRefundAmount(refund.getBalanceRefundAmount());
-        vo.setReason(refund.getReason());
-        vo.setStatus(refund.getStatus());
-        vo.setSuccessTime(refund.getSuccessTime());
-        vo.setRemark(refund.getRemark());
-        vo.setCreateBy(refund.getCreateBy());
-        vo.setCreateTime(refund.getCreateTime());
+        OrderRefundVO vo = refundConverter.entity2Vo(refund);
         vo.setPayments(rows.stream()
                 .sorted(Comparator.comparing(SalonRefundPayment::getId))
-                .map(r -> {
-                    OrderRefundVO.Payment p = new OrderRefundVO.Payment();
-                    p.setId(r.getId());
-                    p.setPayMethod(r.getPayMethod());
-                    p.setAmount(r.getAmount());
-                    p.setChannel(r.getChannel());
-                    p.setChannelRefundNo(r.getChannelRefundNo());
-                    p.setChannelStatus(r.getChannelStatus());
-                    p.setFeeAmount(r.getFeeAmount());
-                    p.setFeeReturned(r.getFeeReturned());
-                    p.setRemark(r.getRemark());
-                    return p;
-                }).toList());
+                .map(refundConverter::payment2Vo).toList());
         return vo;
     }
 

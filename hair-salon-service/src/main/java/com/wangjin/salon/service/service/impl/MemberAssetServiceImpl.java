@@ -29,6 +29,7 @@ public class MemberAssetServiceImpl implements MemberAssetService {
     private final SalonMemberBalanceMapper balanceMapper;
     private final SalonMemberBalanceLogMapper balanceLogMapper;
     private final SalonMemberPointLogMapper pointLogMapper;
+    private final com.wangjin.salon.service.service.MemberSettingsService memberSettingsService;
 
     /** 余额桶：1本金 2赠送 3冻结 */
     private static final int BUCKET_PRINCIPAL = 1;
@@ -52,7 +53,8 @@ public class MemberAssetServiceImpl implements MemberAssetService {
         }
         Long operatorId = SecurityUtils.getUserId();
         for (int attempt = 0; attempt < MAX_RETRY; attempt++) {
-            SalonMember member = memberMapper.selectById(memberId);
+            SalonMember member = memberMapper.selectOne(Wrappers.<SalonMember>lambdaQuery()
+                    .eq(SalonMember::getId, memberId).last("FOR UPDATE"));
             if (member == null) {
                 throw new BizException("会员不存在");
             }
@@ -117,9 +119,17 @@ public class MemberAssetServiceImpl implements MemberAssetService {
             return;
         }
         Long operatorId = SecurityUtils.getUserId();
-        SalonMember member = memberMapper.selectById(memberId);
+        if (changePoints < 0) expireMemberPoints(memberId, LocalDateTime.now());
+        SalonMember member = memberMapper.selectOne(Wrappers.<SalonMember>lambdaQuery()
+                    .eq(SalonMember::getId, memberId).last("FOR UPDATE"));
         if (member == null) {
             throw new BizException("会员不存在");
+        }
+        if ((changeType == 4 || changeType == 7) && !memberSettingsService.pointsEnabled(member.getTenantId())) {
+            throw new BizException("当前店铺已关闭会员积分，不能调整积分");
+        }
+        if (changeType == 5 && member.getPointDebt() != null && member.getPointDebt() > 0) {
+            throw new BizException("会员存在待追回积分，暂不能使用积分抵扣");
         }
         int before = member.getPoints() == null ? 0 : member.getPoints();
         int after = before + changePoints;
@@ -135,6 +145,17 @@ public class MemberAssetServiceImpl implements MemberAssetService {
             log.setExpireTime(expireTime);
             log.setRemainingPoints(changePoints);
             pointLogMapper.insert(log);
+            if ((changeType == 1 || changeType == 2 || changeType == 3) && member.getPointDebt() != null && member.getPointDebt() > 0) {
+                int recovered = Math.min(member.getPointDebt(), changePoints);
+                log.setRemainingPoints(changePoints - recovered);
+                pointLogMapper.updateById(log);
+                SalonMemberPointLog recovery = newPointLog(member, 11, bizType, bizId, bizNo, operatorId, "新奖励抵扣待追回积分");
+                recovery.setBeforePoints(after); recovery.setChangePoints(-recovered);
+                after -= recovered; recovery.setAfterPoints(after); recovery.setSourceLogId(log.getId());
+                recovery.setDebtChangePoints(-recovered); pointLogMapper.insert(recovery);
+                memberMapper.update(null, Wrappers.<SalonMember>lambdaUpdate()
+                        .set(SalonMember::getPointDebt, member.getPointDebt() - recovered).eq(SalonMember::getId, memberId));
+            }
         } else {
             // 扣减类：FIFO 扣减最早可用批次
             int need = -changePoints;
@@ -142,7 +163,7 @@ public class MemberAssetServiceImpl implements MemberAssetService {
                     Wrappers.<SalonMemberPointLog>lambdaQuery()
                             .eq(SalonMemberPointLog::getMemberId, memberId)
                             .gt(SalonMemberPointLog::getRemainingPoints, 0)
-                            .orderByAsc(SalonMemberPointLog::getCreateTime));
+                            .orderByAsc(SalonMemberPointLog::getCreateTime, SalonMemberPointLog::getId));
             int available = batches.stream()
                     .mapToInt(b -> b.getRemainingPoints() == null ? 0 : b.getRemainingPoints())
                     .sum();
@@ -177,7 +198,8 @@ public class MemberAssetServiceImpl implements MemberAssetService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int expireMemberPoints(Long memberId, LocalDateTime now) {
-        SalonMember member = memberMapper.selectById(memberId);
+        SalonMember member = memberMapper.selectOne(Wrappers.<SalonMember>lambdaQuery()
+                    .eq(SalonMember::getId, memberId).last("FOR UPDATE"));
         if (member == null) {
             return 0;
         }

@@ -1,3 +1,4 @@
+import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
 import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -256,6 +257,7 @@ function MemberFormDialog({
 }
 
 export function MemberPage() {
+  const pointsEnabled = useMemberSettingsStore((s) => s.pointsEnabled);
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const {
     showTenant,
@@ -657,7 +659,7 @@ export function MemberPage() {
                 <th className="px-4 py-3 text-left font-medium">门店</th>
                 <th className="px-4 py-3 text-left font-medium">等级</th>
                 <th className="px-4 py-3 text-left font-medium">余额</th>
-                <th className="px-4 py-3 text-left font-medium">积分</th>
+                {pointsEnabled ? <th className="px-4 py-3 text-left font-medium">积分</th> : null}
                 <th className="px-4 py-3 text-left font-medium">标签</th>
                 <th className="px-4 py-3 text-left font-medium">状态</th>
                 <th className="px-4 py-3 text-right font-medium">操作</th>
@@ -687,7 +689,7 @@ export function MemberPage() {
                   <td className="px-4 py-3 font-semibold tabular-nums">
                     {formatCurrency(row.balance)}
                   </td>
-                  <td className="px-4 py-3 tabular-nums">{row.points ?? 0}</td>
+                  {pointsEnabled ? <td className="px-4 py-3 tabular-nums">{row.points ?? 0}</td> : null}
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {(row.tagNames ?? []).slice(0, 3).map((t) => (
@@ -790,7 +792,7 @@ export function MemberPage() {
             </Card>
 
             {/* 账户资产：余额 + 积分两大卡片 */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className={pointsEnabled ? "grid gap-4 sm:grid-cols-2" : "grid gap-4"}>
               <StatCard
                 label="账户余额"
                 className="bg-gradient-to-br from-salon-lilac/35 to-white dark:from-violet-950/20 dark:to-zinc-950"
@@ -844,6 +846,7 @@ export function MemberPage() {
                 </div>
               </StatCard>
 
+              {pointsEnabled ? (
               <StatCard
                 label="积分账户"
                 value={detail.points ?? 0}
@@ -876,11 +879,18 @@ export function MemberPage() {
                 }
               >
                 <div className="text-xs text-zinc-400 dark:text-zinc-500">
-                  积分按批次过期，变动记录详见流水
+                  积分按批次过期；待追回 {detail.pointDebt ?? 0} 分，后续消费奖励优先抵扣
                 </div>
               </StatCard>
+              ) : null}
             </div>
 
+            {!pointsEnabled && hasPermission('biz:memberPoint:log') ? (
+              <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500">
+                <Button size="sm" variant="secondary" onClick={() => void openPointLogs()}>查看历史积分流水</Button>
+                {(detail.points ?? 0) > 0 || (detail.pointDebt ?? 0) > 0 ? <span>保留积分 {detail.points ?? 0}，待追回 {detail.pointDebt ?? 0}</span> : null}
+              </div>
+            ) : null}
             {/* 余额明细四宫格 */}
             <Card title="余额明细">
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -1380,7 +1390,7 @@ export function MemberPage() {
                 <th className="px-2 py-2 text-left">类型</th>
                 <th className="px-2 py-2 text-right">变动</th>
                 <th className="px-2 py-2 text-right">变动后</th>
-                <th className="px-2 py-2 text-left">操作人</th>
+                <th className="px-2 py-2 text-left">待追回变动</th><th className="px-2 py-2 text-left">关联单据 / 说明</th><th className="px-2 py-2 text-left">操作人</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-salon-line dark:divide-zinc-800">
@@ -1401,7 +1411,7 @@ export function MemberPage() {
                     {l.changePoints}
                   </td>
                   <td className="px-2 py-2 text-right">{l.afterPoints}</td>
-                  <td className="px-2 py-2">{l.operatorName || '暂无'}</td>
+                  <td className="px-2 py-2">{l.debtChangePoints ?? 0}</td><td className="px-2 py-2">{l.bizNo || '暂无'}<div className="text-zinc-500">{l.remark || '暂无'}</div></td><td className="px-2 py-2">{l.operatorName || '暂无'}</td>
                 </tr>
               ))}
             </tbody>

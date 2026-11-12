@@ -37,6 +37,10 @@ public class MemberPointServiceImpl implements MemberPointService {
 
     @Override
     public Page<MemberPointLogVO> getLogPage(MemberPointLogPageQuery query) {
+        Assert.notNull(query.getMemberId(), "请选择会员查看积分流水");
+        SalonMember member = memberMapper.selectById(query.getMemberId());
+        Assert.notNull(member, "会员不存在");
+        storePermissionService.assertStoreAccessible(member.getStoreId(), "无权限查看该会员积分流水");
         return pointLogMapper.getLogPage(new Page<>(query.getPageNum(), query.getPageSize()), query);
     }
 

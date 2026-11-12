@@ -23,6 +23,10 @@ public class MemberPointLogVO {
     private Integer beforePoints;
     @Schema(description = "变动积分（正=增加 负=减少）")
     private Integer changePoints;
+    @Schema(description = "待追回积分变动（正=新增待追回 负=奖励抵扣）")
+    private Integer debtChangePoints;
+    @Schema(description = "来源批次流水ID")
+    private Long sourceLogId;
     @Schema(description = "变动后积分")
     private Integer afterPoints;
     @Schema(description = "过期时间（按天）")

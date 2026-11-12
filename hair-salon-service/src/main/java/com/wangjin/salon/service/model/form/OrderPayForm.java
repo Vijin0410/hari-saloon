@@ -28,7 +28,7 @@ public class OrderPayForm {
 
     @Schema(description = "支付方式明细（组合支付，至少一行）")
     @NotNull(message = "支付方式不能为空")
-    @Size(min = 1, message = "支付方式不能为空")
+    @Size(max = 8, message = "支付方式最多8行")
     @Valid
     private List<OrderPaymentForm> payments;
 

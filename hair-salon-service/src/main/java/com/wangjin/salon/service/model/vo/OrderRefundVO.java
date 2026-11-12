@@ -26,8 +26,16 @@ public class OrderRefundVO {
     private String orderNo;
     @Schema(description = "退款总额（资金口径，含退回余额部分）")
     private BigDecimal refundAmount;
-    @Schema(description = "退回积分数（订单资金全额退光时一并退回）")
+    @Schema(description = "退回原抵扣积分数（按累计成功资金比例，纯积分订单全退）")
     private Integer pointRefundPoints;
+    @Schema(description = "应回收消费赠送积分")
+    private Integer pointClawbackPoints;
+    @Schema(description = "实际扣回可用积分")
+    private Integer pointClawbackDeducted;
+    @Schema(description = "原奖励已过期免扣积分")
+    private Integer pointClawbackExpired;
+    @Schema(description = "本次新增待追回积分")
+    private Integer pointClawbackDebt;
     @Schema(description = "退回积分折算金额")
     private BigDecimal pointRefundAmount;
     @Schema(description = "其中退回会员余额的金额")

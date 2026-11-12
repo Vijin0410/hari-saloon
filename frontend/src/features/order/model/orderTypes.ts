@@ -132,6 +132,10 @@ export interface OrderRefundVO {
   orderNo?: string;
   refundAmount: number;
   pointRefundPoints?: number;
+  pointClawbackPoints?: number;
+  pointClawbackDeducted?: number;
+  pointClawbackExpired?: number;
+  pointClawbackDebt?: number;
   pointRefundAmount?: number;
   balanceRefundAmount?: number;
   reason?: string;

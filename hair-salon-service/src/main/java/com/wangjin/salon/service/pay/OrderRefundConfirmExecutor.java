@@ -42,7 +42,6 @@ public class OrderRefundConfirmExecutor {
     /** 余额变动类型 3=消费扣款 4=退款退回；积分变动 9=退款退回 */
     private static final int CT_CONSUME = 3;
     private static final int CT_REFUND_BACK = 4;
-    private static final int PT_REFUND_BACK = 9;
 
     private final SalonRefundOrderMapper refundOrderMapper;
     private final SalonRefundPaymentMapper refundPaymentMapper;
@@ -50,6 +49,7 @@ public class OrderRefundConfirmExecutor {
     private final SalonPayRecordMapper payRecordMapper;
     private final SalonMemberBalanceLogMapper balanceLogMapper;
     private final MemberAssetService memberAssetService;
+    private final com.wangjin.salon.service.service.RefundPointService refundPointService;
 
     /**
      * 确认退款并生效（幂等：重复回调/回调与查单竞争时只生效一次）。
@@ -63,6 +63,10 @@ public class OrderRefundConfirmExecutor {
         if (refund == null) {
             throw new IllegalArgumentException("退款单不存在：" + refundId);
         }
+        SalonOrder order = orderMapper.selectOne(Wrappers.<SalonOrder>lambdaQuery()
+                .eq(SalonOrder::getId, refund.getOrderId()).last("FOR UPDATE"));
+        if (refund.getStatus() != SalonRefundOrder.STATUS_PROCESSING) return false;
+        refundPointService.preview(order, refund);
         // 占坑：status 0->1 条件更新（并发/重试只成功一次）
         int claimed = refundOrderMapper.update(null, Wrappers.<SalonRefundOrder>lambdaUpdate()
                 .set(SalonRefundOrder::getStatus, SalonRefundOrder.STATUS_SUCCESS)
@@ -79,15 +83,18 @@ public class OrderRefundConfirmExecutor {
                 .eq(SalonRefundPayment::getRefundId, refundId)
                 .eq(SalonRefundPayment::getChannelStatus, SalonRefundPayment.CHANNEL_STATUS_PROCESSING));
 
-        SalonOrder order = orderMapper.selectById(refund.getOrderId());
         List<SalonRefundPayment> rows = refundPaymentMapper.selectList(
                 Wrappers.<SalonRefundPayment>lambdaQuery().eq(SalonRefundPayment::getRefundId, refundId));
 
-        // 1) 积分退回（订单资金全额退光时一并退回，散客订单无积分）
-        if (refund.getPointRefundPoints() != null && refund.getPointRefundPoints() > 0 && refund.getMemberId() != null) {
-            memberAssetService.changePoints(refund.getMemberId(), refund.getPointRefundPoints(),
-                    PT_REFUND_BACK, "REFUND", refundId, refund.getRefundNo(), null, "订单退款退回积分");
-        }
+        refundPointService.confirm(order, refund);
+        refundOrderMapper.update(null, Wrappers.<SalonRefundOrder>lambdaUpdate()
+                .set(SalonRefundOrder::getPointRefundPoints, refund.getPointRefundPoints())
+                .set(SalonRefundOrder::getPointRefundAmount, refund.getPointRefundAmount())
+                .set(SalonRefundOrder::getPointClawbackPoints, refund.getPointClawbackPoints())
+                .set(SalonRefundOrder::getPointClawbackDeducted, refund.getPointClawbackDeducted())
+                .set(SalonRefundOrder::getPointClawbackExpired, refund.getPointClawbackExpired())
+                .set(SalonRefundOrder::getPointClawbackDebt, refund.getPointClawbackDebt())
+                .eq(SalonRefundOrder::getId, refundId));
 
         // 2) 余额退回：先本后赠（与扣款先赠后本对称，见 OrderServiceImpl.payWithBalance）
         for (SalonRefundPayment row : rows) {
@@ -131,6 +138,8 @@ public class OrderRefundConfirmExecutor {
         if (refund == null) {
             throw new IllegalArgumentException("退款单不存在：" + refundId);
         }
+        orderMapper.selectOne(Wrappers.<SalonOrder>lambdaQuery()
+                .eq(SalonOrder::getId, refund.getOrderId()).last("FOR UPDATE"));
         int claimed = refundOrderMapper.update(null, Wrappers.<SalonRefundOrder>lambdaUpdate()
                 .set(SalonRefundOrder::getStatus, SalonRefundOrder.STATUS_FAILED)
                 .set(SalonRefundOrder::getRemark, "渠道退款失败：" + reason)

@@ -34,6 +34,7 @@ import { PageLoading } from '@/shared/ui/PageLoading';
 import { Drawer } from '@/shared/ui/Drawer';
 import { cn } from '@/shared/lib/cn';
 import { useAppStore } from '@/store/useAppStore';
+import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { MetaInfo, RouteVO } from '@/features/system/model/systemTypes';
 
@@ -81,6 +82,7 @@ const frontendPathByPermission: Record<string, string> = {
   'system:tenant:list': '/system/tenants',
   'biz:store:list': '/biz/stores',
   'biz:member:list': '/biz/members',
+  'biz:memberSettings:list': '/biz/member-settings',
   'biz:memberLevel:list': '/biz/members/level',
   'biz:memberTag:list': '/biz/members/tag',
   'biz:serviceCategory:list': '/biz/service-categories',
@@ -104,6 +106,7 @@ const iconByPermission: Record<string, IconType> = {
   'system:tenant:list': Building2,
   'biz:store:list': Store,
   'biz:member:list': UserRound,
+  'biz:memberSettings:list': Medal,
   'biz:memberLevel:list': Medal,
   'biz:memberTag:list': Tag,
   'biz:serviceCategory:list': FolderTree,
@@ -372,6 +375,17 @@ function SidebarNav({ loadingRoutes, routeError, routes }: SidebarNavProps) {
 }
 
 export function MainLayout() {
+  const settingsError = useMemberSettingsStore((s) => s.error);
+  const currentUser = useAuthStore((s) => s.user);
+  useEffect(() => {
+    useMemberSettingsStore.setState({ pointsEnabled: false, error: '' });
+    if (!currentUser) return;
+    const refresh = () => { void useMemberSettingsStore.getState().refresh(); };
+    refresh();
+    window.addEventListener('focus', refresh);
+    const timer = window.setInterval(refresh, 30000);
+    return () => { window.removeEventListener('focus', refresh); window.clearInterval(timer); };
+  }, [currentUser]);
   const navigate = useNavigate();
   const theme = useAppStore((state) => state.theme);
   const toggleTheme = useAppStore((state) => state.toggleTheme);
@@ -507,6 +521,7 @@ export function MainLayout() {
         </header>
 
         <main className="flex-1 p-4 lg:p-6">
+          {settingsError ? <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">{settingsError}<Button size="sm" variant="secondary" onClick={() => void useMemberSettingsStore.getState().refresh()}>重试</Button></div> : null}
           <Suspense fallback={<PageLoading />}>
             <Outlet />
           </Suspense>

@@ -24,6 +24,8 @@ public class SysTenant extends BaseEntity<Long> {
     private String code;
     /** 1 启用 / 0 禁用 */
     private Integer status;
+    /** 启用会员积分（1=启用 0=停用，新租户默认停用） */
+    private Integer pointsEnabled;
     /** 联系人 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String contact;

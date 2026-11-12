@@ -39,8 +39,16 @@ public class SalonRefundOrder extends BaseTenantEntity<Long> {
     private Long memberId;
     /** 退款总额（元，资金口径=退回顾客的钱，含退回会员余额部分，不含积分退回折算） */
     private BigDecimal refundAmount;
-    /** 退回积分数（订单资金全额退光时一并退回积分抵扣） */
+    /** 退回原抵扣积分数（按累计成功资金比例，纯积分订单全退） */
     private Integer pointRefundPoints;
+    /** 应回收消费赠送积分 */
+    private Integer pointClawbackPoints;
+    /** 实际扣回可用积分 */
+    private Integer pointClawbackDeducted;
+    /** 原奖励已过期免扣积分 */
+    private Integer pointClawbackExpired;
+    /** 本次新增待追回积分 */
+    private Integer pointClawbackDebt;
     /** 退回积分折算金额（100积分=1元，留痕） */
     private BigDecimal pointRefundAmount;
     /** 其中退回会员余额的金额（先本后赠，分桶流水见 salon_member_balance_log） */

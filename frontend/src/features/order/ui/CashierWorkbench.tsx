@@ -1,3 +1,4 @@
+import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Minus, Plus, Scissors, Search, ShoppingBag, Trash2, UserRound, X } from 'lucide-react';
 import { orderApi } from '@/shared/api/modules/orderApi';
@@ -72,6 +73,7 @@ function toCartItem(
 
 /** 收银台：选会员 -> 选服务/商品 -> 挂单/结算（金额与后端同口径本地预计算） */
 export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => void }) {
+  const pointsEnabled = useMemberSettingsStore((s) => s.pointsEnabled);
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const [storeId, setStoreId] = useState('');
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
@@ -362,6 +364,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
           levelName: m.levelName,
           balance: m.balance,
           points: m.points,
+          pointDebt: m.pointDebt,
         });
       } catch {
         setMember(null);
@@ -422,15 +425,17 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                   variant="secondary"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className={pointsEnabled ? "grid grid-cols-2 gap-2 text-sm" : "grid gap-2 text-sm"}>
                 <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
                   <div className="text-xs text-zinc-500">可用余额</div>
                   <div className="font-semibold">{formatCurrency(member.balance ?? 0)}</div>
                 </div>
+                {pointsEnabled ? (
                 <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
                   <div className="text-xs text-zinc-500">积分</div>
                   <div className="font-semibold">{member.points ?? 0}</div>
                 </div>
+                ) : null}
               </div>
               {level ? (
                 <div className="text-xs text-zinc-500">

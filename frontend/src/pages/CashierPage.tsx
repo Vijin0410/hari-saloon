@@ -15,13 +15,12 @@ export function CashierPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">收银开单</h1>
-          <p className="text-sm text-zinc-500">
-            开单挂单、组合支付（现金/扫码/会员余额/积分抵扣），消费自动累计与等级升级。
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">收银开单</h1>
+          <p className="text-sm text-zinc-500">每一次服务，都值得被用心记录。</p>
         </div>
         <div className="flex rounded-lg border border-salon-line bg-white p-1 dark:border-zinc-800 dark:bg-zinc-950">
           <button
+            aria-pressed={tab === 'cashier'}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition',
               tab === 'cashier'
@@ -35,6 +34,7 @@ export function CashierPage() {
             收银台
           </button>
           <button
+            aria-pressed={tab === 'records'}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition',
               tab === 'records'

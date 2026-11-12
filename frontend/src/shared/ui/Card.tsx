@@ -22,8 +22,14 @@ export function Card({ children, className, title, extra, hover = true }: CardPr
       )}
     >
       {title || extra ? (
-        <div className="mb-3 flex items-center justify-between gap-2">
-          {title ? <h3 className="text-sm font-semibold text-salon-ink dark:text-zinc-100">{title}</h3> : <span />}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          {title ? (
+            <h3 className="text-sm font-semibold tracking-wide text-salon-ink dark:text-zinc-100">
+              {title}
+            </h3>
+          ) : (
+            <span />
+          )}
           {extra}
         </div>
       ) : null}

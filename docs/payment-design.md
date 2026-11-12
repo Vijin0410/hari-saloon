@@ -278,6 +278,8 @@ switch (cfg.getSettleType()) {
 
 ### 阶段 5：P6 退款（✅ 2026-08-28 落地）
 
+> 2026-11-12 复核：此处“落地”指金额级订单退款一期代码，不代表完整 P6 已验收。当前全额资金退款返抵扣积分，**消费赠送积分未随退款扣回**；部分退款、纯积分订单、原积分有效期、多笔处理中退款等仍需补规则与验收。店铺积分总开关为新增未实现需求，关闭后仍须处理历史积分售后；详见 [退款积分与积分开关方案](refund-points-and-feature-toggle.md)。卡项核销用户明确暂缓，不阻塞当前退款与对账建设。
+
 - **数据模型**：新表 `salon_refund_order`（退款单头：退款总额/积分退回/余额退回/原因/状态 0处理中 1成功 2失败）+ `salon_refund_payment`（分摊明细，含渠道侧字段：退款手续费 fee_amount（P8 回填）/手续费是否返还 fee_returned（直连退款手续费不返还属常态，商家承担，默认 0）/渠道退款单号/退款处理状态）。**退款单是整体生效/失败的事务边界**。
 - **渠道 SPI**：`PayChannel.refund()`（支付宝 `alipay.trade.refund` 同步 / 微信 V3 `refunds`，out_refund_no=退款单号幂等）+ `queryRefundStatus()`（微信查单兜底 default 方法，同步渠道不覆写）；微信退款回调 `POST /pay/notify/wxpay-refund/{tenantId}`（复用 ignore-urls notify/** 通配，零 yml 改动）；`RefundQueryCompensateService` 并入 PayQueryCompensateJob（同 cron 扫 processing 渠道退款行）。
 - **分摊策略（服务端贪心，先系统内后外部）**：余额 -> 现金 -> 银行卡 -> 其他 -> 微信 -> 支付宝；外部渠道行绑定原支付流水（paid pay_record）原路退回，手动记账无流水的微信/支付宝行按线下退款记系统内；容量=原支付行金额-该方式累计已退（处理中+成功均占用，防超退）。

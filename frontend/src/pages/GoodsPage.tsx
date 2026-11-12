@@ -15,6 +15,7 @@ import { Card } from '@/shared/ui/Card';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { Drawer } from '@/shared/ui/Drawer';
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { RequestError } from '@/shared/ui/RequestError';
 import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
@@ -398,6 +399,7 @@ function GoodsDetailDrawer({
 export function GoodsPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const [rows, setRows] = useState<GoodsPageVO[]>([]);
+  const [loadError, setLoadError] = useState('');
   const [categories, setCategories] = useState<GoodsCategoryOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -418,6 +420,7 @@ export function GoodsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const data = await goodsApi.list({
         pageNum,
@@ -426,6 +429,10 @@ export function GoodsPage() {
       });
       setRows(data.list ?? []);
       setTotal(data.total ?? 0);
+    } catch (error) {
+      setRows([]);
+      setTotal(0);
+      setLoadError(error instanceof Error ? error.message : '加载失败');
     } finally {
       setLoading(false);
     }
@@ -495,7 +502,9 @@ export function GoodsPage() {
         const low = stock <= LOW_STOCK_THRESHOLD;
         return (
           <div className="flex items-center justify-end gap-1">
-            <span className={low ? 'font-medium text-rose-600 dark:text-rose-400' : ''}>{stock}</span>
+            <span className={low ? 'font-medium text-rose-600 dark:text-rose-400' : ''}>
+              {stock}
+            </span>
             {low ? <Badge tone="warning">低</Badge> : null}
           </div>
         );
@@ -551,9 +560,7 @@ export function GoodsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold">商品管理</h1>
-          <p className="text-sm text-zinc-500">
-            维护商品的价格、条码与库存，用于收银开单销售。
-          </p>
+          <p className="text-sm text-zinc-500">维护商品的价格、条码与库存，用于收银开单销售。</p>
         </div>
         {hasPermission('biz:goods:add') ? (
           <Button icon={<Plus className="size-4" />} onClick={openCreate}>
@@ -595,7 +602,13 @@ export function GoodsPage() {
         data={rows}
         rowKey={(r) => r.id}
         loading={loading}
-        empty={<EmptyState title="暂无商品" description="还未配置任何商品。" />}
+        empty={
+          loadError ? (
+            <RequestError message={loadError} onRetry={() => void load()} />
+          ) : (
+            <EmptyState title="暂无商品" description="还未配置任何商品。" />
+          )
+        }
       />
 
       <Pagination pageNum={pageNum} pageSize={PAGE_SIZE} total={total} onChange={setPageNum} />

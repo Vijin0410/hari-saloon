@@ -192,7 +192,11 @@ function MemberFormDialog({
             <Input invalid={Boolean(errors.name)} placeholder="会员姓名" {...register('name')} />
           </Field>
           <Field error={errors.phone?.message} label="手机">
-            <Input invalid={Boolean(errors.phone)} placeholder="11 位手机号" {...register('phone')} />
+            <Input
+              invalid={Boolean(errors.phone)}
+              placeholder="11 位手机号"
+              {...register('phone')}
+            />
           </Field>
           <Field label="性别">
             <Select {...register('gender', { valueAsNumber: true })}>
@@ -561,10 +565,8 @@ export function MemberPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">会员管理</h1>
-          <p className="text-sm text-zinc-500">
-            列表按租户和门店数据范围过滤；余额/积分变动走流水接口。
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">会员管理</h1>
+          <p className="text-sm text-zinc-500">记住顾客的偏好，让每一次再来都更熟悉。</p>
         </div>
         {hasPermission('biz:member:add') ? (
           <Button icon={<Plus className="size-4" />} onClick={openCreate}>
@@ -658,9 +660,9 @@ export function MemberPage() {
       ) : rows.length === 0 ? (
         <EmptyState title="暂无会员" description="当前门店权限范围内还没有会员。" />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-salon-line dark:border-zinc-800">
-          <table className="min-w-full divide-y divide-salon-line text-sm dark:divide-zinc-800">
-            <thead className="bg-slate-50 dark:bg-zinc-900/60">
+        <div className="overflow-x-auto rounded-xl border border-salon-line bg-white dark:border-zinc-800 dark:bg-zinc-950">
+          <table className="min-w-full divide-y divide-salon-line whitespace-nowrap text-sm dark:divide-zinc-800">
+            <thead className="bg-stone-50/80 text-xs text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">姓名</th>
                 <th className="px-4 py-3 text-left font-medium">手机</th>
@@ -675,13 +677,29 @@ export function MemberPage() {
             </thead>
             <tbody className="divide-y divide-salon-line dark:divide-zinc-800">
               {rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-3">{row.name}</td>
-                  <td className="px-4 py-3">{row.phone || '-'}</td>
-                  <td className="px-4 py-3">{row.storeName || '-'}</td>
-                  <td className="px-4 py-3">{row.levelName || '-'}</td>
-                  <td className="px-4 py-3">{typeof row.balance === 'number' ? row.balance : 0}</td>
-                  <td className="px-4 py-3">{typeof row.points === 'number' ? row.points : 0}</td>
+                <tr
+                  key={row.id}
+                  className="transition-colors hover:bg-salon-paper/70 dark:hover:bg-zinc-900"
+                >
+                  <td className="px-4 py-4">
+                    <span className="inline-flex items-center gap-3 font-medium">
+                      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-salon-lilac text-xs text-salon-accent dark:bg-violet-500/10 dark:text-violet-300">
+                        {row.name.charAt(0)}
+                      </span>
+                      {row.name}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400">
+                    {row.phone || '暂无'}
+                  </td>
+                  <td className="px-4 py-3">{row.storeName || '暂无'}</td>
+                  <td className="px-4 py-3">
+                    <Badge tone="neutral">{row.levelName || '普通会员'}</Badge>
+                  </td>
+                  <td className="px-4 py-3 font-semibold tabular-nums">
+                    {formatCurrency(row.balance)}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">{row.points ?? 0}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {(row.tagNames ?? []).slice(0, 3).map((t) => (
@@ -698,12 +716,12 @@ export function MemberPage() {
                   </td>
                   <td className="space-x-2 px-4 py-3 text-right">
                     {hasPermission('biz:member:view') ? (
-                      <Button onClick={() => void openDetail(row.id)} size="sm" variant="secondary">
+                      <Button onClick={() => void openDetail(row.id)} size="sm" variant="soft">
                         详情
                       </Button>
                     ) : null}
                     {hasPermission('biz:member:edit') ? (
-                      <Button onClick={() => void openEdit(row.id)} size="sm" variant="secondary">
+                      <Button onClick={() => void openEdit(row.id)} size="sm" variant="ghost">
                         编辑
                       </Button>
                     ) : null}
@@ -744,7 +762,7 @@ export function MemberPage() {
         onClose={() => setDetailOpen(false)}
         open={detailOpen}
         title="会员详情"
-        width="560px"
+        width="740px"
         footer={
           <Button onClick={() => setDetailOpen(false)} variant="secondary">
             关闭
@@ -784,14 +802,15 @@ export function MemberPage() {
             </Card>
 
             {/* 账户资产：余额 + 积分两大卡片 */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <StatCard
                 label="账户余额"
+                className="bg-gradient-to-br from-salon-lilac/35 to-white dark:from-violet-950/20 dark:to-zinc-950"
                 value={formatCurrency(balance.availableBalance ?? detail.balance ?? 0)}
                 tone="accent"
                 hint="可用余额"
                 extra={
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex max-w-full flex-wrap gap-2">
                     {hasPermission('biz:recharge:add') ? (
                       <Button size="sm" onClick={() => setRechargeOpen(true)}>
                         充值
@@ -808,6 +827,7 @@ export function MemberPage() {
                           setBalanceRemarkError('');
                           setBalanceAdjustOpen(true);
                         }}
+                        variant="secondary"
                       >
                         调整余额
                       </Button>
@@ -842,7 +862,7 @@ export function MemberPage() {
                 tone="accent"
                 hint="当前积分"
                 extra={
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex max-w-full flex-wrap gap-2">
                     {hasPermission('biz:memberPoint:adjust') ? (
                       <Button
                         size="sm"
@@ -854,6 +874,7 @@ export function MemberPage() {
                           setPointRemarkError('');
                           setPointAdjustOpen(true);
                         }}
+                        variant="secondary"
                       >
                         调整积分
                       </Button>
@@ -874,7 +895,7 @@ export function MemberPage() {
 
             {/* 余额明细四宫格 */}
             <Card title="余额明细">
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
                   { label: '本金余额', value: balance.principalBalance },
                   { label: '赠送余额', value: balance.giftBalance },
@@ -1336,7 +1357,9 @@ export function MemberPage() {
                             {(l.changeAmount ?? 0) > 0 ? '+' : ''}
                             {l.changeAmount}
                           </div>
-                          <div className="text-[10px] font-normal text-zinc-400">余 {l.afterAmount}</div>
+                          <div className="text-[10px] font-normal text-zinc-400">
+                            余 {l.afterAmount}
+                          </div>
                         </>
                       ) : null}
                     </td>

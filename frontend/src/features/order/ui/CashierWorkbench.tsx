@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Minus, Plus, Search, Trash2, UserRound, X } from 'lucide-react';
+import { Minus, Plus, Scissors, Search, ShoppingBag, Trash2, UserRound, X } from 'lucide-react';
 import { orderApi } from '@/shared/api/modules/orderApi';
 import { memberApi, memberLevelApi } from '@/shared/api/modules/memberApi';
 import { storeApi, userApi } from '@/shared/api/modules/systemApi';
 import { serviceItemApi, serviceCategoryApi } from '@/shared/api/modules/serviceApi';
 import { goodsApi, goodsCategoryApi } from '@/shared/api/modules/goodsApi';
-import type { OrderPageVO, OrderPayPayload, OrderPrepayVO, OrderSavePayload } from '@/features/order/model/orderTypes';
+import type {
+  OrderPageVO,
+  OrderPayPayload,
+  OrderPrepayVO,
+  OrderSavePayload,
+} from '@/features/order/model/orderTypes';
 import type { MemberPageVO } from '@/features/member/model/memberTypes';
 import type { MemberLevelOption } from '@/features/member/model/memberTypes';
 import type { ServiceItemOption } from '@/features/service/model/serviceTypes';
@@ -40,7 +45,11 @@ interface CartItem {
 
 type StaffOption = { value: string; label: string };
 
-function toCartItem(itemType: number, opt: ServiceItemOption | GoodsOption, hasMember: boolean): CartItem {
+function toCartItem(
+  itemType: number,
+  opt: ServiceItemOption | GoodsOption,
+  hasMember: boolean,
+): CartItem {
   const base =
     itemType === 1
       ? ((opt as ServiceItemOption).standardPrice ?? 0)
@@ -74,7 +83,9 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
   const [services, setServices] = useState<ServiceItemOption[]>([]);
   const [goodsList, setGoodsList] = useState<GoodsOption[]>([]);
-  const [serviceCategories, setServiceCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [serviceCategories, setServiceCategories] = useState<Array<{ id: string; name: string }>>(
+    [],
+  );
   const [goodsCategories, setGoodsCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [pickTab, setPickTab] = useState<'service' | 'goods'>('service');
   const [pickCategory, setPickCategory] = useState('');
@@ -98,7 +109,9 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       .catch(() => setLevels([]));
     userApi
       .options()
-      .then((opts) => setStaffOptions(opts.map((o) => ({ value: String(o.value), label: o.label }))))
+      .then((opts) =>
+        setStaffOptions(opts.map((o) => ({ value: String(o.value), label: o.label }))),
+      )
       .catch(() => setStaffOptions([]));
     serviceItemApi
       .options()
@@ -132,7 +145,11 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
     }
     setSearchingMember(true);
     try {
-      const data = await memberApi.list({ pageNum: 1, pageSize: 5, keywords: memberKeyword.trim() });
+      const data = await memberApi.list({
+        pageNum: 1,
+        pageSize: 5,
+        keywords: memberKeyword.trim(),
+      });
       setMemberResults(data.list ?? []);
     } catch {
       setMemberResults([]);
@@ -142,7 +159,8 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   }, [memberKeyword]);
 
   const level = useMemo(
-    () => (member?.levelId ? levels.find((l) => String(l.id) === String(member.levelId)) : undefined),
+    () =>
+      member?.levelId ? levels.find((l) => String(l.id) === String(member.levelId)) : undefined,
     [member, levels],
   );
 
@@ -171,14 +189,18 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   const filteredServices = useMemo(() => {
     const kw = pickKeyword.trim();
     return services.filter(
-      (s) => (!pickCategory || String(s.categoryId ?? '') === pickCategory) && (!kw || s.name.includes(kw)),
+      (s) =>
+        (!pickCategory || String(s.categoryId ?? '') === pickCategory) &&
+        (!kw || s.name.includes(kw)),
     );
   }, [pickKeyword, pickCategory, services]);
 
   const filteredGoods = useMemo(() => {
     const kw = pickKeyword.trim();
     return goodsList.filter(
-      (g) => (!pickCategory || String(g.categoryId ?? '') === pickCategory) && (!kw || g.name.includes(kw)),
+      (g) =>
+        (!pickCategory || String(g.categoryId ?? '') === pickCategory) &&
+        (!kw || g.name.includes(kw)),
     );
   }, [pickKeyword, pickCategory, goodsList]);
 
@@ -368,9 +390,9 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   const categoryOptions = pickTab === 'service' ? serviceCategories : goodsCategories;
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+    <div className="grid items-start gap-4 pb-24 md:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_300px] xl:pb-0">
       {/* 左栏：会员 + 门店 */}
-      <div className="space-y-4">
+      <div className="order-1 space-y-4 md:row-span-2 xl:row-span-1">
         <Card title="开单门店">
           <Select onChange={(e) => setStoreId(e.target.value)} value={storeId}>
             {stores.map((s) => (
@@ -455,7 +477,9 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                     >
                       <span>
                         {m.name}
-                        <span className="ml-2 text-xs text-zinc-500">{m.phone ?? '暂无手机号'}</span>
+                        <span className="ml-2 text-xs text-zinc-500">
+                          {m.phone ?? '暂无手机号'}
+                        </span>
                       </span>
                       <UserRound className="size-4 text-zinc-400" />
                     </button>
@@ -496,15 +520,16 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       </div>
 
       {/* 中栏：消费明细 */}
-      <div className="space-y-4">
+      <div className="order-3 space-y-4 md:col-start-2 xl:order-2 xl:col-start-auto">
         <Card
-          extra={
-            editingOrderId ? <Badge tone="info">编辑挂单中</Badge> : undefined
-          }
+          extra={editingOrderId ? <Badge tone="info">编辑挂单中</Badge> : undefined}
           title={`消费明细（${cart.length} 项）`}
         >
           {cart.length === 0 ? (
-            <EmptyState description="从右侧选择服务项目或商品开始开单。" title="还未选择项目" />
+            <EmptyState
+              description="选择服务项目或商品，为顾客开启这一次美好体验。"
+              title="等待你的第一项服务"
+            />
           ) : (
             <div className="space-y-2">
               {cart.map((item) => (
@@ -525,6 +550,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">{formatCurrency(subtotalOf(item))}</span>
                       <Button
+                        aria-label={`移除${item.name}`}
                         icon={<Trash2 className="size-4" />}
                         onClick={() => removeItem(item.key)}
                         size="sm"
@@ -551,6 +577,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                       数量
                       <div className="mt-1 flex items-center gap-1">
                         <Button
+                          aria-label={`减少${item.name}数量`}
                           disabled={item.quantity <= 1}
                           icon={<Minus className="size-4" />}
                           onClick={() => updateItem(item.key, { quantity: item.quantity - 1 })}
@@ -559,6 +586,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                         />
                         <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
                         <Button
+                          aria-label={`增加${item.name}数量`}
                           icon={<Plus className="size-4" />}
                           onClick={() => updateItem(item.key, { quantity: item.quantity + 1 })}
                           size="sm"
@@ -604,11 +632,13 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
         </Card>
 
         {/* 金额汇总与操作 */}
-        <Card title="结算">
+        <Card title="本单结算" className="hidden xl:block">
           <div className="grid grid-cols-3 gap-3 text-sm">
             <div>
               <div className="text-xs text-zinc-500">原价合计</div>
-              <div className="mt-1 text-base font-semibold">{formatCurrency(totals.itemAmount)}</div>
+              <div className="mt-1 text-base font-semibold">
+                {formatCurrency(totals.itemAmount)}
+              </div>
             </div>
             <div>
               <div className="text-xs text-zinc-500">会员折扣</div>
@@ -642,6 +672,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
 
       {/* 右栏：项目/商品选择 */}
       <Card
+        className="order-2 md:col-start-2 xl:order-3 xl:col-start-auto"
         title={
           <div className="flex gap-2">
             <button
@@ -687,13 +718,23 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
           {pickTab === 'service'
             ? filteredServices.map((s) => (
                 <button
-                  className="flex w-full items-center justify-between rounded-md border border-salon-line p-2 text-left text-sm transition hover:border-salon-accent hover:bg-salon-accent/5 dark:border-zinc-800"
+                  className="group flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-salon-line px-3 py-3 text-left text-sm transition hover:border-salon-accent hover:bg-salon-accent/5 dark:border-zinc-800"
                   key={String(s.id)}
                   onClick={() => addItem(1, s)}
                   type="button"
                 >
-                  <span className="min-w-0 truncate">{s.name}</span>
-                  <span className="ml-2 shrink-0 text-zinc-500">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-salon-lilac text-salon-accent dark:bg-violet-500/10 dark:text-violet-300">
+                    <Scissors className="size-3.5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{s.name}</span>
+                    {s.duration ? (
+                      <span className="mt-1 block text-[10px] text-zinc-400">
+                        约 {s.duration} 分钟
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="shrink-0 font-medium tabular-nums text-salon-accent dark:text-violet-300">
                     {formatCurrency(
                       member && s.memberPrice != null ? s.memberPrice : (s.standardPrice ?? 0),
                     )}
@@ -702,13 +743,18 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
               ))
             : filteredGoods.map((g) => (
                 <button
-                  className="flex w-full items-center justify-between rounded-md border border-salon-line p-2 text-left text-sm transition hover:border-salon-accent hover:bg-salon-accent/5 dark:border-zinc-800"
+                  className="group flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-salon-line px-3 py-3 text-left text-sm transition hover:border-salon-accent hover:bg-salon-accent/5 dark:border-zinc-800"
                   key={String(g.id)}
                   onClick={() => addItem(2, g)}
                   type="button"
                 >
-                  <span className="min-w-0 truncate">{g.name}</span>
-                  <span className="ml-2 shrink-0 text-zinc-500">{formatCurrency(g.salePrice ?? 0)}</span>
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-salon-cream text-[#92715e] dark:bg-stone-800 dark:text-stone-300">
+                    <ShoppingBag className="size-3.5" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{g.name}</span>
+                  <span className="shrink-0 font-medium tabular-nums text-salon-accent dark:text-violet-300">
+                    {formatCurrency(g.salePrice ?? 0)}
+                  </span>
                 </button>
               ))}
           {(pickTab === 'service' ? filteredServices : filteredGoods).length === 0 ? (
@@ -717,6 +763,32 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
         </div>
       </Card>
 
+      <div className="fixed inset-x-0 bottom-0 z-20 flex flex-wrap items-center justify-between gap-3 border-t border-salon-line bg-white/95 px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur xl:hidden dark:border-zinc-800 dark:bg-zinc-950/95">
+        <div>
+          <p className="text-[11px] text-zinc-500">
+            {cart.reduce((count, item) => count + item.quantity, 0)} 项 · 本单应收
+          </p>
+          <p className="mt-0.5 text-xl font-bold tabular-nums text-salon-accent dark:text-violet-300">
+            {formatCurrency(totals.payable)}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            disabled={!canOperate || !storeId || cart.length === 0}
+            loading={pending}
+            onClick={() => void handleSavePending()}
+            variant="secondary"
+          >
+            挂单
+          </Button>
+          <Button
+            disabled={!hasPermission('biz:order:pay') || !storeId || cart.length === 0}
+            onClick={() => setPayOpen(true)}
+          >
+            去结算
+          </Button>
+        </div>
+      </div>
       <OrderPayDialog
         member={member}
         onClose={() => setPayOpen(false)}

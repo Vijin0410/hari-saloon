@@ -35,17 +35,17 @@ export function StatCard({
   return (
     <section
       className={cn(
-        'rounded-lg border border-salon-line bg-white p-4 transition hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950',
+        'min-w-0 rounded-lg border border-salon-line bg-white p-4 transition hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950',
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="text-xs text-zinc-500 dark:text-zinc-400">{label}</div>
-        {extra ? <div className="flex shrink-0 gap-2">{extra}</div> : null}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">{label}</div>
+        {extra ? <div className="flex min-w-0 flex-wrap gap-2">{extra}</div> : null}
       </div>
       <div
         className={cn(
-          'mt-2 text-[28px] font-bold leading-none',
+          'mt-3 break-words text-[28px] font-bold leading-tight tracking-tight tabular-nums',
           tone === 'accent' ? 'text-salon-accent' : 'text-salon-ink dark:text-zinc-100',
         )}
       >

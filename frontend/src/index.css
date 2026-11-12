@@ -1,9 +1,9 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
-  📖 解释：主题 token 对齐登录 hero 插画——蓝紫底、粉暖点缀。
+  📖 解释：美业主题以深梅色、柔紫与暖米色建立统一品牌视觉。
   业务组件优先用 salon-*，避免再散落 emerald 硬编码。
 */
 @theme {
@@ -12,14 +12,17 @@
     中文优先 PingFang SC（mac）/ Microsoft YaHei（Windows），英文走 system-ui。
   */
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-  --color-salon-ink: #2a2438;
-  --color-salon-line: #e4dff0;
-  --color-salon-paper: #f8f6fc;
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --color-salon-ink: #302a35;
+  --color-salon-line: #eae6e9;
+  --color-salon-paper: #f7f6f4;
   --color-salon-panel: #ffffff;
-  --color-salon-accent: #7c6aef;
-  --color-salon-warm: #e891b8;
+  --color-salon-accent: #7961a8;
+  --color-salon-warm: #d3a58e;
+  --color-salon-plum: #302431;
+  --color-salon-lilac: #ece6f2;
+  --color-salon-cream: #f1e7dc;
 
   /*
     状态色：统一 Badge / Button / EmptyState / 错误页色调。
@@ -35,8 +38,8 @@
 
 html {
   min-width: 320px;
-  background: #f8f6fc;
-  color: #2a2438;
+  background: #f7f6f4;
+  color: #302a35;
   font-family: var(--font-sans);
 }
 
@@ -60,6 +63,44 @@ textarea {
 
 #root {
   min-height: 100vh;
+}
+
+::selection {
+  background: #ded2ee;
+  color: #302431;
+}
+
+@keyframes salon-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes salon-breathe {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+
+@keyframes salon-light {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateX(-12px);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateX(12px);
+  }
 }
 
 /* Drawer 入场动画（右侧滑入 + 遮罩淡入）。reduced-motion 由 motion-reduce:animate-none 关闭。 */

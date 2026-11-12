@@ -1,4 +1,6 @@
-import { useEffect, type ReactNode } from 'react';
+import { useId, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { useDialog } from '@/shared/hooks/useDialog';
 import { X } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { cn } from '@/shared/lib/cn';
@@ -31,40 +33,42 @@ export function Drawer({
   width = '480px',
   className,
 }: DrawerProps) {
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, open]);
+  const panel = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useDialog(open, onClose, panel);
 
   if (!open) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-40 flex justify-end">
       <div
-        className="animate-[overlay-in_0.2s_ease-out] bg-zinc-950/45 backdrop-blur-sm motion-reduce:animate-none"
+        className="absolute inset-0 animate-[overlay-in_0.2s_ease-out] bg-salon-plum/35 backdrop-blur-sm motion-reduce:animate-none"
         onClick={onClose}
       />
       <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : '详情面板'}
+        tabIndex={-1}
         style={{ width }}
         className={cn(
-          'flex h-full max-w-[100vw] flex-col overflow-hidden border-l border-salon-line bg-white shadow-xl animate-[drawer-in_0.2s_ease-out] motion-reduce:animate-none dark:border-zinc-800 dark:bg-zinc-950',
+          'relative flex h-full max-w-[100vw] flex-col overflow-hidden border-l border-salon-line bg-salon-paper shadow-xl outline-none animate-[drawer-in_0.2s_ease-out] motion-reduce:animate-none dark:border-zinc-800 dark:bg-zinc-950',
           className,
         )}
       >
         <div className="flex items-start justify-between gap-4 border-b border-salon-line px-5 py-4 dark:border-zinc-800">
           <div className="min-w-0">
             {title ? (
-              <h2 className="text-base font-semibold text-salon-ink dark:text-zinc-100">{title}</h2>
+              <h2
+                id={titleId}
+                className="text-base font-semibold text-salon-ink dark:text-zinc-100"
+              >
+                {title}
+              </h2>
             ) : null}
             {description ? (
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{description}</p>
@@ -86,6 +90,7 @@ export function Drawer({
           </div>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

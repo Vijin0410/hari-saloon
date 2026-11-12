@@ -17,15 +17,14 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'border-salon-accent bg-salon-accent text-white shadow-sm hover:bg-violet-700 dark:border-violet-400 dark:bg-violet-400 dark:text-violet-950 dark:hover:bg-violet-300',
+    'border-salon-accent bg-salon-accent text-white shadow-sm shadow-salon-accent/15 hover:border-[#66508f] hover:bg-[#66508f] active:translate-y-px dark:border-violet-400 dark:bg-violet-400 dark:text-violet-950 dark:hover:bg-violet-300',
   secondary:
     'border-salon-line bg-white text-salon-ink hover:bg-stone-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800',
   ghost:
     'border-transparent bg-transparent text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white',
   danger:
     'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950',
-  soft:
-    'border-violet-100 bg-violet-50 text-violet-800 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:bg-violet-900/50',
+  soft: 'border-violet-100 bg-violet-50 text-violet-800 hover:bg-violet-100 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:bg-violet-900/50',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -47,7 +46,7 @@ export function Button({
   return (
     <button
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-md border font-medium transition focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-55 dark:focus:ring-offset-zinc-950',
+        'inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg border font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-salon-accent/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 dark:focus-visible:ring-offset-zinc-950 motion-reduce:transition-none',
         variantClasses[variant],
         sizeClasses[size],
         className,

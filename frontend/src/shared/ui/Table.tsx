@@ -61,19 +61,19 @@ export function Table<T>({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-lg border border-salon-line dark:border-zinc-800',
+        'overflow-x-auto rounded-lg border border-salon-line bg-white dark:border-zinc-800 dark:bg-zinc-950',
         className,
       )}
     >
       <table className="min-w-full divide-y divide-salon-line text-sm dark:divide-zinc-800">
-        <thead className="bg-slate-50 dark:bg-zinc-900/60">
+        <thead className="bg-stone-50/80 text-xs text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
           <tr>
             {columns.map((col, idx) => (
               <th
                 key={idx}
                 style={col.width ? { width: col.width } : undefined}
                 className={cn(
-                  'px-4 py-3 font-medium',
+                  'whitespace-nowrap px-4 py-3.5 font-medium',
                   ALIGN_CLASS[col.align ?? 'left'],
                   col.className,
                 )}
@@ -88,7 +88,10 @@ export function Table<T>({
             <tr
               key={rowKey(row, index)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={onRowClick ? 'cursor-pointer hover:bg-stone-50 dark:hover:bg-zinc-900/50' : undefined}
+              className={cn(
+                'transition-colors hover:bg-salon-paper/70 dark:hover:bg-zinc-900/50',
+                onRowClick && 'cursor-pointer',
+              )}
             >
               {columns.map((col, colIdx) => (
                 <td

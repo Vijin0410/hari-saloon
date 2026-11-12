@@ -8,13 +8,17 @@ import type {
   ServiceItemFormPayload,
   ServiceItemPageVO,
 } from '@/features/service/model/serviceTypes';
-import { serviceItemFormSchema, type ServiceItemFormValues } from '@/features/service/model/serviceSchemas';
+import {
+  serviceItemFormSchema,
+  type ServiceItemFormValues,
+} from '@/features/service/model/serviceSchemas';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { Drawer } from '@/shared/ui/Drawer';
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { RequestError } from '@/shared/ui/RequestError';
 import { Field } from '@/shared/ui/Field';
 import { Input } from '@/shared/ui/Input';
 import { Modal } from '@/shared/ui/Modal';
@@ -377,6 +381,7 @@ function ServiceItemDetailDrawer({
 export function ServiceItemPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const [rows, setRows] = useState<ServiceItemPageVO[]>([]);
+  const [loadError, setLoadError] = useState('');
   const [categories, setCategories] = useState<ServiceCategoryOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -397,6 +402,7 @@ export function ServiceItemPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const data = await serviceItemApi.list({
         pageNum,
@@ -405,6 +411,10 @@ export function ServiceItemPage() {
       });
       setRows(data.list ?? []);
       setTotal(data.total ?? 0);
+    } catch (error) {
+      setRows([]);
+      setTotal(0);
+      setLoadError(error instanceof Error ? error.message : '加载失败');
     } finally {
       setLoading(false);
     }
@@ -564,7 +574,13 @@ export function ServiceItemPage() {
         data={rows}
         rowKey={(r) => r.id}
         loading={loading}
-        empty={<EmptyState title="暂无项目" description="还未配置任何服务项目。" />}
+        empty={
+          loadError ? (
+            <RequestError message={loadError} onRetry={() => void load()} />
+          ) : (
+            <EmptyState title="暂无项目" description="还未配置任何服务项目。" />
+          )
+        }
       />
 
       <Pagination pageNum={pageNum} pageSize={PAGE_SIZE} total={total} onChange={setPageNum} />

@@ -67,7 +67,8 @@ export function LoginForm({ variant }: LoginFormProps) {
   const [tenantOptions, setTenantOptions] = useState<TenantLoginOption[]>([]);
   const [tenantLoading, setTenantLoading] = useState(false);
   const locationState = location.state as LoginLocationState | null;
-  const redirectTo = locationState?.from && locationState.from !== '/login' ? locationState.from : '/';
+  const redirectTo =
+    locationState?.from && locationState.from !== '/login' ? locationState.from : '/';
 
   const {
     formState: { errors, isSubmitting },
@@ -165,20 +166,20 @@ export function LoginForm({ variant }: LoginFormProps) {
   }
 
   const isAdmin = variant === 'admin';
-  const headline = isAdmin ? '平台管理登录' : '门店工作台登录';
+  const headline = isAdmin ? '平台管理登录' : '欢迎回到你的沙龙';
   const subtitle = isAdmin
-    ? '平台管理员登录至默认租户，管理所有租户与全局配置。'
-    : '选择所属租户，使用分配的账号登录门店工作台。';
+    ? '登录平台，管理品牌与门店的每一步成长。'
+    : '美好的一天，从有序的经营开始。';
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-salon-line bg-white/95 p-8 shadow-xl shadow-violet-900/5 backdrop-blur-sm transition dark:border-zinc-800 dark:bg-zinc-950/95">
-      <div className="mb-8">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-salon-line bg-salon-paper px-3 py-1 text-xs font-medium text-salon-accent dark:border-zinc-700 dark:bg-zinc-900">
-          <ShieldCheck className="size-3.5" />
-          {isAdmin ? 'Platform Console' : 'Store Workspace'}
+    <div className="w-full max-w-[380px]">
+      <div className="mb-9">
+        <div className="mb-5 flex items-center gap-2 text-[11px] font-medium tracking-[.2em] text-salon-accent dark:text-violet-300">
+          <span className="h-px w-6 bg-salon-accent/60" />
+          {isAdmin ? 'PLATFORM CONSOLE' : 'YOUR SALON, CONNECTED'}
         </div>
-        <h1 className="text-2xl font-semibold">{headline}</h1>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p>
+        <h1 className="text-[30px] font-semibold tracking-tight sm:text-[32px]">{headline}</h1>
+        <p className="mt-3 text-sm leading-6 text-zinc-500 dark:text-zinc-400">{subtitle}</p>
       </div>
 
       {submitError && !forceReset ? (
@@ -187,14 +188,17 @@ export function LoginForm({ variant }: LoginFormProps) {
         </div>
       ) : null}
 
-      <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+      <form
+        className="space-y-5 [&_input]:h-12 [&_input]:bg-white/80 [&_select]:h-12 [&_select]:bg-white/80 dark:[&_input]:bg-zinc-900 dark:[&_select]:bg-zinc-900"
+        onSubmit={handleSubmit(onSubmit)}
+      >
         {isAdmin ? null : (
-          <Field error={errors.tenantCode?.message} label="所属租户" required>
+          <Field error={errors.tenantCode?.message} label="所属品牌 / 门店" required>
             <div className="relative">
               <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
               {tenantLoading ? (
                 <Select className="pl-9" disabled>
-                  <option>加载租户中…</option>
+                  <option>正在查找门店…</option>
                 </Select>
               ) : tenantOptions.length > 0 ? (
                 <Select className="pl-9" {...register('tenantCode')}>
@@ -205,11 +209,7 @@ export function LoginForm({ variant }: LoginFormProps) {
                   ))}
                 </Select>
               ) : (
-                <Input
-                  className="pl-9"
-                  placeholder="default"
-                  {...register('tenantCode')}
-                />
+                <Input className="pl-9" placeholder="default" {...register('tenantCode')} />
               )}
             </div>
           </Field>
@@ -250,13 +250,19 @@ export function LoginForm({ variant }: LoginFormProps) {
           </div>
         </Field>
 
-        <Button className="w-full" icon={<LogIn className="size-4" />} loading={isSubmitting} type="submit">
-          {isAdmin ? '进入平台管理' : '登录门店工作台'}
+        <Button
+          className="mt-2 h-12 w-full shadow-lg shadow-salon-accent/15"
+          icon={<LogIn className="size-4" />}
+          loading={isSubmitting}
+          type="submit"
+        >
+          {isAdmin ? '进入平台管理' : '进入我的工作台'}
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
-        无公开注册；由平台开通租户、租户内建用户。
+      <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+        <ShieldCheck className="size-3.5 text-zinc-400" />
+        账号由{isAdmin ? '平台' : '门店'}管理员开通
       </p>
 
       <Modal

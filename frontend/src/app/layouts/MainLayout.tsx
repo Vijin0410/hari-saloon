@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   MenuSquare,
+  Menu,
   Moon,
   Receipt,
   Scissors,
@@ -30,6 +31,7 @@ import {
 import { menuApi } from '@/shared/api/modules/systemApi';
 import { Button } from '@/shared/ui/Button';
 import { PageLoading } from '@/shared/ui/PageLoading';
+import { Drawer } from '@/shared/ui/Drawer';
 import { cn } from '@/shared/lib/cn';
 import { useAppStore } from '@/store/useAppStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -221,7 +223,11 @@ function flattenLeaves(entries: NavEntry[]): NavLeaf[] {
   return entries.flatMap((entry) => (entry.kind === 'leaf' ? [entry] : entry.children));
 }
 
-function buildNavEntries(routes: RouteVO[], hasPermission: PermissionChecker, parentPath = ''): NavEntry[] {
+function buildNavEntries(
+  routes: RouteVO[],
+  hasPermission: PermissionChecker,
+  parentPath = '',
+): NavEntry[] {
   const entries = routes.flatMap<NavEntry>((route) => {
     const currentPath = joinRoutePath(parentPath, route.path);
     const children = buildNavEntries(route.children ?? [], hasPermission, currentPath);
@@ -290,7 +296,9 @@ function LeafLink({ leaf }: { leaf: NavLeaf }) {
 function GroupItem({ group }: { group: NavGroup }) {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const { pathname } = useLocation();
-  const visibleChildren = group.children.filter((child) => !child.permission || hasPermission(child.permission));
+  const visibleChildren = group.children.filter(
+    (child) => !child.permission || hasPermission(child.permission),
+  );
   const childActive = visibleChildren.some((child) => isPathActive(child.path, pathname));
   const [open, setOpen] = useState(childActive);
 
@@ -372,6 +380,8 @@ export function MainLayout() {
   const [routes, setRoutes] = useState<RouteVO[]>([]);
   const [loadingRoutes, setLoadingRoutes] = useState(false);
   const [routeError, setRouteError] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const location = useLocation();
   const roleKey = user?.roles.join('|') ?? '';
   const permissionKey = user?.perms.join('|') ?? '';
 
@@ -417,18 +427,30 @@ export function MainLayout() {
 
   return (
     <div className="flex min-h-screen bg-salon-paper text-salon-ink dark:bg-zinc-950 dark:text-zinc-100">
-      <aside className="hidden w-64 shrink-0 border-r border-salon-line bg-white dark:border-zinc-800 dark:bg-zinc-950 lg:flex lg:flex-col">
-        <div className="flex h-16 items-center gap-3 border-b border-salon-line px-5 dark:border-zinc-800">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-salon-accent text-white shadow-sm">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-salon-line bg-white dark:border-zinc-800 dark:bg-zinc-950 lg:flex">
+        <div className="flex h-20 shrink-0 items-center gap-3 px-5">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-salon-plum text-[#ead5be] shadow-sm">
             <Scissors className="size-5" />
           </div>
           <div>
-            <p className="text-sm font-semibold">Hair Salon</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">管理控制台</p>
+            <p className="text-base font-semibold tracking-tight">
+              Hair Salon<span className="text-salon-accent">.</span>
+            </p>
+            <p className="mt-0.5 text-[10px] tracking-[.14em] text-zinc-400">美业经营工作台</p>
           </div>
         </div>
-        <div className="py-4">
+        <div className="flex-1 overflow-y-auto py-4">
           <SidebarNav loadingRoutes={loadingRoutes} routeError={routeError} routes={routes} />
+        </div>
+        <div className="m-4 rounded-xl bg-salon-paper p-4 dark:bg-zinc-900">
+          <p className="text-[10px] tracking-[.12em] text-salon-accent dark:text-violet-300">
+            CRAFTED WITH CARE
+          </p>
+          <p className="mt-2 text-xs leading-6 text-zinc-500 dark:text-zinc-400">
+            让手艺被看见，
+            <br />
+            让经营更从容。
+          </p>
         </div>
       </aside>
 
@@ -436,11 +458,16 @@ export function MainLayout() {
         <header className="sticky top-0 z-20 border-b border-salon-line bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
           <div className="flex h-16 items-center justify-between gap-3 px-4 lg:px-6">
             <div className="flex items-center gap-3">
-              <div className="flex size-9 items-center justify-center rounded-lg bg-salon-accent text-white lg:hidden">
-                <Scissors className="size-4" />
-              </div>
+              <Button
+                aria-label="打开导航菜单"
+                aria-expanded={mobileNavOpen}
+                className="size-10 px-0 lg:hidden"
+                icon={<Menu className="size-5" />}
+                onClick={() => setMobileNavOpen(true)}
+                variant="ghost"
+              />
               <div>
-                <p className="text-sm font-semibold">理发店管理系统</p>
+                <p className="text-sm font-semibold">沙龙工作空间</p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {user?.nickname || user?.username || '当前用户'}
                 </p>
@@ -468,13 +495,14 @@ export function MainLayout() {
                 onClick={toggleTheme}
                 variant="secondary"
               />
-              <Button icon={<LogOut className="size-4" />} onClick={handleLogout} variant="secondary">
+              <Button
+                icon={<LogOut className="size-4" />}
+                onClick={handleLogout}
+                variant="secondary"
+              >
                 退出
               </Button>
             </div>
-          </div>
-          <div className="max-h-[60vh] overflow-y-auto border-t border-salon-line py-2 dark:border-zinc-800 lg:hidden">
-            <SidebarNav loadingRoutes={loadingRoutes} routeError={routeError} routes={routes} />
           </div>
         </header>
 
@@ -484,6 +512,22 @@ export function MainLayout() {
           </Suspense>
         </main>
       </div>
+      <Drawer
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        title="沙龙导航"
+        description="专注每一份手艺与信任"
+        width="320px"
+      >
+        <div
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest('a')) setMobileNavOpen(false);
+          }}
+          key={location.pathname}
+        >
+          <SidebarNav loadingRoutes={loadingRoutes} routeError={routeError} routes={routes} />
+        </div>
+      </Drawer>
     </div>
   );
 }

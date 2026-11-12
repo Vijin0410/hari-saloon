@@ -10,6 +10,7 @@ export interface RechargeActivityPageVO {
   endTime?: string;
   sort?: number;
   status?: number;
+  status_text?: string;
   remark?: string;
   createTime?: string;
 }
@@ -53,7 +54,7 @@ export interface RechargeOrderPageVO {
   giftFrozen?: number;
   activityName?: string;
   payMethod: number;
-  payMethodLabel?: string;
+  payMethod_text?: string;
   /** 支付状态（0=待支付 1=已支付 2=已取消） */
   status?: number;
   storeName?: string;

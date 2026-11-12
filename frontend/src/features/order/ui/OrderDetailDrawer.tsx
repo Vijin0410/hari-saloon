@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { orderApi } from '@/shared/api/modules/orderApi';
 import type { OrderDetailVO } from '@/features/order/model/orderTypes';
 import {
-  ORDER_STATUS_LABEL,
   REFUND_CHANNEL_STATUS_LABEL,
   REFUND_STATUS_LABEL,
 } from '@/features/order/model/orderTypes';
@@ -13,10 +12,11 @@ import { Drawer } from '@/shared/ui/Drawer';
 import { PageLoading } from '@/shared/ui/PageLoading';
 import { StatCard } from '@/shared/ui/StatCard';
 import { formatCurrency } from '@/shared/lib/format';
+import { getDictText } from '@/shared/lib/dict';
 import { OrderRefundDialog } from './OrderRefundDialog';
 
-function statusBadge(status: number): ReactNode {
-  const label = ORDER_STATUS_LABEL[status] ?? '未知';
+function statusBadge(status: number, text?: string): ReactNode {
+  const label = getDictText(text);
   const tone =
     status === 1
       ? 'success'
@@ -34,8 +34,8 @@ function refundStatusBadge(status: number): ReactNode {
   return <Badge tone={tone}>{label}</Badge>;
 }
 
-function payMethodText(m: { payMethod: number; payMethodLabel?: string }): string {
-  return m.payMethodLabel ?? `方式${m.payMethod}`;
+function payMethodText(m: { payMethod_text?: string }): string {
+  return getDictText(m.payMethod_text);
 }
 
 /** 订单详情抽屉：汇总金额 + 明细 + 支付方式 + 退款记录；已支付可退款（biz:order:refund） */
@@ -132,7 +132,7 @@ export function OrderDetailDrawer({
             label="实收金额"
             tone="accent"
             value={formatCurrency(detail.receivedAmount)}
-            extra={statusBadge(detail.status)}
+            extra={statusBadge(detail.status, detail.status_text)}
           />
           <Card title="金额明细">
             <div className="grid grid-cols-2 gap-3">

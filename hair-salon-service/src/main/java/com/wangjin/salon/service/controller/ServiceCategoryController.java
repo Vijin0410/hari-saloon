@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.salon.service.model.form.ServiceCategoryForm;
 import com.wangjin.salon.service.model.query.ServiceCategoryPageQuery;
 import com.wangjin.salon.service.model.vo.ServiceCategoryOptionVO;
@@ -37,6 +38,7 @@ public class ServiceCategoryController {
     @Operation(summary = "服务分类分页")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('biz:serviceCategory:list')")
+    @QueryDict
     public PageResult<ServiceCategoryPageVO> page(ServiceCategoryPageQuery query) {
         Page<ServiceCategoryPageVO> p = serviceCategoryService.getPage(query);
         return PageResult.success(p.getRecords(), p.getTotal());

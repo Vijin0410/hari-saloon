@@ -1,5 +1,6 @@
 package com.wangjin.salon.service.model.vo;
 
+import com.wangjin.common.web.annotation.Dict;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -13,7 +14,9 @@ public class TenantPayConfigOptionVO {
     @Schema(description = "配置ID")
     private Long id;
     @Schema(description = "支付渠道：wxpay/alipay/shouqianba/saibe/fuzhangui/manual")
+    @Dict(dictCode = "pay_channel")
     private String channel;
     @Schema(description = "结算模式：self_merchant/aggregate_pull/manual")
+    @Dict(dictCode = "pay_settle_type")
     private String settleType;
 }

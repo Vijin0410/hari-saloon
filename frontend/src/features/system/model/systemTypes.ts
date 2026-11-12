@@ -37,8 +37,10 @@ export interface UserPageVO {
   nickname: string;
   phone?: string;
   gender?: GenderValue;
+  gender_text?: string;
   avatar?: string;
   status?: StatusValue;
+  status_text?: string;
   email?: string;
   deptId?: EntityId;
   deptName?: string;
@@ -71,6 +73,7 @@ export interface RolePageVO {
   code: string;
   sort?: number;
   status?: StatusValue;
+  status_text?: string;
   dataScope?: DataScopeValue;
 }
 
@@ -149,6 +152,7 @@ export interface DeptVO {
   parentId?: EntityId;
   sort?: number;
   status?: StatusValue;
+  status_text?: string;
   leaderId?: EntityId;
   children?: DeptVO[];
 }

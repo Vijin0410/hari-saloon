@@ -3,6 +3,7 @@ package com.wangjin.salon.system.controller;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.model.form.DictForm;
 import com.wangjin.salon.system.model.form.DictTypeForm;
@@ -41,6 +42,7 @@ public class SysDictController {
     @Operation(summary = "字典分页列表")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('system:dict:list')")
+    @QueryDict
     public PageResult<DictPageVO> getDictPage(DictPageQuery queryParams) {
         var page = dictService.getDictPage(queryParams);
         return PageResult.success(page.getRecords(), page.getTotal());
@@ -85,6 +87,7 @@ public class SysDictController {
     @Operation(summary = "字典类型分页")
     @GetMapping("/types/page")
     @PreAuthorize("hasAuthority('system:dict:list')")
+    @QueryDict
     public PageResult<DictTypePageVO> getDictTypePage(DictTypePageQuery queryParams) {
         var page = dictTypeService.getDictTypePage(queryParams);
         return PageResult.success(page.getRecords(), page.getTotal());
@@ -93,7 +96,8 @@ public class SysDictController {
     @Operation(summary = "按分组查字典类型")
     @GetMapping("/types/listByGroupCode")
     @PreAuthorize("hasAuthority('system:dict:list')")
-    public Result<List<DictTypeForm>> listByGroupCode(@RequestParam String groupCode) {
+    @QueryDict
+    public Result<List<DictTypePageVO>> listByGroupCode(@RequestParam String groupCode) {
         return Result.success(dictTypeService.listByGroupCode(groupCode));
     }
 

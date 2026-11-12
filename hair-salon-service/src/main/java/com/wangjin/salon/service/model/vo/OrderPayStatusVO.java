@@ -1,5 +1,6 @@
 package com.wangjin.salon.service.model.vo;
 
+import com.wangjin.common.web.annotation.Dict;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -16,6 +17,7 @@ public class OrderPayStatusVO {
     @Schema(description = "订单ID")
     private Long orderId;
     @Schema(description = "订单状态（0=挂单待支付 1=已支付 4=已取消）")
+    @Dict(dictCode = "order_status")
     private Integer status;
     @Schema(description = "支付完成时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

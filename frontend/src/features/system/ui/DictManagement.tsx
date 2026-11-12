@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { BookOpen, ChevronRight, Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -33,7 +34,7 @@ import type {
   DictTypePageVO,
 } from '@/features/system/model/dictTypes';
 import type { EntityId, StatusValue } from '@/features/system/model/systemTypes';
-import { STATUS_OPTIONS, getStatusLabel } from '@/features/system/model/systemTypes';
+import { STATUS_OPTIONS } from '@/features/system/model/systemTypes';
 
 /**
  * 字典管理：左侧字典类型列表，右侧选中类型的字典项表格，支持类型与项的增删改。
@@ -514,7 +515,7 @@ export function DictManagement() {
     {
       title: '状态',
       render: (r) => (
-        <Badge tone={r.status === 1 ? 'success' : 'danger'}>{getStatusLabel(r.status)}</Badge>
+        <Badge tone={r.status === 1 ? 'success' : 'danger'}>{getDictText(r.status_text)}</Badge>
       ),
     },
     {
@@ -653,7 +654,7 @@ export function DictManagement() {
                           <p className="truncate font-mono text-xs text-zinc-400">{item.code}</p>
                         </div>
                         <Badge tone={item.status === 1 ? 'success' : 'danger'}>
-                          {getStatusLabel(item.status)}
+                          {getDictText(item.status_text)}
                         </Badge>
                         <div className="flex shrink-0 gap-1 opacity-0 transition group-hover:opacity-100">
                           {hasPermission('system:dict:edit') ? (

@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil, Plus, Search, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
@@ -34,7 +35,6 @@ import type {
 import {
   GENDER_OPTIONS,
   STATUS_OPTIONS,
-  getStatusLabel,
 } from '@/features/system/model/systemTypes';
 
 /**
@@ -601,7 +601,7 @@ export function UserManagement() {
       title: '状态',
       render: (row) => (
         <Badge tone={row.status === 1 ? 'success' : 'danger'}>
-          {getStatusLabel(row.status)}
+          {getDictText(row.status_text)}
         </Badge>
       ),
     },

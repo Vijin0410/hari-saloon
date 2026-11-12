@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.salon.service.model.form.MemberLevelForm;
 import com.wangjin.salon.service.model.query.MemberLevelPageQuery;
 import com.wangjin.salon.service.model.vo.MemberLevelOptionVO;
@@ -37,6 +38,7 @@ public class MemberLevelController {
     @Operation(summary = "等级分页")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('biz:memberLevel:list')")
+    @QueryDict
     public PageResult<MemberLevelPageVO> page(MemberLevelPageQuery query) {
         Page<MemberLevelPageVO> p = memberLevelService.getPage(query);
         return PageResult.success(p.getRecords(), p.getTotal());

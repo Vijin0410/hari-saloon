@@ -18,7 +18,7 @@ export interface OrderPageVO {
   refundedAmount: number;
   changeAmount: number;
   status: OrderStatus;
-  statusLabel?: string;
+  status_text?: string;
   storeName?: string;
   remark?: string;
   createTime?: string;
@@ -45,7 +45,7 @@ export interface OrderItemVO {
 export interface OrderPaymentVO {
   id: EntityId;
   payMethod: number;
-  payMethodLabel?: string;
+  payMethod_text?: string;
   amount: number;
 }
 
@@ -111,10 +111,11 @@ export interface OrderPrepayVO {
 export interface OrderRefundPaymentVO {
   id: EntityId;
   payMethod: number;
-  payMethodLabel?: string;
+  payMethod_text?: string;
   amount: number;
   /** 退款渠道（wxpay/alipay 原路退回；空=系统内退回/线下退款） */
   channel?: string;
+  channel_text?: string;
   channelRefundNo?: string;
   /** 退款处理状态（processing/success/failed） */
   channelStatus: string;
@@ -167,6 +168,7 @@ export const REFUND_CHANNEL_STATUS_LABEL: Record<string, string> = {
 export interface OrderPayStatusVO {
   orderId: EntityId;
   status: OrderStatus;
+  status_text?: string;
   paidTime?: string;
 }
 

@@ -3,6 +3,7 @@ package com.wangjin.salon.system.controller;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.model.form.TenantForm;
 import com.wangjin.salon.system.model.query.TenantPageQuery;
@@ -37,6 +38,7 @@ public class SysTenantController {
     @Operation(summary = "租户分页")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('system:tenant:list')")
+    @QueryDict
     public PageResult<TenantPageVO> page(TenantPageQuery query) {
         var page = tenantService.getTenantPage(query);
         return PageResult.success(page.getRecords(), page.getTotal());

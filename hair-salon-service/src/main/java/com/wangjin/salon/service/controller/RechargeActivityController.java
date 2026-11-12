@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.salon.service.model.form.RechargeActivityForm;
 import com.wangjin.salon.service.model.query.RechargeActivityPageQuery;
 import com.wangjin.salon.service.model.vo.RechargeActivityOptionVO;
@@ -37,6 +38,7 @@ public class RechargeActivityController {
     @Operation(summary = "充值活动分页")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('biz:rechargeActivity:list')")
+    @QueryDict
     public PageResult<RechargeActivityPageVO> page(RechargeActivityPageQuery query) {
         Page<RechargeActivityPageVO> p = rechargeActivityService.getPage(query);
         return PageResult.success(p.getRecords(), p.getTotal());

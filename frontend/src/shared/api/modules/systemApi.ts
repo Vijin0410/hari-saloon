@@ -171,6 +171,7 @@ export interface TenantPageVO {
   name: string;
   code: string;
   status?: number;
+  status_text?: string;
   contact?: string;
   phone?: string;
   expireTime?: string;
@@ -255,6 +256,7 @@ export interface StorePageVO {
   closeTime?: string;
   restDays?: string;
   status?: number;
+  status_text?: string;
   sort?: number;
   remark?: string;
   createTime?: string;
@@ -314,10 +316,12 @@ export interface MemberPageVO {
   name: string;
   phone?: string;
   gender?: number;
+  gender_text?: string;
   level?: number;
   balance?: number;
   points?: number;
   status?: number;
+  status_text?: string;
   storeId?: EntityId;
   storeName?: string;
   createTime?: string;

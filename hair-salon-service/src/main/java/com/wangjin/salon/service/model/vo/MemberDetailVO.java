@@ -40,6 +40,7 @@ public class MemberDetailVO {
     @Dict(dictCode = "member_source")
     private String source;
     @Schema(description = "状态：1启用 0禁用")
+    @Dict(dictCode = "status")
     private Integer status;
     @Schema(description = "备注")
     private String remark;

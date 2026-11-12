@@ -2,6 +2,7 @@ package com.wangjin.salon.system.controller;
 
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.model.form.DeptForm;
 import com.wangjin.salon.system.model.query.DeptQuery;
@@ -34,6 +35,7 @@ public class SysDeptController {
 
     @Operation(summary = "部门树列表")
     @GetMapping
+    @QueryDict
     @PreAuthorize("hasAuthority('system:dept:list')")
     public Result<List<DeptVO>> listDepartments(DeptQuery queryParams) {
         return Result.success(deptService.listDepartments(queryParams));

@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -25,7 +26,7 @@ import type {
   EntityId,
   StatusValue,
 } from '@/features/system/model/systemTypes';
-import { STATUS_OPTIONS, getStatusLabel } from '@/features/system/model/systemTypes';
+import { STATUS_OPTIONS } from '@/features/system/model/systemTypes';
 
 /**
  * 部门管理：租户内可选组织树，用于用户归属与数据权限。
@@ -273,7 +274,7 @@ export function DeptPage() {
       title: '状态',
       render: (node) => (
         <Badge tone={node.status === 1 ? 'success' : 'danger'}>
-          {getStatusLabel(node.status)}
+          {getDictText(node.status_text)}
         </Badge>
       ),
     },

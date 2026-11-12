@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -34,7 +35,6 @@ import {
   getDataScopeLabel,
   getMenuTitle,
   getMenuTypeLabel,
-  getStatusLabel,
   ROLE_MENU_TYPE_WEB,
 } from '@/features/system/model/systemTypes';
 import { roleFormSchema, type RoleFormValues } from '@/features/system/model/systemSchemas';
@@ -631,7 +631,7 @@ export function RoleManagement() {
     {
       title: '状态',
       render: (r) => (
-        <Badge tone={r.status === 1 ? 'success' : 'danger'}>{getStatusLabel(r.status)}</Badge>
+        <Badge tone={r.status === 1 ? 'success' : 'danger'}>{getDictText(r.status_text)}</Badge>
       ),
     },
     {

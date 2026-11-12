@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Search, Trash2 } from 'lucide-react';
@@ -253,19 +254,6 @@ function MemberFormDialog({
     </Modal>
   );
 }
-
-/** 积分变动类型中文标签（与后端 SalonMemberPointLog.changeType 对应） */
-const POINT_CHANGE_TYPE_LABEL: Record<number, string> = {
-  1: '消费获得',
-  2: '充值获得',
-  3: '活动赠送',
-  4: '手工调整',
-  5: '抵扣消费',
-  6: '兑换商品',
-  7: '手工扣减',
-  8: '过期清零',
-  9: '退款退回',
-};
 
 export function MemberPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
@@ -711,7 +699,7 @@ export function MemberPage() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge tone={row.status === 1 ? 'success' : 'danger'}>
-                      {row.status === 1 ? '正常' : '停用'}
+                      {getDictText(row.status_text)}
                     </Badge>
                   </td>
                   <td className="space-x-2 px-4 py-3 text-right">
@@ -791,7 +779,7 @@ export function MemberPage() {
                           : undefined
                       }
                     >
-                      {detail.status === 1 ? '正常' : '停用'}
+                      {getDictText(detail.status_text)}
                     </Badge>
                   </div>
                   <div className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -1340,7 +1328,7 @@ export function MemberPage() {
               {balanceLogs.map((l) => (
                 <tr key={l.id}>
                   <td className="px-2 py-2">{l.createTime}</td>
-                  <td className="px-2 py-2">{l.changeType_text ?? l.changeType}</td>
+                  <td className="px-2 py-2">{getDictText(l.changeType_text)}</td>
                   {[1, 2, 3].map((bucket) => (
                     <td
                       className={cn(
@@ -1400,7 +1388,7 @@ export function MemberPage() {
                 <tr key={l.id}>
                   <td className="px-2 py-2">{l.createTime}</td>
                   <td className="px-2 py-2">
-                    {POINT_CHANGE_TYPE_LABEL[l.changeType ?? 0] ?? l.changeType}
+                    {getDictText(l.changeType_text)}
                   </td>
                   <td
                     className={cn(

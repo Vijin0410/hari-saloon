@@ -6,13 +6,16 @@ export interface MemberPageVO {
   name: string;
   phone?: string;
   gender?: number;
+  gender_text?: string;
   birthday?: string;
   levelId?: EntityId;
   levelName?: string;
   balance?: number;
   points?: number;
   source?: string;
+  source_text?: string;
   status?: number;
+  status_text?: string;
   storeId?: EntityId;
   storeName?: string;
   tagNames?: string[];
@@ -54,13 +57,16 @@ export interface MemberDetailVO {
   name: string;
   phone?: string;
   gender?: number;
+  gender_text?: string;
   birthday?: string;
   levelId?: EntityId;
   levelName?: string;
   balance?: number;
   points?: number;
   source?: string;
+  source_text?: string;
   status?: number;
+  status_text?: string;
   remark?: string;
   storeId?: EntityId;
   balanceDetail?: MemberBalanceVO;
@@ -133,6 +139,7 @@ export interface MemberPointLogVO {
   id: EntityId;
   memberId?: EntityId;
   changeType?: number;
+  changeType_text?: string;
   beforePoints?: number;
   changePoints?: number;
   afterPoints?: number;
@@ -181,6 +188,7 @@ export interface MemberLevelPageVO {
   rights?: string;
   sort?: number;
   status?: number;
+  status_text?: string;
   createTime?: string;
 }
 
@@ -222,6 +230,7 @@ export interface MemberTagVO {
   color?: string;
   sort?: number;
   status?: number;
+  status_text?: string;
   remark?: string;
   createTime?: string;
 }

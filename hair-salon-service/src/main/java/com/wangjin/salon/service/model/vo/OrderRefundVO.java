@@ -64,6 +64,7 @@ public class OrderRefundVO {
         @Schema(description = "本行退款金额")
         private BigDecimal amount;
         @Schema(description = "退款渠道（wxpay/alipay 原路退回；空=系统内退回/线下退款）")
+        @Dict(dictCode = "pay_channel")
         private String channel;
         @Schema(description = "渠道退款单号（微信 refund_id / 支付宝 trade_no）")
         private String channelRefundNo;

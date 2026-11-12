@@ -55,6 +55,7 @@ public class TenantPayConfigController {
     @Operation(summary = "支付配置详情（敏感字段掩码，不回显明文）")
     @GetMapping("/{id}/detail")
     @PreAuthorize("hasAuthority('biz:pay:config:view')")
+    @QueryDict
     public Result<TenantPayConfigDetailVO> detail(@PathVariable Long id) {
         return Result.success(tenantPayConfigService.getDetail(id));
     }
@@ -85,6 +86,7 @@ public class TenantPayConfigController {
     @PostMapping("/{id}/verify")
     @PreventDuplicateResubmit
     @PreAuthorize("hasAuthority('biz:pay:config:verify')")
+    @QueryDict
     public Result<TenantPayConfigVerifyVO> verify(@PathVariable Long id) {
         return Result.success(tenantPayConfigService.verify(id));
     }
@@ -92,6 +94,7 @@ public class TenantPayConfigController {
     @Operation(summary = "可用支付渠道下拉（启用且验证通过，收银台动态渲染用）")
     @GetMapping("/options")
     @PreAuthorize("isAuthenticated()")
+    @QueryDict
     public Result<List<TenantPayConfigOptionVO>> options() {
         return Result.success(tenantPayConfigService.options());
     }

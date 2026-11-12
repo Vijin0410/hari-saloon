@@ -51,6 +51,7 @@ public class SalonMemberController {
     @Operation(summary = "会员详情")
     @GetMapping("/{id}/detail")
     @PreAuthorize("hasAuthority('biz:member:view')")
+    @QueryDict
     public Result<MemberDetailVO> detail(@PathVariable Long id) {
         return Result.success(memberService.getDetail(id));
     }

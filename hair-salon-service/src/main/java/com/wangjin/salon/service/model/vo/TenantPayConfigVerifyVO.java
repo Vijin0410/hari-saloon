@@ -1,5 +1,6 @@
 package com.wangjin.salon.service.model.vo;
 
+import com.wangjin.common.web.annotation.Dict;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -15,6 +16,7 @@ public class TenantPayConfigVerifyVO {
     @Schema(description = "是否通过（网络异常等未确认场景为 false 且状态保持 pending）")
     private Boolean pass;
     @Schema(description = "验证后的配置状态：pending/active/invalid")
+    @Dict(dictCode = "pay_config_status")
     private String status;
     @Schema(description = "结果说明（面向用户）")
     private String message;

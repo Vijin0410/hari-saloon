@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Search, Trash2 } from 'lucide-react';
@@ -359,7 +360,7 @@ export function StorePage() {
       title: '状态',
       render: (r) => (
         <Badge tone={r.status === 1 ? 'success' : 'danger'}>
-          {r.status === 1 ? '营业' : '停用'}
+          {getDictText(r.status_text)}
         </Badge>
       ),
     },

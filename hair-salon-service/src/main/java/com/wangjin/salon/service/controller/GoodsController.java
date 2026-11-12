@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.salon.service.model.form.GoodsForm;
 import com.wangjin.salon.service.model.query.GoodsPageQuery;
 import com.wangjin.salon.service.model.vo.GoodsOptionVO;
@@ -37,6 +38,7 @@ public class GoodsController {
     @Operation(summary = "商品分页")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('biz:goods:list')")
+    @QueryDict
     public PageResult<GoodsPageVO> page(GoodsPageQuery query) {
         Page<GoodsPageVO> p = goodsService.getPage(query);
         return PageResult.success(p.getRecords(), p.getTotal());

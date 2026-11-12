@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Search, Trash2 } from 'lucide-react';
@@ -34,6 +35,7 @@ export interface CategoryVO {
   name: string;
   sort?: number;
   status?: number;
+  status_text?: string;
   remark?: string;
   createTime?: string;
 }
@@ -307,7 +309,7 @@ export function CategoryPage({
       title: '状态',
       render: (r) => (
         <Badge tone={r.status === 1 ? 'success' : 'danger'}>
-          {r.status === 1 ? '启用' : '禁用'}
+          {getDictText(r.status_text)}
         </Badge>
       ),
     },

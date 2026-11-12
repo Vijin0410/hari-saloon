@@ -1,5 +1,6 @@
 package com.wangjin.salon.system.model.vo;
 
+import com.wangjin.common.web.annotation.Dict;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -14,6 +15,7 @@ public class DictTypePageVO {
     @Schema(description = "字典类型编码")
     private String code;
     @Schema(description = "状态（1启用 0禁用）")
+    @Dict(dictCode = "status")
     private Integer status;
     @Schema(description = "分组编码")
     private String groupCode;

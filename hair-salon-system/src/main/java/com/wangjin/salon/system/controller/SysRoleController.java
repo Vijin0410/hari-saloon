@@ -3,6 +3,7 @@ package com.wangjin.salon.system.controller;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.model.form.RoleForm;
 import com.wangjin.salon.system.model.query.RolePageQuery;
@@ -36,6 +37,7 @@ public class SysRoleController {
     @Operation(summary = "角色分页")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('system:role:list')")
+    @QueryDict
     public PageResult<RolePageVO> getRolePage(RolePageQuery queryParams) {
         var page = roleService.getRolePage(queryParams);
         return PageResult.success(page.getRecords(), page.getTotal());

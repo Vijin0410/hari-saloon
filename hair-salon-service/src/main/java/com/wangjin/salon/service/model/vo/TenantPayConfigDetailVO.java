@@ -1,5 +1,6 @@
 package com.wangjin.salon.service.model.vo;
 
+import com.wangjin.common.web.annotation.Dict;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -19,10 +20,13 @@ public class TenantPayConfigDetailVO {
     @Schema(description = "配置ID")
     private Long id;
     @Schema(description = "支付渠道：wxpay/alipay/shouqianba/saibe/fuzhangui/manual")
+    @Dict(dictCode = "pay_channel")
     private String channel;
     @Schema(description = "结算模式：self_merchant/aggregate_pull/manual")
+    @Dict(dictCode = "pay_settle_type")
     private String settleType;
     @Schema(description = "是否启用（1=启用 0=停用）")
+    @Dict(dictCode = "status")
     private Integer enabled;
     @Schema(description = "AppID")
     private String appId;
@@ -51,6 +55,7 @@ public class TenantPayConfigDetailVO {
     @Schema(description = "聚合拉单间隔（秒）")
     private Integer pullIntervalSec;
     @Schema(description = "配置状态：pending/active/invalid")
+    @Dict(dictCode = "pay_config_status")
     private String status;
     @Schema(description = "备注")
     private String remark;

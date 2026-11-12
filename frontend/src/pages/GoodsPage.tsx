@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -348,7 +349,7 @@ function GoodsDetailDrawer({
             hint={`分类：${categoryName(row.categoryId)}`}
             extra={
               <Badge tone={row.status === 1 ? 'success' : 'danger'}>
-                {row.status === 1 ? '启用' : '禁用'}
+                {getDictText(row.status_text)}
               </Badge>
             }
           />
@@ -523,7 +524,7 @@ export function GoodsPage() {
       title: '状态',
       render: (r) => (
         <Badge tone={r.status === 1 ? 'success' : 'danger'}>
-          {r.status === 1 ? '启用' : '禁用'}
+          {getDictText(r.status_text)}
         </Badge>
       ),
     },

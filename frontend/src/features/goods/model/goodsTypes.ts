@@ -6,6 +6,7 @@ export interface GoodsCategoryPageVO {
   name: string;
   sort?: number;
   status?: number;
+  status_text?: string;
   remark?: string;
   createTime?: string;
 }
@@ -43,6 +44,7 @@ export interface GoodsPageVO {
   commissionable?: number;
   sort?: number;
   status?: number;
+  status_text?: string;
   createTime?: string;
 }
 

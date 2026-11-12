@@ -22,7 +22,7 @@ public interface SysDictTypeService extends IService<SysDictType> {
 
     boolean deleteDictTypes(String ids);
 
-    List<DictTypeForm> listByGroupCode(String groupCode);
+    List<DictTypePageVO> listByGroupCode(String groupCode);
 
     /** 通用（默认租户 1）启用的字典类型下拉（value=code，天然按租户去重），供开通租户勾选同步字典等场景。 */
     List<Option<String>> listTypeOptions();

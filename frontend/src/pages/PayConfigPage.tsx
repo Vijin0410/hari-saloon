@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckCircle2, Plus, RefreshCw, ShieldCheck, Trash2, Upload, XCircle } from 'lucide-react';
@@ -9,8 +10,6 @@ import {
   PAY_CHANNELS,
   PAY_CONFIG_STATUSES,
   PAY_SETTLE_TYPES,
-  payChannelLabel,
-  paySettleTypeLabel,
   type TenantPayConfigDetailVO,
   type TenantPayConfigFormPayload,
   type TenantPayConfigPageVO,
@@ -269,7 +268,7 @@ function PayConfigFormDialog({
       }
       onClose={onClose}
       open
-      title={isCreate ? '新增支付配置' : `编辑支付配置（${payChannelLabel(channel)}）`}
+      title={isCreate ? '新增支付配置' : `编辑支付配置（${getDictText(detail?.channel_text)}）`}
     >
       {loadingForm ? (
         <PageLoading />
@@ -507,7 +506,7 @@ function VerifyResultDialog({
             ) : (
               <XCircle className="size-5 text-rose-500" />
             )}
-            <Badge tone={status?.tone ?? 'neutral'}>{status?.label ?? result.status}</Badge>
+            <Badge tone={status?.tone ?? 'neutral'}>{getDictText(result.status_text)}</Badge>
           </div>
           <p className="text-sm text-zinc-700 dark:text-zinc-200">{result.message}</p>
         </div>
@@ -573,11 +572,11 @@ export function PayConfigPage() {
   const columns: TableColumn<TenantPayConfigPageVO>[] = [
     {
       title: '支付渠道',
-      render: (r) => <span className="font-medium">{r.channel_text ?? payChannelLabel(r.channel)}</span>,
+      render: (r) => <span className="font-medium">{getDictText(r.channel_text)}</span>,
     },
     {
       title: '结算模式',
-      render: (r) => <span>{r.settleType_text ?? paySettleTypeLabel(r.settleType)}</span>,
+      render: (r) => <span>{getDictText(r.settleType_text)}</span>,
     },
     {
       title: '商户号/AppID',
@@ -588,14 +587,14 @@ export function PayConfigPage() {
     {
       title: '启用',
       render: (r) => (
-        <Badge tone={r.enabled === 1 ? 'success' : 'neutral'}>{r.enabled === 1 ? '启用' : '停用'}</Badge>
+        <Badge tone={r.enabled === 1 ? 'success' : 'neutral'}>{getDictText(r.enabled_text)}</Badge>
       ),
     },
     {
       title: '状态',
       render: (r) => {
         const s = PAY_CONFIG_STATUSES[r.status];
-        return <Badge tone={s?.tone ?? 'neutral'}>{s?.label ?? r.status}</Badge>;
+        return <Badge tone={s?.tone ?? 'neutral'}>{getDictText(r.status_text)}</Badge>;
       },
     },
     {

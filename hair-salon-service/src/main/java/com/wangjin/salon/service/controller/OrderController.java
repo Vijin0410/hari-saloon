@@ -100,6 +100,7 @@ public class OrderController {
     @Operation(summary = "订单支付状态（收银台扫码轮询）")
     @GetMapping("/{id}/pay-status")
     @PreAuthorize("hasAuthority('biz:order:pay')")
+    @QueryDict
     public Result<OrderPayStatusVO> payStatus(@PathVariable Long id) {
         return Result.success(orderService.getPayStatus(id));
     }
@@ -115,6 +116,7 @@ public class OrderController {
     @PostMapping("/{id}/refund")
     @PreventDuplicateResubmit
     @PreAuthorize("hasAuthority('biz:order:refund')")
+    @QueryDict
     public Result<OrderRefundVO> refund(@PathVariable Long id, @Valid @RequestBody OrderRefundForm form) {
         return Result.success(orderRefundService.apply(id, form));
     }

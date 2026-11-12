@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.salon.service.model.form.MemberTagForm;
 import com.wangjin.salon.service.model.query.MemberTagPageQuery;
 import com.wangjin.salon.service.model.vo.MemberTagOptionVO;
@@ -37,6 +38,7 @@ public class MemberTagController {
     @Operation(summary = "标签分页")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('biz:memberTag:list')")
+    @QueryDict
     public PageResult<MemberTagVO> page(MemberTagPageQuery query) {
         Page<MemberTagVO> p = memberTagService.getPage(query);
         return PageResult.success(p.getRecords(), p.getTotal());

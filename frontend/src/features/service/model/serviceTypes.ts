@@ -6,6 +6,7 @@ export interface ServiceCategoryPageVO {
   name: string;
   sort?: number;
   status?: number;
+  status_text?: string;
   remark?: string;
   createTime?: string;
 }
@@ -42,6 +43,7 @@ export interface ServiceItemPageVO {
   commissionable?: number;
   sort?: number;
   status?: number;
+  status_text?: string;
   createTime?: string;
 }
 

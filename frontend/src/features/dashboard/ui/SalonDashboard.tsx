@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -356,8 +357,7 @@ export function SalonDashboard() {
                               : 'neutral'
                         }
                       >
-                        {order.statusLabel ||
-                          ['待结算', '已结算', '已取消', '部分退款', '已退款'][order.status]}
+                        {getDictText(order.status_text)}
                       </Badge>
                     </div>
                   </div>

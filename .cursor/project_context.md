@@ -1,6 +1,6 @@
 # 项目上下文记忆
 
-> 最后更新：2026-11-12（文档与范围同步；第一轮前端视觉与交互已落地，后端及新业务暂缓）
+> 最后更新：2026-11-12（全系统字典响应与展示核查；本轮允许修复字典相关前后端及框架链路）
 
 ## 本轮前端可复用能力
 
@@ -9,6 +9,15 @@
 - `shared/ui/RequestError`：请求失败与真实空数据分开；权限失败展示友好说明与重新加载。服务/商品 ROOT 分页权限错误尚未修后端。
 - 工作台现使用 `features/dashboard/ui/SalonDashboard`，仅展示已有接口的真实档案、订单和库存数据。收银在手机固定结算摘要、平板双栏、桌面三栏。
 - 最新范围：仅前端；积分开关、退款积分回冲、卡项核销与其他后端功能继续暂缓。
+
+## 字典响应与展示（2026-11-12 核查）
+
+- 本轮字典修复包含后端与本地 wj-framework；其余暂缓业务范围保持原约定。完整清单见 `docs/dict-response-audit.md`。
+- 统一契约：VO 字段 `@Dict(dictCode=...)` + Controller `@QueryDict`，响应保留 value 并增 `字段名_text`；用户/部门名翻译使用 `_name`。下拉仍走 `{value,label}`，请求仍提交 value。
+- `DictAspect` 递归必须读取原始 VO，不能从序列化后的 List<Map> 获取待翻译对象，否则嵌套支付/退款/部门树丢失注解。
+- 前端 `shared/lib/dict.ts#getDictText` 统一读取 `_text`，空值及框架未匹配的 `-` 显示「暂无」。收银、充值、工作台、积分/余额流水、支付配置与通用状态已对齐。
+- 字典类型分组查询返回 `List<DictTypePageVO>`（MapStruct 转换）并翻译状态，避免 Form 作为展示出参。
+- 现有系统字典共 11 类；充值状态、退款状态、赠送来源、菜单类型、数据范围仍为业务枚举，输入侧可选值继续受业务规则约束。
 
 ## 模块与包
 
@@ -63,6 +72,7 @@
 
 ## 可复用的后端方法/组件
 
+- **@Dict / @QueryDict / DictAspect**（wj-framework common-web）- 响应字典补 `_text`，支持嵌套列表/对象及继承字段；通用字典与租户覆盖合并，ROOT 只查通用。
 - **SysTenantService#saveTenant** - 事务开通租户
 - **TenantContextRunner** - 临时切换租户写库/登录查人
 - **SysUserService#getUserAuthInfo(username, tenantId)** - 登录鉴权
@@ -116,6 +126,8 @@
 - 文件字段约定：业务表（如 `sys_user.avatar`）存 `object_key`；`UserPageVO` 返回时转预签名 URL；表单回显给 object_key，预览调 `GET /files/url?objectKey=`
 
 ## 最近更新
+
+- 2026-11-12：全系统 11 类字典核查与修复。收银支付/退款明细改读 `payMethod_text`，wj-framework DictAspect 从原始 VO 递归，补齐充值/会员详情、通用状态及支付配置翻译入口；工作台状态改读 `status_text`；字典类型分组查询改返回 VO。新增 `shared/lib/dict.ts#getDictText` 与 `docs/dict-response-audit.md`。
 - 2026-11-12：**进度与产品文档同步（无业务代码改动）**。`docs/hair-salon-implementation-plan.md` 按当前代码更新 P1/P2/P4/P5/P6，区分代码实现与联调验收；前端优化文档 `docs/frontend-product-ui-review-2026-11-12.md` 固化页面问题、动态登录方向、AI 路线及素材清单。**用户明确卡项核销暂缓，不作为当前收银/退款/日结或 UI 优化的前置条件**；其余卡项需求保留，另行安排。新增 `docs/refund-points-and-feature-toggle.md`：核对现状仅资金全退时返抵扣积分，部分退款不返、消费赠送未回收、退回批次无到期日、纯积分单无法走正金额退款；积分可选化列为 P10 前置需求（尚未实现），关闭不清资产、不阻断旧订单退款。默认值、比例分摊及已用奖励处理均明确为待确认建议。需求文档同步上述范围与验收目标。
 - 2026-08-28: **P6 订单退款落地**（payment-design §9 阶段5）。新表 `salon_refund_order`（退款单头：退款总额/积分退回/余额退回/原因/状态 0处理中 1成功 2失败）+ `salon_refund_payment`（分摊明细，含渠道侧字段 fee_amount/fee_returned/渠道退款单号/退款处理状态；外部渠道行绑 pay_record_id）；存量库跑 `sql/migrate-p6-refund.sql`（幂等：两表 + point_change_type 字典加 9=退款退回 id69 含租户副本 + 按钮 200 biz:order:refund 挂 166 店长授权店员不给 + 注释刷新），跑后重启刷 Redis 字典缓存。**退款单是整体生效/失败的事务边界**：`OrderRefundServiceImpl.apply`（校验可退=received-已退-处理中 -> 贪心分摊先系统内后外部：余额->现金->银行卡->其他->微信->支付宝 -> 落单+分摊行 -> 渠道行调退款 API 事务内失败整体回滚 -> 无异步渠道行同步 confirm）；微信 PROCESSING 由回调 `POST /pay/notify/wxpay-refund/{tenantId}`（`WxpayRefundNotifyService`，复用 notify/** ignore 通配）或查单兜底 `RefundQueryCompensateService`（并入 PayQueryCompensateJob 同 cron）驱动 `OrderRefundConfirmExecutor.confirm`（独立 bean 事务：退款单 0->1 占坑幂等 + 积分退回 changeType=9 写新批次 + 余额退回**先本后赠**（与扣款先赠后本对称，桶流水 changeType=4 bizType=REFUND）+ 订单状态流转（累计退款达 received 置 3 否则 2）+ pay_record 全额退光置 refunded）；渠道失败 `fail()` 置 2 系统内不生效可重新发起。积分退回条件=资金全额退光时一并退（部分退款不动）。**PayChannel SPI 扩 refund/queryRefundStatus**（支付宝 alipay.trade.refund 同步 fund_change=Y|N 均成功、微信 V3 RefundService create/queryByOutRefundNo 状态归一 SUCCESS/PROCESSING/FAILED）；`PayProperties.buildNotifyUrl(channel, tenantId)` 公共化（充值/订单/退款三处消重）。前端：OrderRefundDialog（金额默认全额+全部退款快捷+原因必填+处理中提示）、OrderRecords 行退款按钮+状态筛选 2/3、OrderDetailDrawer 退款按钮+已退款金额格+退款记录卡（分摊明细渠道状态）、MemberPage 积分类型映射加 9。刻意不做：按行退款/充值退款/审批流/提成扣回（见 payment-design §9 阶段5 尾部）。
 - 2026-08-28: **订单收银台扫码落地**（payment-design §9 阶段4；充值同链路泛化到订单）。接口：POST /orders/{id}/prepay（组合支付含微信2/支付宝3行时出码，渠道按 payMethod 推导，表单快照 JSON 存流水新列 biz_form）+ POST /{id}/prepay-cancel（关流水订单保持挂单）+ GET /{id}/pay-status（轮询），perm 均 biz:order:pay 零新菜单；存量库重跑 sql/migrate-pay-fee-fields.sql（幂等加 biz_form 列）。**两阶段确认**：出码=calcPay 全量校验（与结算同口径）+库存预检+关旧流水+out_trade_no=订单号-P序号；确认=OrderPayConfirmExecutor（订单占坑 0->1 + 反序列化 biz_form 重放 OrderService.settle，与手动结算同链路）。**PayConfirmDispatcher**（pay 包）按 bizType 分发充值/订单 executor，微信/支付宝回调（NotifyService）与查单补偿（PayQueryCompensateService）统一入口，新业务类型加分支。**金额口径修正**：ChannelQueryResult 拆 totalFen（校验锚点：微信 total/支付宝 total_amount）+payerTotalFen（记录：微信 payer_total/支付宝 buyer_pay_amount）；微信回调/查单校验从 payer_total 改 total（修立减金误拒隐患）；payer_amount 回调/查单落库（fenToYuan）。互斥：挂单 updatePending 遇 pending 扫码流水拒绝；取消挂单/取消扫码同步关流水。前端：OrderPayDialog 加扫码视图（payConfigApi.options 动态判断渠道、QrCode+3秒轮询+取消回表单不关弹窗、多扫码行报错、下拉标注（扫码））；CashierWorkbench 拆 onPrepay（落单+出码）/onPaid（轮询成功清理）回调。OrderServiceImpl 的 settle 从 pay() 抽出（含 calcPay 纯校验 PayContext record），行为等价；hutool JSONUtil.toBean(bizForm, OrderPayForm.class) 嵌套 List 泛型可用。

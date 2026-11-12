@@ -129,12 +129,12 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
     }
 
     @Override
-    public List<DictTypeForm> listByGroupCode(String groupCode) {
+    public List<DictTypePageVO> listByGroupCode(String groupCode) {
         // 非 ROOT 锁定本租户，避免通用 + 租户副本混出重复类型；ROOT 看全部
         List<SysDictType> list = this.list(new LambdaQueryWrapper<SysDictType>()
                 .eq(SysDictType::getGroupCode, groupCode)
                 .eq(SysDictType::getStatus, 1)
                 .eq(!SecurityUtils.isRoot(), SysDictType::getTenantId, SecurityUtils.getTenantId()));
-        return dictTypeConverter.entity2Form(list);
+        return dictTypeConverter.entity2List(list);
     }
 }

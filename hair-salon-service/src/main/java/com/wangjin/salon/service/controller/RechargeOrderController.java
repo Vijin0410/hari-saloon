@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.salon.service.model.form.RechargeCreateForm;
 import com.wangjin.salon.service.model.query.RechargeOrderPageQuery;
 import com.wangjin.salon.service.model.vo.RechargeOrderDetailVO;
@@ -38,6 +39,7 @@ public class RechargeOrderController {
     @Operation(summary = "充值记录分页")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('biz:recharge:list')")
+    @QueryDict
     public PageResult<RechargeOrderPageVO> page(RechargeOrderPageQuery query) {
         Page<RechargeOrderPageVO> p = rechargeOrderService.getPage(query);
         return PageResult.success(p.getRecords(), p.getTotal());
@@ -46,6 +48,7 @@ public class RechargeOrderController {
     @Operation(summary = "充值记录详情")
     @GetMapping("/{id}/detail")
     @PreAuthorize("hasAuthority('biz:recharge:view')")
+    @QueryDict
     public Result<RechargeOrderDetailVO> detail(@PathVariable Long id) {
         return Result.success(rechargeOrderService.getDetail(id));
     }

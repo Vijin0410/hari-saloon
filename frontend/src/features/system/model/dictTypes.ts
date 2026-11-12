@@ -11,6 +11,7 @@ export interface DictTypePageVO {
   name: string;
   code: string;
   status?: StatusValue;
+  status_text?: string;
   groupCode?: string;
   remark?: string;
   createTime?: string;
@@ -36,6 +37,7 @@ export interface DictPageVO {
   name: string;
   value: string;
   status?: StatusValue;
+  status_text?: string;
   sort?: number;
   remark?: string;
   createTime?: string;

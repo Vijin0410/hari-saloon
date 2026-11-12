@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -333,7 +334,7 @@ export function MemberTagPage() {
                   </span>
                 </div>
                 <Badge tone={tag.status === 1 ? 'success' : 'danger'}>
-                  {tag.status === 1 ? '启用' : '禁用'}
+                  {getDictText(tag.status_text)}
                 </Badge>
               </div>
               <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

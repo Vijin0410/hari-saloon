@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
@@ -459,7 +460,7 @@ export function MemberLevelPage() {
                       {level.name}
                     </span>
                     <Badge tone={level.status === 1 ? 'success' : 'danger'}>
-                      {level.status === 1 ? '启用' : '禁用'}
+                      {getDictText(level.status_text)}
                     </Badge>
                   </div>
                 </div>

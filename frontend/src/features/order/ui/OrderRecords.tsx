@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Search } from 'lucide-react';
 import { orderApi } from '@/shared/api/modules/orderApi';
 import type { OrderPageVO } from '@/features/order/model/orderTypes';
-import { ORDER_STATUS_LABEL } from '@/features/order/model/orderTypes';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
@@ -13,14 +12,15 @@ import { Select } from '@/shared/ui/Select';
 import { Table, type TableColumn } from '@/shared/ui/Table';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { formatCurrency } from '@/shared/lib/format';
+import { getDictText } from '@/shared/lib/dict';
 import { useAuthStore } from '@/store/useAuthStore';
 import { OrderDetailDrawer } from './OrderDetailDrawer';
 import { OrderRefundDialog } from './OrderRefundDialog';
 
 const PAGE_SIZE = 10;
 
-function statusBadge(status: number): ReactNode {
-  const label = ORDER_STATUS_LABEL[status] ?? '未知';
+function statusBadge(status: number, text?: string): ReactNode {
+  const label = getDictText(text);
   const tone =
     status === 1
       ? 'success'
@@ -101,7 +101,7 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
     { title: '原价', align: 'right', render: (r) => formatCurrency(r.itemAmount) },
     { title: '优惠', align: 'right', render: (r) => formatCurrency(r.discountAmount) },
     { title: '实收', align: 'right', render: (r) => formatCurrency(r.receivedAmount) },
-    { title: '状态', render: (r) => statusBadge(r.status) },
+    { title: '状态', render: (r) => statusBadge(r.status, r.status_text) },
     { title: '门店', render: (r) => r.storeName ?? '暂无' },
     { title: '时间', render: (r) => r.createTime ?? '暂无' },
     {

@@ -42,6 +42,7 @@ export interface TenantPayConfigPageVO {
   settleType: string;
   settleType_text?: string;
   enabled?: number;
+  enabled_text?: string;
   appId?: string;
   mchId?: string;
   status: string;
@@ -54,8 +55,11 @@ export interface TenantPayConfigPageVO {
 export interface TenantPayConfigDetailVO {
   id: EntityId;
   channel: string;
+  channel_text?: string;
   settleType: string;
+  settleType_text?: string;
   enabled?: number;
+  enabled_text?: string;
   appId?: string;
   mchId?: string;
   apiV3KeyTail?: string;
@@ -70,6 +74,7 @@ export interface TenantPayConfigDetailVO {
   certObjectKey?: string;
   pullIntervalSec?: number;
   status?: string;
+  status_text?: string;
   remark?: string;
   updateTime?: string;
 }
@@ -106,6 +111,7 @@ export interface TenantPayConfigVerifyVO {
   id: EntityId;
   pass: boolean;
   status: string;
+  status_text?: string;
   message: string;
 }
 
@@ -113,5 +119,7 @@ export interface TenantPayConfigVerifyVO {
 export interface TenantPayConfigOption {
   id: EntityId;
   channel: string;
+  channel_text?: string;
   settleType: string;
+  settleType_text?: string;
 }

@@ -1,5 +1,6 @@
 package com.wangjin.salon.service.model.vo;
 
+import com.wangjin.common.web.annotation.Dict;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -46,6 +47,7 @@ public class StoreDetailVO {
     @Schema(description = "休息日")
     private String restDays;
     @Schema(description = "状态：1启用 0禁用")
+    @Dict(dictCode = "status")
     private Integer status;
     @Schema(description = "排序（升序）")
     private Integer sort;

@@ -1,5 +1,6 @@
 package com.wangjin.salon.system.model.vo;
 
+import com.wangjin.common.web.annotation.Dict;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -16,6 +17,7 @@ public class RolePageVO {
     @Schema(description = "排序（升序）")
     private Integer sort;
     @Schema(description = "状态（1启用 0禁用）")
+    @Dict(dictCode = "status")
     private Integer status;
     @Schema(description = "数据权限范围")
     private Integer dataScope;

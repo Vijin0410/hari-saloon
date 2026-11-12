@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ListChecks, Plus, Search, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
@@ -319,7 +320,7 @@ export function TenantPage() {
       title: '状态',
       render: (r) => (
         <Badge tone={r.status === 1 ? 'success' : 'danger'}>
-          {r.status === 1 ? '启用' : '禁用'}
+          {getDictText(r.status_text)}
         </Badge>
       ),
     },

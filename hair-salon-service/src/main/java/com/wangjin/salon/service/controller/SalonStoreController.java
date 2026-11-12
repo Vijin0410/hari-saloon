@@ -3,6 +3,7 @@ package com.wangjin.salon.service.controller;
 import com.wangjin.common.result.PageResult;
 import com.wangjin.common.result.Result;
 import com.wangjin.common.web.annotation.PreventDuplicateResubmit;
+import com.wangjin.common.web.annotation.QueryDict;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.service.model.form.StoreForm;
 import com.wangjin.salon.service.model.query.StorePageQuery;
@@ -37,6 +38,7 @@ public class SalonStoreController {
     @Operation(summary = "门店分页")
     @GetMapping("/page")
     @PreAuthorize("hasAuthority('biz:store:list')")
+    @QueryDict
     public PageResult<StorePageVO> page(StorePageQuery query) {
         var page = storeService.getStorePage(query);
         return PageResult.success(page.getRecords(), page.getTotal());
@@ -52,6 +54,7 @@ public class SalonStoreController {
     @Operation(summary = "门店详情")
     @GetMapping("/{id}/detail")
     @PreAuthorize("hasAuthority('biz:store:view')")
+    @QueryDict
     public Result<StoreDetailVO> detail(@PathVariable Long id) {
         return Result.success(storeService.getDetail(id));
     }

@@ -20,6 +20,7 @@ public class TenantPayConfigPageVO {
     @Dict(dictCode = "pay_settle_type")
     private String settleType;
     @Schema(description = "是否启用（1=启用 0=停用）")
+    @Dict(dictCode = "status")
     private Integer enabled;
     @Schema(description = "AppID")
     private String appId;

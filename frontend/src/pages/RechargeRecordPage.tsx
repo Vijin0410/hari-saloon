@@ -1,3 +1,4 @@
+import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import { rechargeApi } from '@/shared/api/modules/rechargeApi';
@@ -22,7 +23,7 @@ import { formatCurrency } from '@/shared/lib/format';
 const PAGE_SIZE = 10;
 
 function payMethodLabel(r: RechargeOrderPageVO): string {
-  return r.payMethodLabel ?? RECHARGE_PAY_METHODS.find((m) => m.value === r.payMethod)?.label ?? '其他';
+  return getDictText(r.payMethod_text);
 }
 
 function rechargeStatusBadge(status?: number) {

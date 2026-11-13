@@ -1,6 +1,15 @@
 # 项目上下文记忆
 
-> 最后更新：2026-11-12（退款积分回冲与租户积分开关实施完成）
+> 最后更新：2026-11-13（P8 财务日结与 P9 经营报表第一版实施完成）
+
+## P8/P9 财务、日结与经营报表（2026-11-13）
+
+- 新增 `GET /api/v1/finance/report`（汇总、支付方式、每日趋势、门店/服务/商品/会员排行）、`GET /ledger/page`、`GET /ledger/export`、`GET /settlements/page`、`POST /settlements/add`、`GET /settlements/{id}/detail`；权限 `biz:finance:list/export/settle`、`biz:report:list`，ROOT 全权限。
+- `FinanceService` 服务端重算可见门店白名单；租户管理员看本租户，其他用户仅按门店绑定关系过滤，不能因门店创建人扩大范围；客户端权限辅助字段被覆盖。日期按 Asia/Shanghai 自然日，最多366天，不允许未来日期；年度查询通过 trendPeriod=MONTH 返回每月趋势。
+- 消费按支付成功时间、充值按到账时间、退款按成功时间；充值本金是预收款，赠送单列，会员余额/积分不计外部收款。本金期初/期末按会员归属门店的全部本金流水累计，历史资产须有对应流水。
+- `salon_daily_settlement` 保存不可变快照，门店+营业日唯一；详情比较当前完整报表并标记日结后变更。`FinanceWorkspace` 复用财务/报表查询、CSV 导出和失败重试；工作台使用今日/月度真实指标。项目排行为退款前金额，不能直接作为员工最终提成基数。
+- 迁移 `sql/migrate-p8-p9-finance.sql` 可重复执行，本机 PostgreSQL 已执行，其他环境须显式迁移。菜单默认授权 ROOT、TENANT_ADMIN、STORE_MANAGER，新租户开通同步授权；重新登录刷新 JWT 权限。详细口径见 `docs/p8-p9-finance-reporting.md`。
+- P7 是下一核心阶段：覆盖充值、商品、卡项销售及实际服务明细提成，租户/门店管理员按范围配置比例，ROOT 全权限；规则版本快照、逐单逐项基数、主/助理分摊、退款回冲、结算审计及完整明细/汇总/排行/导出/回钻必须具备。卡项核销继续暂缓。
 
 
 ## 退款积分与租户积分开关（2026-11-12）

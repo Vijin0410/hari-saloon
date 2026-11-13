@@ -1,4 +1,5 @@
 import { getDictText } from '@/shared/lib/dict';
+import { BusinessOverview } from '@/features/finance/ui/BusinessOverview';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -217,6 +218,7 @@ export function SalonDashboard() {
         />
       </section>
 
+      {hasPermission('biz:report:list') ? <BusinessOverview /> : null}
       <section aria-labelledby="overview-title">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="overview-title" className="text-sm font-semibold">

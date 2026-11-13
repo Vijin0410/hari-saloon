@@ -8,6 +8,8 @@ import { ProtectedRoute } from '@/router/ProtectedRoute';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ default: module.HomePage })));
+const FinancePage = lazy(() => import('@/pages/FinancePage').then((m) => ({ default: m.FinancePage })));
+const ReportsPage = lazy(() => import('@/pages/ReportsPage').then((m) => ({ default: m.ReportsPage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })));
 const AdminLoginPage = lazy(() =>
   import('@/pages/AdminLoginPage').then((module) => ({ default: module.AdminLoginPage })),
@@ -63,6 +65,22 @@ export const router = createBrowserRouter([
         element: <MainLayout />,
         children: [
           { index: true, element: <HomePage /> },
+          {
+            path: 'biz/finance',
+            element: (
+              <PermissionRoute permission="biz:finance:list">
+                <FinancePage />
+              </PermissionRoute>
+            ),
+          },
+          {
+            path: 'biz/reports',
+            element: (
+              <PermissionRoute permission="biz:report:list">
+                <ReportsPage />
+              </PermissionRoute>
+            ),
+          },
           {
             path: 'system/users',
             element: (

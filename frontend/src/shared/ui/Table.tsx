@@ -32,6 +32,8 @@ export interface TableProps<T> {
   empty?: ReactNode;
   /** 行点击 */
   onRowClick?: (row: T) => void;
+  /** 表头随表格内容滚动时保持可见 */
+  stickyHeader?: boolean;
   className?: string;
 }
 
@@ -48,6 +50,7 @@ export function Table<T>({
   loading,
   empty,
   onRowClick,
+  stickyHeader = false,
   className,
 }: TableProps<T>) {
   if (loading) {
@@ -66,7 +69,12 @@ export function Table<T>({
       )}
     >
       <table className="min-w-full divide-y divide-salon-line text-sm dark:divide-zinc-800">
-        <thead className="bg-stone-50/80 text-xs text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400">
+        <thead
+          className={cn(
+            'bg-stone-50/80 text-xs text-zinc-500 dark:bg-zinc-900/60 dark:text-zinc-400',
+            stickyHeader && 'sticky top-0 z-10 bg-stone-50 dark:bg-zinc-900',
+          )}
+        >
           <tr>
             {columns.map((col, idx) => (
               <th

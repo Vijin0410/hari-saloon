@@ -17,11 +17,6 @@ const INPUT_INVALID =
   'border-rose-300 focus:border-rose-500 focus:ring-rose-100 dark:border-rose-700';
 
 export function Input({ className, invalid, clearable, onChange, ...props }: InputProps) {
-  // type="date" 空值时原生占位为 yyyy/mm/dd 不美观，统一覆盖为灰色「选择时间」；disabled 态保持原生
-  const isDateEmpty =
-    props.type === 'date' &&
-    !props.disabled &&
-    (props.value === undefined || props.value === null || props.value === '');
   const hasValue = typeof props.value === 'string' ? props.value.length > 0 : Boolean(props.value);
   const clearableActive = Boolean(clearable) && !props.disabled && !props.readOnly;
   const showClear = clearableActive && hasValue;
@@ -42,21 +37,7 @@ export function Input({ className, invalid, clearable, onChange, ...props }: Inp
     </button>
   ) : null;
 
-  if (isDateEmpty) {
-    return (
-      <div className="relative">
-        <input
-          className={cn(INPUT_BASE, invalid && INPUT_INVALID, 'text-transparent', className)}
-          {...props}
-          onChange={onChange}
-        />
-        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-zinc-400">
-          选择时间
-        </span>
-        {clearIcon}
-      </div>
-    );
-  }
+  // 日期控件保留浏览器原生显示，避免 uncontrolled 表单由 ref 回填日期后仍被自定义占位层遮挡。
   // clearable 始终预留右侧内边距，避免有值/无值时光标因图标出现而跳动
   if (clearableActive) {
     return (

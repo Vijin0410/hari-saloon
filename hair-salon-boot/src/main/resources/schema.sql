@@ -1303,3 +1303,41 @@ WHERE d.change_type=5 AND d.biz_type='ORDER' AND d.refund_processed_points=0
  AND EXISTS (SELECT 1 FROM salon_member_point_log old_back WHERE old_back.biz_type='REFUND'
  AND old_back.biz_id=r.id AND old_back.change_type=9 AND old_back.source_log_id IS NULL AND old_back.deleted=0));
 COMMIT;
+
+-- PostgreSQL：门店自然日日结快照；唯一约束防并发重复结算。
+CREATE TABLE IF NOT EXISTS salon_daily_settlement (
+    id            int8         NOT NULL PRIMARY KEY,
+    tenant_id     int8         NOT NULL,
+    store_id      int8         NOT NULL,
+    business_date date         NOT NULL,
+    snapshot      text         NOT NULL,
+    fingerprint   varchar(64)  NOT NULL,
+    remark        varchar(500),
+    create_by     int8,
+    create_time   timestamp,
+    update_by     int8,
+    update_time   timestamp,
+    deleted       int4         NOT NULL DEFAULT 0,
+    CONSTRAINT uk_daily_settlement UNIQUE (tenant_id, store_id, business_date)
+);
+COMMENT ON TABLE salon_daily_settlement IS '门店自然日日结快照';
+COMMENT ON COLUMN salon_daily_settlement.id IS '日结ID';
+COMMENT ON COLUMN salon_daily_settlement.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_daily_settlement.store_id IS '门店ID';
+COMMENT ON COLUMN salon_daily_settlement.business_date IS '营业日期';
+COMMENT ON COLUMN salon_daily_settlement.snapshot IS '冻结报表JSON';
+COMMENT ON COLUMN salon_daily_settlement.fingerprint IS '业务明细指纹';
+COMMENT ON COLUMN salon_daily_settlement.remark IS '日结备注';
+COMMENT ON COLUMN salon_daily_settlement.create_by IS '确认人ID';
+COMMENT ON COLUMN salon_daily_settlement.create_time IS '确认时间';
+COMMENT ON COLUMN salon_daily_settlement.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_daily_settlement.update_time IS '更新时间';
+COMMENT ON COLUMN salon_daily_settlement.deleted IS '逻辑删除标记';
+CREATE INDEX IF NOT EXISTS idx_finance_order_date ON salon_order (store_id, paid_time)
+    WHERE deleted = 0 AND status IN (1, 2, 3);
+CREATE INDEX IF NOT EXISTS idx_finance_recharge_date ON salon_recharge_order (store_id, pay_time)
+    WHERE deleted = 0 AND status = 1;
+CREATE INDEX IF NOT EXISTS idx_finance_refund_date ON salon_refund_order (store_id, success_time)
+    WHERE deleted = 0 AND status = 1;
+CREATE INDEX IF NOT EXISTS idx_finance_balance_date ON salon_member_balance_log (store_id, balance_type, create_time)
+    WHERE deleted = 0;

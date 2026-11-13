@@ -91,6 +91,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
             5L, 51L, 52L, 53L, 54L,
             8L, 9L, 91L, 92L, 93L, 94L,
             19L, 201L, 202L,
+            210L, 211L, 212L, 213L, 214L, 215L, 216L,
             10L, 101L, 102L, 103L, 104L, 105L
     );
     private static final List<Long> STORE_STAFF_MENU_IDS = List.of(8L, 10L, 101L, 102L, 103L, 104L);

@@ -74,6 +74,8 @@ const DASHBOARD_NAV: NavLeaf = {
 };
 
 const frontendPathByPermission: Record<string, string> = {
+  'biz:finance:list': '/biz/finance',
+  'biz:report:list': '/biz/reports',
   'system:user:list': '/system/users',
   'system:role:list': '/system/roles',
   'system:menu:list': '/system/menus',
@@ -98,6 +100,8 @@ const frontendPathByPermission: Record<string, string> = {
 const knownFrontendPaths = new Set<string>(Object.values(frontendPathByPermission));
 
 const iconByPermission: Record<string, IconType> = {
+  'biz:finance:list': Wallet,
+  'biz:report:list': ClipboardList,
   'system:user:list': Users,
   'system:role:list': ShieldCheck,
   'system:menu:list': MenuSquare,

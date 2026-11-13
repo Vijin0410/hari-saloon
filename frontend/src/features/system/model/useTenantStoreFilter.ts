@@ -6,6 +6,8 @@ import type { EntityId, StoreOption, TenantOption } from '@/features/system/mode
 interface TenantStoreFilterOptions {
   /** 是否启用门店筛选与门店下拉加载（会员/用户页 true，其余 false） */
   withStore?: boolean;
+  /** 可选的业务门店下拉接口，保证选择范围与业务数据权限一致 */
+  loadStoreOptions?: (tenantId?: EntityId) => Promise<StoreOption[]>;
 }
 
 /**
@@ -14,7 +16,10 @@ interface TenantStoreFilterOptions {
  * - ROOT 门店下拉跟随所选租户；TENANT_ADMIN 本租户全量；其余按授权门店范围（供表单使用）。
  * - 非 ROOT 一律不产出 tenantId（后端 TenantLine 已自动限本租户，防止越权）。
  */
-export function useTenantStoreFilter({ withStore = false }: TenantStoreFilterOptions = {}) {
+export function useTenantStoreFilter({
+  withStore = false,
+  loadStoreOptions = storeApi.options,
+}: TenantStoreFilterOptions = {}) {
   const isRoot = useAuthStore((s) => s.hasRole('ROOT'));
   const isTenantAdmin = useAuthStore((s) => s.hasRole('TENANT_ADMIN'));
   const showTenant = isRoot;
@@ -39,11 +44,10 @@ export function useTenantStoreFilter({ withStore = false }: TenantStoreFilterOpt
     if (!withStore) {
       return;
     }
-    storeApi
-      .options(isRoot ? tenantId || undefined : undefined)
+    loadStoreOptions(isRoot ? tenantId || undefined : undefined)
       .then(setStoreOptions)
       .catch(() => setStoreOptions([]));
-  }, [withStore, isRoot, tenantId]);
+  }, [withStore, isRoot, tenantId, loadStoreOptions]);
 
   /** ROOT 切换租户时联动：重置门店选择 */
   const changeTenant = useCallback((id: EntityId) => {

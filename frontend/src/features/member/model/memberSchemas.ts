@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CARD_TEMPLATE_KEYS } from './memberCardTemplates';
 
 const statusSchema = z.union([z.literal(0), z.literal(1)]);
 
@@ -23,6 +24,8 @@ const intOptional = z
  * 会员等级表单 schema。数字字段用 string 承载中间态，提交时转 number。
  */
 export const memberLevelFormSchema = z.object({
+  cardTemplate: z.enum(CARD_TEMPLATE_KEYS, { error: '卡面模板不正确' }),
+  levelType: z.enum(['REGULAR', 'ACTIVITY'], { error: '等级类型不正确' }),
   name: z.string().trim().min(1, '等级名称不能为空'),
   levelNo: intRequired,
   cardImage: z.string().trim().max(255, '卡面贴图对象键不能超过255个字符').nullable().optional(),

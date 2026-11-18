@@ -164,15 +164,25 @@ WHERE NOT EXISTS (SELECT 1 FROM sys_dict WHERE type_code = 'status' AND value = 
 -- ===== P1 会员资产闭环种子（默认租户 1）=====
 
 -- 会员等级
-INSERT INTO salon_member_level (id, tenant_id, name, level_no, service_discount, goods_discount, point_rate, recharge_gift_rate, sort, status, create_by, create_time, update_by, update_time, deleted)
-SELECT v.id, 1, v.name, v.level_no, v.service_discount, v.goods_discount, v.point_rate, v.recharge_gift_rate, v.level_no, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+INSERT INTO salon_member_level
+    (id, tenant_id, name, level_no, card_template, level_type, service_discount,
+     goods_discount, point_rate, recharge_gift_rate, upgrade_threshold,
+     sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 1, v.name, v.level_no, v.card_template, v.level_type,
+       v.service_discount, v.goods_discount, v.point_rate, 0.00, v.upgrade_threshold,
+       v.level_no, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 FROM (VALUES
-  (1001::int8, '普通会员', 0, 1.00, 1.00, 1.00, 0.00),
-  (1002::int8, '银卡会员', 1, 0.95, 0.95, 1.00, 0.05),
-  (1003::int8, '金卡会员', 2, 0.90, 0.90, 1.20, 0.10),
-  (1004::int8, '钻石会员', 3, 0.85, 0.85, 1.50, 0.15)
-) AS v(id, name, level_no, service_discount, goods_discount, point_rate, recharge_gift_rate)
-WHERE NOT EXISTS (SELECT 1 FROM salon_member_level l WHERE l.id = v.id);
+  (1001::int8, '普通会员', 0, 'lilac', 'REGULAR', 1.00, 1.00, 1.00, NULL::numeric),
+  (1002::int8, '银卡会员', 1, 'silver', 'REGULAR', 0.98, 1.00, 1.00, 1000::numeric),
+  (1003::int8, '金卡会员', 2, 'gold', 'REGULAR', 0.95, 0.99, 1.10, 3000::numeric),
+  (1004::int8, '钻石会员', 3, 'plum', 'REGULAR', 0.93, 0.98, 1.20, 8000::numeric),
+  (1009::int8, '尊享会员', 4, 'black-gold', 'REGULAR', 0.90, 0.97, 1.30, 15000::numeric),
+  (1010::int8, '新客体验会员', 100, 'lilac', 'ACTIVITY', 0.98, 1.00, 1.00, NULL::numeric)
+) AS v(id, name, level_no, card_template, level_type, service_discount, goods_discount, point_rate, upgrade_threshold)
+WHERE NOT EXISTS (
+    SELECT 1 FROM salon_member_level l WHERE l.id = v.id
+       OR (l.tenant_id = 1 AND l.deleted = 0 AND (l.name = v.name OR l.level_no = v.level_no))
+);
 
 -- 会员标签
 INSERT INTO salon_member_tag (id, tenant_id, name, color, sort, status, create_by, create_time, update_by, update_time, deleted)
@@ -304,15 +314,25 @@ WHERE m.id IN (17, 110, 107, 109)
 -- 约定：后续每次新增字典种子（type + 项），必须同步加一份本租户（2084880957290426370）的副本。
 
 -- 会员等级
-INSERT INTO salon_member_level (id, tenant_id, name, level_no, service_discount, goods_discount, point_rate, recharge_gift_rate, sort, status, create_by, create_time, update_by, update_time, deleted)
-SELECT v.id, 2084880957290426370, v.name, v.level_no, v.service_discount, v.goods_discount, v.point_rate, v.recharge_gift_rate, v.level_no, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+INSERT INTO salon_member_level
+    (id, tenant_id, name, level_no, card_template, level_type, service_discount,
+     goods_discount, point_rate, recharge_gift_rate, upgrade_threshold,
+     sort, status, create_by, create_time, update_by, update_time, deleted)
+SELECT v.id, 2084880957290426370, v.name, v.level_no, v.card_template, v.level_type,
+       v.service_discount, v.goods_discount, v.point_rate, 0.00, v.upgrade_threshold,
+       v.level_no, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 FROM (VALUES
-  (1005::int8, '普通会员', 0, 1.00, 1.00, 1.00, 0.00),
-  (1006::int8, '银卡会员', 1, 0.95, 0.95, 1.00, 0.05),
-  (1007::int8, '金卡会员', 2, 0.90, 0.90, 1.20, 0.10),
-  (1008::int8, '钻石会员', 3, 0.85, 0.85, 1.50, 0.15)
-) AS v(id, name, level_no, service_discount, goods_discount, point_rate, recharge_gift_rate)
-WHERE NOT EXISTS (SELECT 1 FROM salon_member_level l WHERE l.id = v.id);
+  (1005::int8, '普通会员', 0, 'lilac', 'REGULAR', 1.00, 1.00, 1.00, NULL::numeric),
+  (1006::int8, '银卡会员', 1, 'silver', 'REGULAR', 0.98, 1.00, 1.00, 1000::numeric),
+  (1007::int8, '金卡会员', 2, 'gold', 'REGULAR', 0.95, 0.99, 1.10, 3000::numeric),
+  (1008::int8, '钻石会员', 3, 'plum', 'REGULAR', 0.93, 0.98, 1.20, 8000::numeric),
+  (1011::int8, '尊享会员', 4, 'black-gold', 'REGULAR', 0.90, 0.97, 1.30, 15000::numeric),
+  (1012::int8, '新客体验会员', 100, 'lilac', 'ACTIVITY', 0.98, 1.00, 1.00, NULL::numeric)
+) AS v(id, name, level_no, card_template, level_type, service_discount, goods_discount, point_rate, upgrade_threshold)
+WHERE NOT EXISTS (
+    SELECT 1 FROM salon_member_level l WHERE l.id = v.id
+       OR (l.tenant_id = 2084880957290426370 AND l.deleted = 0 AND (l.name = v.name OR l.level_no = v.level_no))
+);
 
 -- 会员标签
 INSERT INTO salon_member_tag (id, tenant_id, name, color, sort, status, create_by, create_time, update_by, update_time, deleted)

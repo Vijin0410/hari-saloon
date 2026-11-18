@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -26,6 +27,16 @@ public class MemberLevelForm {
     @Schema(description = "会员卡自选贴图对象键，NULL=使用内置卡面")
     @Size(max = 255, message = "卡面贴图对象键不能超过255个字符")
     private String cardImage;
+
+    @Schema(description = "内置卡面模板（auto/lilac/silver/gold/plum/black-gold）")
+    @NotBlank(message = "请选择卡面模板")
+    @Pattern(regexp = "auto|lilac|silver|gold|plum|black-gold", message = "卡面模板不正确")
+    private String cardTemplate;
+
+    @Schema(description = "等级类型（REGULAR=常规等级，ACTIVITY=活动等级）")
+    @NotBlank(message = "请选择等级类型")
+    @Pattern(regexp = "REGULAR|ACTIVITY", message = "等级类型不正确")
+    private String levelType;
 
     @Schema(description = "服务折扣（0.00-1.00，1=不打折，NULL=不参与折扣）")
     private BigDecimal serviceDiscount;

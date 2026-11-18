@@ -1,8 +1,17 @@
 import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { useForm, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import type { OrderPayPayload, OrderPrepayVO } from '@/features/order/model/orderTypes';
 import { ORDER_PAY_METHODS, POINTS_PER_YUAN } from '@/features/order/model/orderTypes';
+import { createOrderPaySchema, type OrderPayValues } from '@/features/order/model/orderSchemas';
+import {
+  allocatePayments,
+  maxRedeemPoints,
+  pointsDeduction,
+  type PaymentRow,
+} from '@/features/order/model/orderSettlement';
 import type { MemberPageVO } from '@/features/member/model/memberTypes';
 import { orderApi } from '@/shared/api/modules/orderApi';
 import { payConfigApi } from '@/shared/api/modules/payConfigApi';
@@ -27,11 +36,6 @@ const SCAN_META: Record<string, { name: string; app: string }> = {
   wxpay: { name: '微信', app: '微信' },
   alipay: { name: '支付宝', app: '支付宝' },
 };
-
-interface PaymentRow {
-  payMethod: number;
-  amount: string;
-}
 
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
@@ -59,30 +63,85 @@ export function OrderPayDialog({
   onPaid: () => void | Promise<void>;
 }) {
   const pointsEnabled = useMemberSettingsStore((s) => s.pointsEnabled);
-  const [usePoints, setUsePoints] = useState('');
-  const [cashReceived, setCashReceived] = useState('');
-  const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const memberId = member?.id;
+  const memberPoints = member?.points ?? 0;
+  const memberBalance = member?.balance ?? 0;
+  const pointDebt = member?.pointDebt ?? 0;
+  const context = useMemo(
+    () => ({ payable, member, pointsEnabled }),
+    [payable, member, pointsEnabled],
+  );
+  const schema = useMemo(() => createOrderPaySchema(context), [context]);
+  const {
+    control,
+    register,
+    reset,
+    setValue,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<OrderPayValues>({
+    resolver: zodResolver(schema),
+    mode: 'onChange',
+    defaultValues: { usePoints: '', cashReceived: '', payments: [] },
+  });
+  const usePoints = useWatch({ control, name: 'usePoints' });
+  const cashReceived = useWatch({ control, name: 'cashReceived' });
+  const payments = useWatch({ control, name: 'payments' });
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [scanChannels, setScanChannels] = useState<string[]>([]);
   // 扫码视图：预下单结果 + 轮询状态（orderId 由落单回调返回）
-  const [scan, setScan] = useState<{ orderId: string; codeUrl: string; amount: number; channel: string } | null>(null);
+  const [scan, setScan] = useState<{
+    orderId: string;
+    codeUrl: string;
+    amount: number;
+    channel: string;
+  } | null>(null);
 
   useEffect(() => {
     if (open) {
-      setUsePoints('');
-      setCashReceived('');
-      setPayments([{ payMethod: 1, amount: String(round2(payable)) }]);
+      const initialContext = {
+        payable,
+        member:
+          memberId == null
+            ? null
+            : { id: memberId, points: memberPoints, balance: memberBalance, pointDebt },
+        pointsEnabled,
+      };
+      const points = maxRedeemPoints(initialContext);
+      reset({
+        usePoints: String(points),
+        cashReceived: '',
+        payments: allocatePayments(
+          round2(payable - pointsDeduction(initialContext, points)),
+          memberBalance,
+        ),
+      });
+      setSubmitError('');
       setScan(null);
+    }
+  }, [open, payable, memberId, memberPoints, memberBalance, pointDebt, pointsEnabled, reset]);
+
+  useEffect(() => {
+    if (open) {
+      let active = true;
       payConfigApi
         .options()
-        .then((channels) =>
-          setScanChannels(
-            channels.map((c) => c.channel).filter((c) => c === 'wxpay' || c === 'alipay'),
-          ),
+        .then(
+          (channels) =>
+            active &&
+            setScanChannels(
+              channels.map((c) => c.channel).filter((c) => c === 'wxpay' || c === 'alipay'),
+            ),
         )
-        .catch(() => setScanChannels([]));
+        .catch(() => {
+          if (active) setScanChannels([]);
+        });
+      return () => {
+        active = false;
+      };
     }
-  }, [open, payable]);
+  }, [open]);
 
   // 扫码轮询：订单已支付则回调清理并关闭；订单被取消则回表单
   useEffect(() => {
@@ -115,16 +174,7 @@ export function OrderPayDialog({
     };
   }, [open, scan, onPaid, onClose]);
 
-  const memberPoints = member?.points ?? 0;
-  const memberBalance = member?.balance ?? 0;
-
-  const pointDeductAmount = useMemo(() => {
-    const p = pointsEnabled ? Number(usePoints) || 0 : 0;
-    if (p <= 0) {
-      return 0;
-    }
-    return Math.floor((p / POINTS_PER_YUAN) * 100) / 100;
-  }, [usePoints, pointsEnabled]);
+  const pointDeductAmount = pointsDeduction(context, Number(usePoints) || 0);
 
   const receivable = round2(payable - pointDeductAmount);
   const payTotal = useMemo(
@@ -134,14 +184,18 @@ export function OrderPayDialog({
   const balanceTotal = useMemo(
     () =>
       round2(
-        payments.filter((p) => p.payMethod === 5).reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+        payments
+          .filter((p) => p.payMethod === 5)
+          .reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
       ),
     [payments],
   );
   const cashTotal = useMemo(
     () =>
       round2(
-        payments.filter((p) => p.payMethod === 1).reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+        payments
+          .filter((p) => p.payMethod === 1)
+          .reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
       ),
     [payments],
   );
@@ -151,21 +205,10 @@ export function OrderPayDialog({
   const scanRows = payments.filter((p) => p.payMethod === 2 || p.payMethod === 3);
   const scanRowCount = scanRows.length;
   const scanChannel =
-    scanRowCount === 1
-      ? scanRows[0].payMethod === 2
-        ? 'wxpay'
-        : 'alipay'
-      : null;
+    scanRowCount === 1 ? (scanRows[0].payMethod === 2 ? 'wxpay' : 'alipay') : null;
   const isScan = Boolean(scanChannel && scanChannels.includes(scanChannel));
 
-  const pointsError =
-    pointsEnabled && (member?.pointDebt ?? 0) > 0 && Number(usePoints) > 0
-      ? '会员有待追回积分，暂不能使用积分抵扣'
-      : pointsEnabled && Number(usePoints) > memberPoints
-      ? '积分不足'
-      : pointDeductAmount > payable
-        ? '积分抵扣不能超过应收'
-        : undefined;
+  const pointsError = errors.usePoints?.message;
   const balanceError = balanceTotal > memberBalance ? '会员余额不足' : undefined;
   const scanError =
     scanRowCount > 1 ? '扫码支付仅支持一行微信或支付宝（一次只出一种码）' : undefined;
@@ -175,18 +218,41 @@ export function OrderPayDialog({
       : undefined;
   const hasError = Boolean(pointsError || balanceError || scanError || totalError);
 
+  function updatePoints(value: string): void {
+    setValue('usePoints', value, { shouldValidate: true });
+    const due = round2(payable - pointsDeduction(context, Number(value) || 0));
+    const preferred = payments.find((row) => row.payMethod !== 5)?.payMethod ?? 1;
+    setValue('payments', allocatePayments(due, memberBalance, preferred), { shouldValidate: true });
+  }
+
   function updatePayment(index: number, patch: Partial<PaymentRow>): void {
-    setPayments((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    setValue(
+      'payments',
+      payments.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+      { shouldValidate: true },
+    );
   }
 
   function removePayment(index: number): void {
-    setPayments((prev) => prev.filter((_, i) => i !== index));
+    setValue(
+      'payments',
+      payments.filter((_, i) => i !== index),
+      { shouldValidate: true },
+    );
   }
 
   function addPayment(): void {
     // 快捷补一行：默认抵剩余未付金额，方式默认微信
     const rest = round2(receivable - payTotal);
-    setPayments((prev) => [...prev, { payMethod: 2, amount: rest > 0 ? String(rest) : '' }]);
+    const method = ORDER_PAY_METHODS.find(
+      (m) => m.value !== 5 && !payments.some((p) => p.payMethod === m.value),
+    );
+    if (method)
+      setValue(
+        'payments',
+        [...payments, { payMethod: method.value, amount: rest > 0 ? String(rest) : '' }],
+        { shouldValidate: true },
+      );
   }
 
   /** 余额支付快捷行：金额自动取 min(可用余额, 待付余额) */
@@ -195,10 +261,11 @@ export function OrderPayDialog({
     if (rest <= 0) {
       return;
     }
-    setPayments((prev) => [
-      ...prev,
-      { payMethod: 5, amount: String(round2(Math.min(memberBalance, rest))) },
-    ]);
+    setValue(
+      'payments',
+      [...payments, { payMethod: 5, amount: String(round2(Math.min(memberBalance, rest))) }],
+      { shouldValidate: true },
+    );
   }
 
   async function handleConfirm(): Promise<void> {
@@ -206,6 +273,7 @@ export function OrderPayDialog({
       return;
     }
     setSubmitting(true);
+    setSubmitError('');
     try {
       const payload: OrderPayPayload = {
         usePoints: pointsEnabled ? Number(usePoints) || 0 : 0,
@@ -227,6 +295,8 @@ export function OrderPayDialog({
         await onConfirm(payload);
         onClose();
       }
+    } catch (error: unknown) {
+      setSubmitError(error instanceof Error ? error.message : '结算失败，请重试');
     } finally {
       setSubmitting(false);
     }
@@ -288,7 +358,11 @@ export function OrderPayDialog({
           <Button onClick={onClose} variant="secondary">
             取消
           </Button>
-          <Button disabled={hasError} loading={submitting} onClick={() => void handleConfirm()}>
+          <Button
+            disabled={hasError}
+            loading={submitting}
+            onClick={() => void handleSubmit(handleConfirm)()}
+          >
             {isScan ? '生成付款码' : '确认支付'}
           </Button>
         </>
@@ -305,24 +379,32 @@ export function OrderPayDialog({
               ? `积分抵扣 ${formatCurrency(pointDeductAmount)} 后应收 ${formatCurrency(receivable)}`
               : `应收金额（会员等级折扣已按行计算）`
           }
-          label="应收"
+          label="待支付"
           tone="accent"
-          value={formatCurrency(payable)}
+          value={formatCurrency(receivable)}
         />
 
         {member && pointsEnabled ? (
           <Field
             error={pointsError}
-            hint={pointDeductAmount > 0 ? `本次抵扣 ${formatCurrency(pointDeductAmount)}` : undefined}
+            hint={
+              pointDebt > 0
+                ? '会员有待追回积分，暂不能使用积分抵扣'
+                : maxRedeemPoints(context) === 0
+                  ? '至少100积分起抵，抵扣金额不能超过本单应收'
+                  : `至少100积分起抵，本单最多可用 ${maxRedeemPoints(context)} 分；本次抵扣 ${formatCurrency(pointDeductAmount)}`
+            }
             label={`积分抵扣（可用 ${memberPoints} 分，${POINTS_PER_YUAN} 分 = 1 元）`}
           >
             <Input
+              {...register('usePoints')}
+              readOnly={maxRedeemPoints(context) === 0}
               inputMode="numeric"
               invalid={Boolean(pointsError)}
               onChange={(e) => {
                 const v = e.target.value;
                 if (v === '' || INT_RE.test(v)) {
-                  setUsePoints(v);
+                  updatePoints(v);
                 }
               }}
               placeholder="不使用则留空"
@@ -332,34 +414,63 @@ export function OrderPayDialog({
         ) : null}
 
         <div className="space-y-2">
+          {member ? (
+            <div className="rounded-md bg-salon-accent/5 p-3 text-sm dark:bg-violet-500/10">
+              <div className="text-xs text-zinc-500 dark:text-zinc-400">会员当前可用余额</div>
+              <div className="mt-1 text-lg font-semibold">{formatCurrency(memberBalance)}</div>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {receivable === 0
+                  ? '本单无需支付'
+                  : memberBalance >= receivable
+                    ? '余额足够，本单自动使用会员余额支付'
+                    : `优先使用会员余额，差额 ${formatCurrency(Math.max(0, round2(receivable - memberBalance)))} 使用其他方式支付`}
+              </p>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">支付方式</span>
             <div className="flex gap-2">
-              {member && memberBalance > 0 && receivable - payTotal > 0 ? (
+              {member &&
+              memberBalance > 0 &&
+              !payments.some((row) => row.payMethod === 5) &&
+              receivable - payTotal > 0 ? (
                 <Button onClick={addBalancePayment} size="sm" variant="secondary">
                   余额支付（可用 {formatCurrency(memberBalance)}）
                 </Button>
               ) : null}
-              <Button
-                disabled={payTotal >= receivable || payments.length >= 4}
-                icon={<Plus className="size-4" />}
-                onClick={addPayment}
-                size="sm"
-                variant="secondary"
-              >
-                添加方式
-              </Button>
+              {!member || memberBalance < receivable ? (
+                <Button
+                  disabled={payTotal >= receivable || payments.length >= 4}
+                  icon={<Plus className="size-4" />}
+                  onClick={addPayment}
+                  size="sm"
+                  variant="secondary"
+                >
+                  添加方式
+                </Button>
+              ) : null}
             </div>
           </div>
           {payments.map((row, index) => (
             <div className="flex items-center gap-2" key={index}>
               <Select
+                {...register(`payments.${index}.payMethod`, { valueAsNumber: true })}
                 className="w-32"
                 onChange={(e) => updatePayment(index, { payMethod: Number(e.target.value) })}
                 value={row.payMethod}
               >
-                {ORDER_PAY_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>
+                {ORDER_PAY_METHODS.filter(
+                  (m) =>
+                    m.value === row.payMethod ||
+                    (m.value === 5
+                      ? Boolean(member && memberBalance > 0)
+                      : !member || memberBalance < receivable),
+                ).map((m) => (
+                  <option
+                    disabled={payments.some((p, i) => i !== index && p.payMethod === m.value)}
+                    key={m.value}
+                    value={m.value}
+                  >
                     {m.label}
                     {m.value === 2 && scanChannels.includes('wxpay')
                       ? '（扫码）'
@@ -370,8 +481,12 @@ export function OrderPayDialog({
                 ))}
               </Select>
               <Input
+                {...register(`payments.${index}.amount`)}
                 inputMode="decimal"
-                invalid={row.payMethod === 5 && Boolean(balanceError)}
+                invalid={
+                  Boolean(errors.payments?.[index]?.amount) ||
+                  (row.payMethod === 5 && Boolean(balanceError))
+                }
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === '' || DECIMAL_RE.test(v)) {
@@ -381,6 +496,9 @@ export function OrderPayDialog({
                 placeholder="金额"
                 value={row.amount}
               />
+              {errors.payments?.[index]?.amount?.message ? (
+                <p className="text-xs text-rose-500">{errors.payments[index]?.amount?.message}</p>
+              ) : null}
               {payments.length > 1 ? (
                 <Button
                   icon={<Trash2 className="size-4" />}
@@ -394,17 +512,29 @@ export function OrderPayDialog({
           {balanceError ? <p className="text-xs text-rose-500">{balanceError}</p> : null}
           {scanError ? <p className="text-xs text-rose-500">{scanError}</p> : null}
           {totalError ? <p className="text-xs text-rose-500">{totalError}</p> : null}
+          {errors.payments?.root?.message || errors.payments?.message ? (
+            <p className="text-xs text-rose-500">
+              {errors.payments.root?.message ?? errors.payments.message}
+            </p>
+          ) : null}
+          {payments.length === 0 ? (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">
+              本单已全部抵扣，无需额外支付。
+            </p>
+          ) : null}
         </div>
 
         {cashRowExists ? (
           <div className="grid grid-cols-2 gap-3">
-            <Field label="现金投入">
+            <Field label="现金投入" error={errors.cashReceived?.message}>
               <Input
+                {...register('cashReceived')}
+                invalid={Boolean(errors.cashReceived)}
                 inputMode="decimal"
                 onChange={(e) => {
                   const v = e.target.value;
                   if (v === '' || DECIMAL_RE.test(v)) {
-                    setCashReceived(v);
+                    setValue('cashReceived', v, { shouldValidate: true });
                   }
                 }}
                 placeholder="顾客实付现金"
@@ -416,6 +546,11 @@ export function OrderPayDialog({
               <div className="mt-1 text-lg font-semibold">{formatCurrency(change)}</div>
             </div>
           </div>
+        ) : null}
+        {submitError ? (
+          <p role="alert" className="text-sm text-rose-500">
+            {submitError}
+          </p>
         ) : null}
       </div>
     </Modal>

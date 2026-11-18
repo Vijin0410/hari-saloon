@@ -428,6 +428,9 @@ public class OrderServiceImpl implements OrderService {
             if (member.getPointDebt() != null && member.getPointDebt() > 0) {
                 throw new BizException("会员有待追回积分，暂不能使用积分抵扣");
             }
+            if (usePoints < 100) {
+                throw new BizException("积分抵扣至少使用100积分");
+            }
             if (member.getPoints() == null || usePoints > member.getPoints()) throw new BizException("积分不足");
             pointDeductAmount = new BigDecimal(usePoints).divide(POINTS_PER_YUAN, 2, RoundingMode.DOWN);
             if (pointDeductAmount.compareTo(payable) > 0) {

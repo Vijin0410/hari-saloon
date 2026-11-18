@@ -15,6 +15,8 @@ public class MemberLevelOptionVO {
     private String name;
     @Schema(description = "等级序号")
     private Integer levelNo;
+    @Schema(description = "等级类型（REGULAR=常规等级，ACTIVITY=活动等级）")
+    private String levelType;
     @Schema(description = "服务折扣")
     private BigDecimal serviceDiscount;
     @Schema(description = "商品折扣")

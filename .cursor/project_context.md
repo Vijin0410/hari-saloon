@@ -1,6 +1,12 @@
 # 项目上下文记忆
 
-> 最后更新：2026-11-13（P8 财务日结与 P9 经营报表第一版实施完成）
+## 收银挂单与会员结算（2026-11-18）
+
+- 收银台挂单列表复用 `POST /api/v1/orders/{id}/cancel`，按 `biz:order:cancel` 展示取消按钮并二次确认；取消当前取出的挂单同步清空购物车。取单恢复原门店，会员资料读取失败时提示错误。新开单支付失败/扫码取消后保留订单ID供继续结算，避免重试重复建单。
+- `features/order/model/orderSettlement.ts` 统一积分上限及余额优先分配：租户开启积分且会员无待追回积分时，默认用完可用积分（至本单应收上限），至少100分起抵，100分=1元；余额优先，差额再选现金/微信/支付宝等。修改积分实时重算待支付及支付行；纯积分订单允许空支付行。
+- 结算表单采用 `react-hook-form` + `createOrderPaySchema`，校验积分门槛、余额、支付合计与现金投入；后端 `OrderServiceImpl#calcPay` 同步限制至少100积分起抵。
+
+> 最后更新：2026-11-18（收银挂单取消与会员积分、余额优先结算）
 
 ## P8/P9 财务、日结与经营报表（2026-11-13）
 
@@ -146,6 +152,8 @@
 - 文件字段约定：业务表（如 `sys_user.avatar`）存 `object_key`；`UserPageVO` 返回时转预签名 URL；表单回显给 object_key，预览调 `GET /files/url?objectKey=`
 
 ## 最近更新
+
+- 2026-11-18: 会员等级新增 cardTemplate（auto/lilac/silver/gold/plum/black-gold）与 levelType（REGULAR/ACTIVITY），新增/编辑可选择系统内置卡面，保留自选图片；新增黑金「尊享会员」卡面。常规等级和活动等级分区展示，会员下拉按类型分组，活动会员须手动指定且不参加自动升级。默认普通/银卡/金卡/钻石/尊享服务折扣为 10/9.8/9.5/9.3/9 折，商品为 10/10/9.9/9.8/9.7 折，积分倍率 1/1/1.1/1.2/1.3，等级充值赠送默认均为 0；新客体验为服务 9.8 折、商品原价、积分 1 倍。新租户复制等级时保留内置卡面和分类，不复制其他租户的自选文件。存量迁移 sql/migrate-member-level-defaults.sql，保留等级 ID、会员归属和自选贴图；权益及活动使用边界见 docs/member-level-defaults.md。
 
 - 2026-11-18: 会员等级列表、编辑预览与会员详情统一复用 MemberLevelCard（银行卡比例 SVG 渐变细线纹理，按等级匹配配色）。等级新增 cardImage（salon_member_level.card_image，存文件 objectKey；全量表单显式 null 恢复内置卡面），自选贴图复用 fileApi.upload 的 member-card 目录，isPublic=1 作为同租户共享品牌素材（实际仍为私有桶、租户过滤查询与预签名展示）。详情接口增加 memberLevel VO，直接返回当前所属等级（含停用等级），空/已删等级仍可打开档案。存量库先执行 sql/migrate-member-level-card.sql；原接口路径与权限不变。
 

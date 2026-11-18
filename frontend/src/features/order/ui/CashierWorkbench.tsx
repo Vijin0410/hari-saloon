@@ -19,6 +19,7 @@ import type { GoodsOption } from '@/features/goods/model/goodsTypes';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { Input } from '@/shared/ui/Input';
 import { Select } from '@/shared/ui/Select';
@@ -97,6 +98,10 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   const [payOpen, setPayOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<OrderPageVO[]>([]);
+  const [cancelOrder, setCancelOrder] = useState<OrderPageVO | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
+  const [orderError, setOrderError] = useState('');
 
   useEffect(() => {
     storeApi
@@ -308,6 +313,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       await orderApi.pay(editingOrderId, payload);
     } else {
       const id = await orderApi.save(buildPayload());
+      setEditingOrderId(String(id));
       await orderApi.pay(id, payload);
     }
     setCart([]);
@@ -327,6 +333,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       return orderApi.prepay(editingOrderId, payload);
     }
     const id = await orderApi.save(buildPayload());
+    setEditingOrderId(String(id));
     return orderApi.prepay(id, payload);
   }
 
@@ -350,43 +357,57 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
 
   /** 取单：回填会员与明细 */
   async function loadOrder(id: string): Promise<void> {
-    const detail = await orderApi.detail(id);
-    setEditingOrderId(String(detail.id));
-    setStoreId((prev) => prev || String(detail.storeId ?? ''));
-    if (detail.memberId) {
-      try {
-        const m = await memberApi.detail(detail.memberId);
-        setMember({
-          id: m.id,
-          name: m.name,
-          phone: m.phone,
-          levelId: m.levelId,
-          levelName: m.levelName,
-          balance: m.balance,
-          points: m.points,
-          pointDebt: m.pointDebt,
-        });
-      } catch {
-        setMember(null);
-      }
-    } else {
-      setMember(null);
+    if (orderLoading || cancelling) return;
+    setOrderLoading(true);
+    setOrderError('');
+    try {
+      const detail = await orderApi.detail(id);
+      const nextMember = detail.memberId ? await memberApi.detail(detail.memberId) : null;
+      setEditingOrderId(String(detail.id));
+      setStoreId(String(detail.storeId ?? ''));
+      setMember(nextMember);
+      setCart(
+        (detail.items ?? []).map((i) => ({
+          key: `${i.itemType}-${i.itemId}`,
+          itemType: i.itemType,
+          itemId: String(i.itemId),
+          name: i.itemName,
+          unitPrice: i.unitPrice,
+          price: String(i.price),
+          quantity: i.quantity,
+          discountable: discountableOf(i.itemType, String(i.itemId)),
+          staffId: i.staffId != null ? String(i.staffId) : '',
+          assistantId: i.assistantId != null ? String(i.assistantId) : '',
+        })),
+      );
+      await loadPending();
+    } catch (error: unknown) {
+      setOrderError(error instanceof Error ? error.message : '取单失败，请重试');
+    } finally {
+      setOrderLoading(false);
     }
-    setCart(
-      (detail.items ?? []).map((i) => ({
-        key: `${i.itemType}-${i.itemId}`,
-        itemType: i.itemType,
-        itemId: String(i.itemId),
-        name: i.itemName,
-        unitPrice: i.unitPrice,
-        price: String(i.price),
-        quantity: i.quantity,
-        discountable: discountableOf(i.itemType, String(i.itemId)),
-        staffId: i.staffId != null ? String(i.staffId) : '',
-        assistantId: i.assistantId != null ? String(i.assistantId) : '',
-      })),
-    );
-    await loadPending();
+  }
+
+  async function handleCancelPending(): Promise<void> {
+    if (!cancelOrder || cancelling) return;
+    setCancelling(true);
+    setOrderError('');
+    try {
+      await orderApi.cancel(cancelOrder.id);
+      if (editingOrderId === String(cancelOrder.id)) {
+        setCart([]);
+        setMember(null);
+        setEditingOrderId(null);
+      }
+      setCancelOrder(null);
+      onOrderChanged();
+      await loadPending();
+    } catch (error: unknown) {
+      setOrderError(error instanceof Error ? error.message : '取消挂单失败，请重试');
+      setCancelOrder(null);
+    } finally {
+      setCancelling(false);
+    }
   }
 
   const canOperate = hasPermission('biz:order:add') || hasPermission('biz:order:pay');
@@ -425,16 +446,18 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                   variant="secondary"
                 />
               </div>
-              <div className={pointsEnabled ? "grid grid-cols-2 gap-2 text-sm" : "grid gap-2 text-sm"}>
+              <div
+                className={pointsEnabled ? 'grid grid-cols-2 gap-2 text-sm' : 'grid gap-2 text-sm'}
+              >
                 <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
                   <div className="text-xs text-zinc-500">可用余额</div>
                   <div className="font-semibold">{formatCurrency(member.balance ?? 0)}</div>
                 </div>
                 {pointsEnabled ? (
-                <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
-                  <div className="text-xs text-zinc-500">积分</div>
-                  <div className="font-semibold">{member.points ?? 0}</div>
-                </div>
+                  <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                    <div className="text-xs text-zinc-500">积分</div>
+                    <div className="font-semibold">{member.points ?? 0}</div>
+                  </div>
                 ) : null}
               </div>
               {level ? (
@@ -497,27 +520,50 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
 
         {/* 挂单列表：点击取单继续结算 */}
         <Card title={`挂单（${pendingOrders.length}）`}>
+          {orderError ? (
+            <p role="alert" className="mb-2 text-xs text-rose-500">
+              {orderError}
+            </p>
+          ) : null}
           {pendingOrders.length === 0 ? (
             <div className="py-2 text-center text-xs text-zinc-400">暂无挂单</div>
           ) : (
             <div className="space-y-2">
               {pendingOrders.map((o) => (
-                <button
-                  className="flex w-full items-center justify-between rounded-md border border-salon-line p-2 text-left text-sm transition hover:border-salon-accent dark:border-zinc-800"
+                <div
+                  className="rounded-md border border-salon-line p-2 text-sm dark:border-zinc-800"
                   key={String(o.id)}
-                  onClick={() => void loadOrder(String(o.id))}
-                  type="button"
                 >
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{o.orderNo}</div>
-                    <div className="text-xs text-zinc-500">
-                      {o.memberName ?? '散客'} · {o.createTime ?? ''}
+                  <button
+                    className="flex w-full items-center justify-between text-left hover:text-salon-accent disabled:opacity-50"
+                    disabled={orderLoading || cancelling || pending}
+                    onClick={() => void loadOrder(String(o.id))}
+                    type="button"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{o.orderNo}</div>
+                      <div className="text-xs text-zinc-500">
+                        {o.memberName ?? '散客'} · {o.createTime ?? ''}
+                      </div>
                     </div>
-                  </div>
-                  <span className="ml-2 shrink-0 font-semibold">
-                    {formatCurrency(o.payableAmount ?? 0)}
-                  </span>
-                </button>
+                    <span className="ml-2 shrink-0 font-semibold">
+                      {formatCurrency(o.payableAmount ?? 0)}
+                    </span>
+                  </button>
+                  {hasPermission('biz:order:cancel') ? (
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        disabled={orderLoading || cancelling || pending}
+                        icon={<Trash2 className="size-3.5" />}
+                        onClick={() => setCancelOrder(o)}
+                        size="sm"
+                        variant="danger"
+                      >
+                        取消挂单
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
               ))}
             </div>
           )}
@@ -543,11 +589,14 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                   key={item.key}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <Badge tone={item.itemType === 1 ? 'info' : 'neutral'}>
                         {item.itemType === 1 ? '服务' : '商品'}
                       </Badge>
                       <span className="font-medium">{item.name}</span>
+                      <Badge tone={item.discountable === 1 ? 'success' : 'neutral'}>
+                        {item.discountable === 1 ? '参与折扣' : '不参与折扣'}
+                      </Badge>
                       {rowRate(item) < 1 ? (
                         <Badge tone="success">{round2(rowRate(item) * 10)}折</Badge>
                       ) : null}
@@ -802,6 +851,18 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
         onPaid={handleScanPaid}
         open={payOpen}
         payable={totals.payable}
+      />
+      <ConfirmDialog
+        danger
+        open={cancelOrder !== null}
+        loading={cancelling}
+        title="确认取消挂单"
+        description={`取消挂单 ${cancelOrder?.orderNo ?? ''} 后，该订单将作废并从挂单列表移除。`}
+        confirmLabel="取消挂单"
+        onCancel={() => {
+          if (!cancelling) setCancelOrder(null);
+        }}
+        onConfirm={() => void handleCancelPending()}
       />
     </div>
   );

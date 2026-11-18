@@ -212,6 +212,8 @@ public class SalonMemberServiceImpl extends ServiceImpl<SalonMemberMapper, Salon
         SalonMemberLevel level = memberLevelService.getOne(
                 Wrappers.<SalonMemberLevel>lambdaQuery()
                         .eq(SalonMemberLevel::getLevelNo, 0)
+                        .eq(SalonMemberLevel::getLevelType, "REGULAR")
+                        .eq(SalonMemberLevel::getStatus, 1)
                         .last("LIMIT 1"));
         return level == null ? null : level.getId();
     }

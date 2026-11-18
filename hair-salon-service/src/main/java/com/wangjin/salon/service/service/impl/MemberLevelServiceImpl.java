@@ -54,6 +54,9 @@ public class MemberLevelServiceImpl extends ServiceImpl<SalonMemberLevelMapper, 
     @Transactional(rollbackFor = Exception.class)
     public Long save(MemberLevelForm form) {
         SalonMemberLevel entity = levelConverter.form2Entity(form);
+        if ("ACTIVITY".equals(entity.getLevelType())) {
+            entity.setUpgradeThreshold(null);
+        }
         if (entity.getStatus() == null) {
             entity.setStatus(1);
         }
@@ -71,6 +74,9 @@ public class MemberLevelServiceImpl extends ServiceImpl<SalonMemberLevelMapper, 
     @Transactional(rollbackFor = Exception.class)
     public boolean update(Long id, MemberLevelForm form) {
         SalonMemberLevel entity = levelConverter.form2Entity(form);
+        if ("ACTIVITY".equals(entity.getLevelType())) {
+            entity.setUpgradeThreshold(null);
+        }
         entity.setId(id);
         return this.updateById(entity);
     }
@@ -97,11 +103,17 @@ public class MemberLevelServiceImpl extends ServiceImpl<SalonMemberLevelMapper, 
         if (member == null) {
             return;
         }
+        SalonMemberLevel current = member.getLevelId() == null ? null : this.getById(member.getLevelId());
+        // 活动等级由店员手动选择，不被常规自动升级覆盖。
+        if (current != null && "ACTIVITY".equals(current.getLevelType())) {
+            return;
+        }
         // 升级口径：累计充值与累计消费取大者（只升不降；当前等级被禁用/删除时也可顺延升级）
         BigDecimal amount = nz(member.getTotalRechargeAmount()).max(nz(member.getTotalConsumeAmount()));
         SalonMemberLevel target = this.list(Wrappers.<SalonMemberLevel>lambdaQuery()
                         .eq(SalonMemberLevel::getStatus, 1)
                         .isNotNull(SalonMemberLevel::getUpgradeThreshold)
+                        .eq(SalonMemberLevel::getLevelType, "REGULAR")
                         .le(SalonMemberLevel::getUpgradeThreshold, amount)
                         .orderByDesc(SalonMemberLevel::getLevelNo)
                         .last("LIMIT 1"))
@@ -109,11 +121,8 @@ public class MemberLevelServiceImpl extends ServiceImpl<SalonMemberLevelMapper, 
         if (target == null) {
             return;
         }
-        if (member.getLevelId() != null) {
-            SalonMemberLevel current = this.getById(member.getLevelId());
-            if (current != null && current.getLevelNo() >= target.getLevelNo()) {
-                return;
-            }
+        if (current != null && current.getLevelNo() >= target.getLevelNo()) {
+            return;
         }
         memberMapper.update(null, Wrappers.<SalonMember>lambdaUpdate()
                 .set(SalonMember::getLevelId, target.getId())

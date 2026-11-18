@@ -1,4 +1,6 @@
 import type { EntityId } from '@/features/system/model/systemTypes';
+import type { MemberCardTemplate } from './memberCardTemplates';
+export type MemberLevelType = 'REGULAR' | 'ACTIVITY';
 
 /** 会员分页 */
 export interface MemberPageVO {
@@ -186,6 +188,8 @@ export interface MemberLevelPageVO {
   name: string;
   levelNo: number;
   cardImage?: string | null;
+  cardTemplate?: MemberCardTemplate;
+  levelType?: MemberLevelType;
   serviceDiscount?: number;
   goodsDiscount?: number;
   pointRate?: number;
@@ -203,11 +207,13 @@ export interface MemberLevelFormPayload {
   name: string;
   levelNo: number;
   cardImage?: string | null;
+  cardTemplate: MemberCardTemplate;
+  levelType: MemberLevelType;
   serviceDiscount?: number;
   goodsDiscount?: number;
   pointRate?: number;
   rechargeGiftRate?: number;
-  upgradeThreshold?: number;
+  upgradeThreshold?: number | null;
   rights?: string;
   sort?: number;
   status?: number;
@@ -225,6 +231,7 @@ export interface MemberLevelOption {
   id: EntityId;
   name: string;
   levelNo: number;
+  levelType?: MemberLevelType;
   serviceDiscount?: number;
   goodsDiscount?: number;
   pointRate?: number;

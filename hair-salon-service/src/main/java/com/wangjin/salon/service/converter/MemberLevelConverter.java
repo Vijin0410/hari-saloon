@@ -18,4 +18,14 @@ public interface MemberLevelConverter {
 
     @Mapping(target = "id", ignore = true)
     SalonMemberLevel form2Entity(MemberLevelForm form);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "tenantId", ignore = true)
+    @Mapping(target = "createBy", ignore = true)
+    @Mapping(target = "createTime", ignore = true)
+    @Mapping(target = "updateBy", ignore = true)
+    @Mapping(target = "updateTime", ignore = true)
+    @Mapping(target = "deleted", ignore = true)
+    @Mapping(target = "cardImage", ignore = true)
+    SalonMemberLevel copyForTenant(SalonMemberLevel source);
 }

@@ -2,6 +2,7 @@ package com.wangjin.salon.service.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.wangjin.salon.service.model.entity.SalonMemberLevel;
+import com.wangjin.salon.service.converter.MemberLevelConverter;
 import com.wangjin.salon.service.model.entity.SalonMemberTag;
 import com.wangjin.salon.service.service.MemberLevelService;
 import com.wangjin.salon.service.service.MemberTagService;
@@ -24,6 +25,7 @@ import java.util.List;
 public class SalonMemberPortImpl implements SalonMemberPort {
 
     private final MemberLevelService levelService;
+    private final MemberLevelConverter levelConverter;
     private final MemberTagService tagService;
 
     @Override
@@ -38,21 +40,8 @@ public class SalonMemberPortImpl implements SalonMemberPort {
         if (levelService.count(new LambdaQueryWrapper<>()) > 0) {
             return;
         }
-        List<SalonMemberLevel> targets = source.stream().map(l -> {
-            SalonMemberLevel t = new SalonMemberLevel();
-            t.setName(l.getName());
-            t.setLevelNo(l.getLevelNo());
-            t.setServiceDiscount(l.getServiceDiscount());
-            t.setGoodsDiscount(l.getGoodsDiscount());
-            t.setPointRate(l.getPointRate());
-            t.setRechargeGiftRate(l.getRechargeGiftRate());
-            t.setUpgradeThreshold(l.getUpgradeThreshold());
-            t.setRights(l.getRights());
-            t.setSort(l.getSort());
-            t.setStatus(l.getStatus());
-            t.setRemark(l.getRemark());
-            return t;
-        }).toList();
+        // 复制等级类型和内置卡面；自选图片属于源租户，不跨租户复用对象键。
+        List<SalonMemberLevel> targets = source.stream().map(levelConverter::copyForTenant).toList();
         levelService.saveBatch(targets);
     }
 

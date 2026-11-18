@@ -25,6 +25,10 @@ public class SalonMemberLevel extends BaseTenantEntity<Long> {
     /** 会员卡自选贴图对象键，NULL=使用内置卡面 */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String cardImage;
+    /** 内置卡面模板（auto/lilac/silver/gold/plum/black-gold） */
+    private String cardTemplate;
+    /** 等级类型（REGULAR=常规等级，ACTIVITY=活动等级） */
+    private String levelType;
     /** 服务折扣（0.00-1.00，1=不打折，NULL=不参与折扣） */
     private BigDecimal serviceDiscount;
     /** 商品折扣（0.00-1.00，1=不打折，NULL=不参与折扣） */
@@ -34,6 +38,7 @@ public class SalonMemberLevel extends BaseTenantEntity<Long> {
     /** 充值赠送率（0.10=充100送10），等级默认值，P4充值活动可叠加 */
     private BigDecimal rechargeGiftRate;
     /** 升级门槛（累计消费金额），NULL=不自动升级 */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private BigDecimal upgradeThreshold;
     /** 专属权益（JSON，如生日礼包、专属项目） */
     @TableField(value = "rights", typeHandler = JsonbStringTypeHandler.class)

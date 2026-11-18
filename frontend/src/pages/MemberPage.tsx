@@ -27,6 +27,7 @@ import type {
 import { memberFormSchema, type MemberFormValues } from '@/features/member/model/memberSchemas';
 import { RechargeDialog } from '@/features/member/ui/RechargeDialog';
 import { MemberLevelCard } from '@/features/member/ui/MemberLevelCard';
+import { MemberLevelOptions } from '@/features/member/ui/MemberLevelOptions';
 import { dictApi } from '@/shared/api/modules/systemApi';
 import type { DictOption } from '@/features/system/model/dictTypes';
 import type { StoreOption } from '@/features/system/model/systemTypes';
@@ -214,11 +215,7 @@ function MemberFormDialog({
           <Field label="会员等级">
             <Select {...register('levelId')}>
               <option value="">请选择等级</option>
-              {levelOptions.map((l) => (
-                <option key={l.id} value={String(l.id)}>
-                  {l.name}
-                </option>
-              ))}
+              <MemberLevelOptions options={levelOptions} />
             </Select>
           </Field>
           <Field label="来源">
@@ -617,11 +614,7 @@ export function MemberPage() {
             onChange={(e) => setFilterLevelId(e.target.value)}
           >
             <option value="">全部等级</option>
-            {levelOptions.map((l) => (
-              <option key={l.id} value={String(l.id)}>
-                {l.name}
-              </option>
-            ))}
+            <MemberLevelOptions options={levelOptions} />
           </Select>
           <Select
             className="md:w-40"
@@ -796,6 +789,8 @@ export function MemberPage() {
                 name={detail.memberLevel?.name || detail.levelName || '普通会员'}
                 levelNo={detail.memberLevel?.levelNo}
                 cardImage={detail.memberLevel?.cardImage}
+                cardTemplate={detail.memberLevel?.cardTemplate}
+                levelType={detail.memberLevel?.levelType}
                 holderName={detail.name}
               />
               </div>

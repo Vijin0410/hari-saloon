@@ -20,6 +20,10 @@ public class MemberLevelPageVO {
     private Integer levelNo;
     @Schema(description = "会员卡自选贴图对象键，NULL=使用内置卡面")
     private String cardImage;
+    @Schema(description = "内置卡面模板（auto/lilac/silver/gold/plum/black-gold）")
+    private String cardTemplate;
+    @Schema(description = "等级类型（REGULAR=常规等级，ACTIVITY=活动等级）")
+    private String levelType;
     @Schema(description = "服务折扣")
     private BigDecimal serviceDiscount;
     @Schema(description = "商品折扣")

@@ -1,20 +1,19 @@
 import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
-import { getDictText } from '@/shared/lib/dict';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ImagePlus, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
+import { ImagePlus, Plus, RotateCcw, Search } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { memberLevelApi } from '@/shared/api/modules/memberApi';
 import { fileApi } from '@/shared/api/modules/systemApi';
 import { MemberLevelCard } from '@/features/member/ui/MemberLevelCard';
+import { MemberCardTemplatePicker } from '@/features/member/ui/MemberCardTemplatePicker';
+import { MemberLevelTile } from '@/features/member/ui/MemberLevelTile';
 import type {
   MemberLevelFormPayload,
   MemberLevelPageVO,
 } from '@/features/member/model/memberTypes';
 import { memberLevelFormSchema, type MemberLevelFormValues } from '@/features/member/model/memberSchemas';
-import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
-import { Card } from '@/shared/ui/Card';
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { Field } from '@/shared/ui/Field';
@@ -24,7 +23,7 @@ import { PageLoading } from '@/shared/ui/PageLoading';
 import { Select } from '@/shared/ui/Select';
 import { Textarea } from '@/shared/ui/Textarea';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { formatCurrency, normalizeNumber } from '@/shared/lib/format';
+import { normalizeNumber } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
 
 const DECIMAL_RE = /^\d{1,9}(\.\d{0,2})?$/;
@@ -35,8 +34,10 @@ function defaultValues(): MemberLevelFormValues {
     name: '',
     levelNo: '1',
     cardImage: null,
-    serviceDiscount: '',
-    goodsDiscount: '',
+    cardTemplate: 'auto',
+    levelType: 'REGULAR',
+    serviceDiscount: '1',
+    goodsDiscount: '1',
     pointRate: '1',
     rechargeGiftRate: '0',
     upgradeThreshold: '',
@@ -52,6 +53,8 @@ function toFormValues(p: MemberLevelFormPayload): MemberLevelFormValues {
     name: p.name ?? '',
     levelNo: p.levelNo != null ? String(p.levelNo) : '',
     cardImage: p.cardImage ?? null,
+    cardTemplate: p.cardTemplate ?? 'auto',
+    levelType: p.levelType ?? 'REGULAR',
     serviceDiscount: p.serviceDiscount != null ? String(p.serviceDiscount) : '',
     goodsDiscount: p.goodsDiscount != null ? String(p.goodsDiscount) : '',
     pointRate: p.pointRate != null ? String(p.pointRate) : '',
@@ -69,28 +72,18 @@ function toPayload(v: MemberLevelFormValues): MemberLevelFormPayload {
     name: v.name.trim(),
     levelNo: Number(v.levelNo) || 0,
     cardImage: v.cardImage || null,
+    cardTemplate: v.cardTemplate,
+    levelType: v.levelType,
     serviceDiscount: v.serviceDiscount ? Number(v.serviceDiscount) : undefined,
     goodsDiscount: v.goodsDiscount ? Number(v.goodsDiscount) : undefined,
     pointRate: v.pointRate ? Number(v.pointRate) : undefined,
     rechargeGiftRate: v.rechargeGiftRate ? Number(v.rechargeGiftRate) : undefined,
-    upgradeThreshold: v.upgradeThreshold ? Number(v.upgradeThreshold) : undefined,
+    upgradeThreshold: v.levelType === 'ACTIVITY' || !v.upgradeThreshold ? null : Number(v.upgradeThreshold),
     rights: v.rights?.trim() || undefined,
     sort: v.sort ? Number(v.sort) : 0,
     status: v.status,
     remark: v.remark?.trim() || undefined,
   };
-}
-
-/** 折扣 0-1 转中文：0.9 -> 9 折，0.85 -> 8.5 折，1 -> 无折扣 */
-function formatDiscount(v?: number): string {
-  if (v == null) {
-    return '暂无';
-  }
-  if (v >= 1) {
-    return '无折扣';
-  }
-  const times10 = v * 10;
-  return `${times10 % 1 === 0 ? times10 : times10.toFixed(1)} 折`;
 }
 
 type FormMode = 'create' | 'edit';
@@ -229,8 +222,8 @@ function MemberLevelFormDialog({
           <Field
             className="md:col-span-2"
             label="会员卡面"
-            error={errors.cardImage?.message || imageError}
-            hint="默认按等级匹配卡面。支持 JPG、PNG、WebP，最大 5MB；建议使用约 1.586:1 的横向图片。"
+            error={errors.cardTemplate?.message || errors.cardImage?.message || imageError}
+            hint="可选系统内置卡面，也可上传 JPG、PNG、WebP 图片，最大 5MB；建议使用银行卡比例的横向图片。"
           >
             <div className="grid items-center gap-4 rounded-lg bg-salon-paper p-3 sm:grid-cols-[minmax(0,1fr)_auto] dark:bg-zinc-900">
               <MemberLevelCard
@@ -238,6 +231,8 @@ function MemberLevelFormDialog({
                 name={watch('name') || '会员等级'}
                 levelNo={Number(watch('levelNo')) || 0}
                 cardImage={watch('cardImage')}
+                cardTemplate={watch('cardTemplate')}
+                levelType={watch('levelType')}
               />
               <div className="flex flex-wrap gap-2 sm:flex-col">
                 <input
@@ -276,14 +271,32 @@ function MemberLevelFormDialog({
                       setImageError('');
                     }}
                   >
-                    恢复默认卡面
+                    恢复内置卡面
                   </Button>
                 ) : null}
               </div>
             </div>
+            <Controller control={control} name="cardTemplate" render={({ field }) => (
+              <MemberCardTemplatePicker value={field.value} disabled={imageUploading || submitLoading} onChange={(value) => {
+                field.onChange(value);
+                setValue('cardImage', null, { shouldDirty: true, shouldValidate: true });
+                setImageError('');
+              }} />
+            )} />
           </Field>
           <Field error={errors.name?.message} label="等级名称" required>
             <Input invalid={Boolean(errors.name)} placeholder="如：黄金会员" {...register('name')} />
+          </Field>
+          <Field error={errors.levelType?.message} label="等级类型" required>
+            <Controller control={control} name="levelType" render={({ field }) => (
+              <Select value={field.value} onChange={(event) => {
+                field.onChange(event.target.value);
+                if (event.target.value === 'ACTIVITY') setValue('upgradeThreshold', '');
+              }}>
+                <option value="REGULAR">常规等级</option>
+                <option value="ACTIVITY">活动等级（独立展示）</option>
+              </Select>
+            )} />
           </Field>
           <Field error={errors.levelNo?.message} label="等级序号" required>
             <Controller
@@ -392,12 +405,13 @@ function MemberLevelFormDialog({
               )}
             />
           </Field>
-          <Field error={errors.upgradeThreshold?.message} label="升级门槛" hint="累计达此值自动升级">
+          <Field error={errors.upgradeThreshold?.message} label="升级门槛" hint={watch('levelType') === 'ACTIVITY' ? '活动等级由店员手动选择，不参与自动升级' : '累计充值与累计消费取大者，达标自动升级'}>
             <Controller
               control={control}
               name="upgradeThreshold"
               render={({ field }) => (
                 <Input
+                  disabled={watch('levelType') === 'ACTIVITY'}
                   inputMode="decimal"
                   invalid={Boolean(errors.upgradeThreshold)}
                   placeholder="如：5000"
@@ -550,72 +564,35 @@ export function MemberLevelPage() {
       ) : sortedRows.length === 0 ? (
         <EmptyState title="暂无等级" description="还未配置任何会员等级。" />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {sortedRows.map((level) => (
-            <Card key={level.id} hover={false} className="flex h-full min-w-0 flex-col p-3">
-              <MemberLevelCard compact name={level.name} levelNo={level.levelNo} cardImage={level.cardImage} />
-              <div className="my-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs leading-5">
-                <div className="flex items-center justify-between gap-1">
-                  <div className="text-zinc-500 dark:text-zinc-400">服务折扣</div>
-                  <div className="font-medium text-salon-ink dark:text-zinc-100">
-                    {formatDiscount(level.serviceDiscount)}
-                  </div>
+        <div className="space-y-6">
+          {[
+            { type: 'REGULAR', title: '常规会员等级', hint: '按累计充值或消费金额升级，享受对应等级权益。' },
+            { type: 'ACTIVITY', title: '活动会员等级', hint: '新客体验等活动专用，由店员手动选择，不参与常规自动升级。' },
+          ].map((group) => {
+            const levels = sortedRows.filter((level) => (level.levelType ?? 'REGULAR') === group.type);
+            if (levels.length === 0) return null;
+            return (
+              <section key={group.type} aria-label={group.title}>
+                <div className="mb-3">
+                  <h2 className="text-sm font-semibold text-salon-ink dark:text-zinc-100">{group.title}</h2>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">{group.hint}</p>
                 </div>
-                <div className="flex items-center justify-between gap-1">
-                  <div className="text-zinc-500 dark:text-zinc-400">商品折扣</div>
-                  <div className="font-medium text-salon-ink dark:text-zinc-100">
-                    {formatDiscount(level.goodsDiscount)}
-                  </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {levels.map((level) => (
+                    <MemberLevelTile
+                      key={level.id}
+                      level={level}
+                      pointsEnabled={pointsEnabled}
+                      editable={hasPermission('biz:memberLevel:edit')}
+                      deletable={hasPermission('biz:memberLevel:delete')}
+                      onEdit={openEdit}
+                      onDelete={(id) => setConfirmIds([id])}
+                    />
+                  ))}
                 </div>
-                {pointsEnabled ? (
-                <div className="flex items-center justify-between gap-1">
-                  <div className="text-zinc-500 dark:text-zinc-400">积分倍率</div>
-                  <div className="font-medium text-salon-ink dark:text-zinc-100">
-                    {level.pointRate != null ? `${level.pointRate} 倍` : '暂无'}
-                  </div>
-                </div>
-                ) : null}
-                <div className="flex items-center justify-between gap-1">
-                  <div className="text-zinc-500 dark:text-zinc-400">充值赠送</div>
-                  <div className="font-medium text-salon-ink dark:text-zinc-100">
-                    {level.rechargeGiftRate != null ? (level.rechargeGiftRate * 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) + '%' : '暂无'}
-                  </div>
-                </div>
-              </div>
-              {level.upgradeThreshold != null ? (
-                <div className="mb-3 truncate text-xs leading-5 text-zinc-500 dark:text-zinc-400">
-                  升级门槛：{formatCurrency(level.upgradeThreshold)}
-                </div>
-              ) : null}
-              <div className="mt-auto flex items-center justify-between gap-2 border-t border-salon-line pt-3 dark:border-zinc-800">
-                <Badge tone={level.status === 1 ? 'success' : 'danger'}>
-                  {getDictText(level.status_text)}
-                </Badge>
-                <div className="flex items-center gap-1">
-                {hasPermission('biz:memberLevel:edit') ? (
-                  <Button
-                    icon={<Pencil className="size-3.5" />}
-                    onClick={() => openEdit(String(level.id))}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    编辑
-                  </Button>
-                ) : null}
-                {hasPermission('biz:memberLevel:delete') ? (
-                  <Button
-                    icon={<Trash2 className="size-3.5" />}
-                    onClick={() => setConfirmIds([String(level.id)])}
-                    size="sm"
-                    variant="secondary"
-                  >
-                    删除
-                  </Button>
-                ) : null}
-                </div>
-              </div>
-            </Card>
-          ))}
+              </section>
+            );
+          })}
         </div>
       )}
 

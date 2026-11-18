@@ -16,7 +16,7 @@ import java.util.List;
 @Schema(description = "订单结算表单（组合支付）")
 public class OrderPayForm {
 
-    @Schema(description = "积分抵扣使用的积分数（0=不使用；须会员订单）")
+    @Schema(description = "积分抵扣使用的积分数（0=不使用；至少100积分起抵，须会员且租户开启积分）")
     @NotNull(message = "积分抵扣数不能为空")
     @Min(value = 0, message = "积分抵扣数不能为负")
     private Integer usePoints;
@@ -26,7 +26,7 @@ public class OrderPayForm {
     @DecimalMin(value = "0", message = "现金投入不能为负")
     private BigDecimal cashReceived;
 
-    @Schema(description = "支付方式明细（组合支付，至少一行）")
+    @Schema(description = "支付方式明细（组合支付；积分全额抵扣时可为空列表）")
     @NotNull(message = "支付方式不能为空")
     @Size(max = 8, message = "支付方式最多8行")
     @Valid

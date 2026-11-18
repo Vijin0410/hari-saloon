@@ -424,6 +424,7 @@ CREATE TABLE IF NOT EXISTS salon_member_level (
     tenant_id           int8          NOT NULL,
     name                varchar(64)   NOT NULL,
     level_no            int4          NOT NULL,
+    card_image          varchar(255),
     service_discount    numeric(3, 2),
     goods_discount      numeric(3, 2),
     point_rate          numeric(3, 2) DEFAULT 1.00,
@@ -447,6 +448,7 @@ COMMENT ON COLUMN salon_member_level.id IS '等级ID';
 COMMENT ON COLUMN salon_member_level.tenant_id IS '租户ID';
 COMMENT ON COLUMN salon_member_level.name IS '等级名称（如普通/银卡/金卡/钻石）';
 COMMENT ON COLUMN salon_member_level.level_no IS '等级序号（0=普通，数值越大等级越高，用于比较）';
+COMMENT ON COLUMN salon_member_level.card_image IS '会员卡自选贴图对象键，NULL=使用内置卡面';
 COMMENT ON COLUMN salon_member_level.service_discount IS '服务折扣（0.00-1.00，1=不打折，NULL=不参与折扣）';
 COMMENT ON COLUMN salon_member_level.goods_discount IS '商品折扣（0.00-1.00，1=不打折，NULL=不参与折扣）';
 COMMENT ON COLUMN salon_member_level.point_rate IS '积分倍率（1.00=正常，1.50=1.5倍）';

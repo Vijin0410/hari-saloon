@@ -18,6 +18,8 @@ public class MemberLevelPageVO {
     private String name;
     @Schema(description = "等级序号")
     private Integer levelNo;
+    @Schema(description = "会员卡自选贴图对象键，NULL=使用内置卡面")
+    private String cardImage;
     @Schema(description = "服务折扣")
     private BigDecimal serviceDiscount;
     @Schema(description = "商品折扣")

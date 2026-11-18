@@ -376,10 +376,12 @@ export interface FileVO {
 
 export const fileApi = {
   /** 上传文件；biz 为业务目录（头像用 avatar）。objectKey 存业务表，url 为预签名展示链接。 */
-  upload(file: File, biz = 'common'): Promise<FileVO> {
+  upload(file: File, biz = 'common', isPublic = false): Promise<FileVO> {
     const form = new FormData();
     form.append('file', file);
     form.append('biz', biz);
+    // 共享品牌素材仍由租户过滤与私有桶预签名控制访问，避免仅上传者可见。
+    if (isPublic) form.append('isPublic', '1');
     return post<FileVO, FormData>('/v1/files/upload', form);
   },
   /** 按 objectKey 取可访问 URL（私有桶统一预签名，后端按归属校验）。 */

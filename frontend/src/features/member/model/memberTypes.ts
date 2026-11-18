@@ -62,6 +62,7 @@ export interface MemberDetailVO {
   birthday?: string;
   levelId?: EntityId;
   levelName?: string;
+  memberLevel?: MemberLevelPageVO;
   balance?: number;
   points?: number;
   pointDebt?: number;
@@ -184,6 +185,7 @@ export interface MemberLevelPageVO {
   id: EntityId;
   name: string;
   levelNo: number;
+  cardImage?: string | null;
   serviceDiscount?: number;
   goodsDiscount?: number;
   pointRate?: number;
@@ -200,6 +202,7 @@ export interface MemberLevelFormPayload {
   id?: EntityId;
   name: string;
   levelNo: number;
+  cardImage?: string | null;
   serviceDiscount?: number;
   goodsDiscount?: number;
   pointRate?: number;

@@ -1,10 +1,12 @@
 import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
 import { getDictText } from '@/shared/lib/dict';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ImagePlus, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { memberLevelApi } from '@/shared/api/modules/memberApi';
+import { fileApi } from '@/shared/api/modules/systemApi';
+import { MemberLevelCard } from '@/features/member/ui/MemberLevelCard';
 import type {
   MemberLevelFormPayload,
   MemberLevelPageVO,
@@ -22,7 +24,7 @@ import { PageLoading } from '@/shared/ui/PageLoading';
 import { Select } from '@/shared/ui/Select';
 import { Textarea } from '@/shared/ui/Textarea';
 import { useDebounce } from '@/shared/hooks/useDebounce';
-import { normalizeNumber } from '@/shared/lib/format';
+import { formatCurrency, normalizeNumber } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
 
 const DECIMAL_RE = /^\d{1,9}(\.\d{0,2})?$/;
@@ -32,6 +34,7 @@ function defaultValues(): MemberLevelFormValues {
   return {
     name: '',
     levelNo: '1',
+    cardImage: null,
     serviceDiscount: '',
     goodsDiscount: '',
     pointRate: '1',
@@ -48,6 +51,7 @@ function toFormValues(p: MemberLevelFormPayload): MemberLevelFormValues {
   return {
     name: p.name ?? '',
     levelNo: p.levelNo != null ? String(p.levelNo) : '',
+    cardImage: p.cardImage ?? null,
     serviceDiscount: p.serviceDiscount != null ? String(p.serviceDiscount) : '',
     goodsDiscount: p.goodsDiscount != null ? String(p.goodsDiscount) : '',
     pointRate: p.pointRate != null ? String(p.pointRate) : '',
@@ -64,6 +68,7 @@ function toPayload(v: MemberLevelFormValues): MemberLevelFormPayload {
   return {
     name: v.name.trim(),
     levelNo: Number(v.levelNo) || 0,
+    cardImage: v.cardImage || null,
     serviceDiscount: v.serviceDiscount ? Number(v.serviceDiscount) : undefined,
     goodsDiscount: v.goodsDiscount ? Number(v.goodsDiscount) : undefined,
     pointRate: v.pointRate ? Number(v.pointRate) : undefined,
@@ -106,18 +111,27 @@ function MemberLevelFormDialog({
   const pointsEnabled = useMemberSettingsStore((s) => s.pointsEnabled);
   const [loadingForm, setLoadingForm] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageError, setImageError] = useState('');
+  const fileInput = useRef<HTMLInputElement>(null);
+  const uploadVersion = useRef(0);
   const {
     control,
     formState: { errors },
     handleSubmit,
     register,
     reset,
+    setValue,
+    watch,
   } = useForm<MemberLevelFormValues>({
     resolver: zodResolver(memberLevelFormSchema),
     defaultValues: defaultValues(),
   });
 
   useEffect(() => {
+    uploadVersion.current += 1;
+    setImageUploading(false);
+    setImageError('');
     if (!open) {
       return;
     }
@@ -147,7 +161,35 @@ function MemberLevelFormDialog({
     };
   }, [mode, open, levelId, reset]);
 
+  async function uploadCardImage(file: File): Promise<void> {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setImageError('请选择 JPG、PNG 或 WebP 图片');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setImageError('卡面图片不能超过5MB');
+      return;
+    }
+    const version = ++uploadVersion.current;
+    setImageUploading(true);
+    setImageError('');
+    try {
+      // 同租户共享品牌素材；实际存储仍为私有桶，通过预签名展示。
+      const uploaded = await fileApi.upload(file, 'member-card', true);
+      if (version === uploadVersion.current) {
+        setValue('cardImage', uploaded.objectKey, { shouldDirty: true, shouldValidate: true });
+      }
+    } catch (error: unknown) {
+      if (version === uploadVersion.current) {
+        setImageError(error instanceof Error ? error.message : '卡面上传失败，请重试');
+      }
+    } finally {
+      if (version === uploadVersion.current) setImageUploading(false);
+    }
+  }
+
   async function handleSave(values: MemberLevelFormValues): Promise<void> {
+    if (imageUploading || loadingForm) return;
     setSubmitLoading(true);
     try {
       const payload = toPayload(values);
@@ -171,7 +213,7 @@ function MemberLevelFormDialog({
           <Button onClick={onClose} variant="secondary">
             取消
           </Button>
-          <Button loading={submitLoading} onClick={handleSubmit(handleSave)}>
+          <Button disabled={imageUploading || loadingForm} loading={submitLoading} onClick={handleSubmit(handleSave)}>
             保存
           </Button>
         </>
@@ -184,6 +226,62 @@ function MemberLevelFormDialog({
         <PageLoading />
       ) : (
         <form className="grid gap-3 md:grid-cols-2" onSubmit={handleSubmit(handleSave)}>
+          <Field
+            className="md:col-span-2"
+            label="会员卡面"
+            error={errors.cardImage?.message || imageError}
+            hint="默认按等级匹配卡面。支持 JPG、PNG、WebP，最大 5MB；建议使用约 1.586:1 的横向图片。"
+          >
+            <div className="grid items-center gap-4 rounded-lg bg-salon-paper p-3 sm:grid-cols-[minmax(0,1fr)_auto] dark:bg-zinc-900">
+              <MemberLevelCard
+                className="max-w-[320px]"
+                name={watch('name') || '会员等级'}
+                levelNo={Number(watch('levelNo')) || 0}
+                cardImage={watch('cardImage')}
+              />
+              <div className="flex flex-wrap gap-2 sm:flex-col">
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  aria-label="选择会员卡贴图"
+                  disabled={imageUploading || submitLoading}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (file) void uploadCardImage(file);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={<ImagePlus className="size-4" />}
+                  loading={imageUploading}
+                  disabled={submitLoading}
+                  onClick={() => fileInput.current?.click()}
+                >
+                  自选贴图
+                </Button>
+                {watch('cardImage') ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    icon={<RotateCcw className="size-4" />}
+                    disabled={imageUploading || submitLoading}
+                    onClick={() => {
+                      setValue('cardImage', null, { shouldDirty: true, shouldValidate: true });
+                      setImageError('');
+                    }}
+                  >
+                    恢复默认卡面
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          </Field>
           <Field error={errors.name?.message} label="等级名称" required>
             <Input invalid={Boolean(errors.name)} placeholder="如：黄金会员" {...register('name')} />
           </Field>
@@ -452,61 +550,51 @@ export function MemberLevelPage() {
       ) : sortedRows.length === 0 ? (
         <EmptyState title="暂无等级" description="还未配置任何会员等级。" />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {sortedRows.map((level) => (
-            <Card key={level.id} hover={false}>
-              <div className="flex items-center gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-salon-accent text-sm font-semibold text-white">
-                  {level.levelNo}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-base font-semibold text-salon-ink dark:text-zinc-100">
-                      {level.name}
-                    </span>
-                    <Badge tone={level.status === 1 ? 'success' : 'danger'}>
-                      {getDictText(level.status_text)}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+            <Card key={level.id} hover={false} className="flex h-full min-w-0 flex-col p-3">
+              <MemberLevelCard compact name={level.name} levelNo={level.levelNo} cardImage={level.cardImage} />
+              <div className="my-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs leading-5">
+                <div className="flex items-center justify-between gap-1">
                   <div className="text-zinc-500 dark:text-zinc-400">服务折扣</div>
-                  <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">
+                  <div className="font-medium text-salon-ink dark:text-zinc-100">
                     {formatDiscount(level.serviceDiscount)}
                   </div>
                 </div>
-                <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                <div className="flex items-center justify-between gap-1">
                   <div className="text-zinc-500 dark:text-zinc-400">商品折扣</div>
-                  <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">
+                  <div className="font-medium text-salon-ink dark:text-zinc-100">
                     {formatDiscount(level.goodsDiscount)}
                   </div>
                 </div>
                 {pointsEnabled ? (
-                <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                <div className="flex items-center justify-between gap-1">
                   <div className="text-zinc-500 dark:text-zinc-400">积分倍率</div>
-                  <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">
+                  <div className="font-medium text-salon-ink dark:text-zinc-100">
                     {level.pointRate != null ? `${level.pointRate} 倍` : '暂无'}
                   </div>
                 </div>
                 ) : null}
-                <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                <div className="flex items-center justify-between gap-1">
                   <div className="text-zinc-500 dark:text-zinc-400">充值赠送</div>
-                  <div className="mt-0.5 font-medium text-salon-ink dark:text-zinc-100">
-                    {level.rechargeGiftRate != null ? level.rechargeGiftRate : '暂无'}
+                  <div className="font-medium text-salon-ink dark:text-zinc-100">
+                    {level.rechargeGiftRate != null ? (level.rechargeGiftRate * 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 }) + '%' : '暂无'}
                   </div>
                 </div>
               </div>
               {level.upgradeThreshold != null ? (
-                <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  升级门槛：{level.upgradeThreshold}
+                <div className="mb-3 truncate text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                  升级门槛：{formatCurrency(level.upgradeThreshold)}
                 </div>
               ) : null}
-              <div className="mt-3 flex justify-end gap-2 border-t border-salon-line pt-3 dark:border-zinc-800">
+              <div className="mt-auto flex items-center justify-between gap-2 border-t border-salon-line pt-3 dark:border-zinc-800">
+                <Badge tone={level.status === 1 ? 'success' : 'danger'}>
+                  {getDictText(level.status_text)}
+                </Badge>
+                <div className="flex items-center gap-1">
                 {hasPermission('biz:memberLevel:edit') ? (
                   <Button
-                    icon={<Pencil className="size-4" />}
+                    icon={<Pencil className="size-3.5" />}
                     onClick={() => openEdit(String(level.id))}
                     size="sm"
                     variant="secondary"
@@ -516,7 +604,7 @@ export function MemberLevelPage() {
                 ) : null}
                 {hasPermission('biz:memberLevel:delete') ? (
                   <Button
-                    icon={<Trash2 className="size-4" />}
+                    icon={<Trash2 className="size-3.5" />}
                     onClick={() => setConfirmIds([String(level.id)])}
                     size="sm"
                     variant="secondary"
@@ -524,6 +612,7 @@ export function MemberLevelPage() {
                     删除
                   </Button>
                 ) : null}
+                </div>
               </div>
             </Card>
           ))}

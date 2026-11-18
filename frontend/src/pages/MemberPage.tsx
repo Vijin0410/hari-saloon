@@ -26,6 +26,7 @@ import type {
 } from '@/features/member/model/memberTypes';
 import { memberFormSchema, type MemberFormValues } from '@/features/member/model/memberSchemas';
 import { RechargeDialog } from '@/features/member/ui/RechargeDialog';
+import { MemberLevelCard } from '@/features/member/ui/MemberLevelCard';
 import { dictApi } from '@/shared/api/modules/systemApi';
 import type { DictOption } from '@/features/system/model/dictTypes';
 import type { StoreOption } from '@/features/system/model/systemTypes';
@@ -763,6 +764,7 @@ export function MemberPage() {
           <div className="space-y-4">
             {/* 会员基础信息 */}
             <Card>
+              <div className="grid items-center gap-5 sm:grid-cols-[minmax(0,1fr)_240px]">
               <div className="flex items-center gap-4">
                 <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-salon-accent text-xl font-semibold text-white">
                   {detail.name.charAt(0)}
@@ -788,6 +790,14 @@ export function MemberPage() {
                     {detail.phone || '未绑定手机'}
                   </div>
                 </div>
+              </div>
+              <MemberLevelCard
+                className="mx-auto max-w-[320px]"
+                name={detail.memberLevel?.name || detail.levelName || '普通会员'}
+                levelNo={detail.memberLevel?.levelNo}
+                cardImage={detail.memberLevel?.cardImage}
+                holderName={detail.name}
+              />
               </div>
             </Card>
 

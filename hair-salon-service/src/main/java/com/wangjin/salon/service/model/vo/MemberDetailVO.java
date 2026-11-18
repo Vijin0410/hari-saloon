@@ -32,6 +32,8 @@ public class MemberDetailVO {
     private Long levelId;
     @Schema(description = "会员等级名称")
     private String levelName;
+    @Schema(description = "所属会员等级及卡面配置")
+    private MemberLevelPageVO memberLevel;
     @Schema(description = "余额（可用总余额）")
     private BigDecimal balance;
     @Schema(description = "积分")

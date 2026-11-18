@@ -22,6 +22,9 @@ public class SalonMemberLevel extends BaseTenantEntity<Long> {
     private String name;
     /** 等级序号（0=普通，数值越大等级越高，用于比较） */
     private Integer levelNo;
+    /** 会员卡自选贴图对象键，NULL=使用内置卡面 */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private String cardImage;
     /** 服务折扣（0.00-1.00，1=不打折，NULL=不参与折扣） */
     private BigDecimal serviceDiscount;
     /** 商品折扣（0.00-1.00，1=不打折，NULL=不参与折扣） */

@@ -3,6 +3,7 @@ package com.wangjin.salon.service.model.form;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -21,6 +22,10 @@ public class MemberLevelForm {
     @Schema(description = "等级序号（0=普通，数值越大等级越高）")
     @NotNull(message = "等级序号不能为空")
     private Integer levelNo;
+
+    @Schema(description = "会员卡自选贴图对象键，NULL=使用内置卡面")
+    @Size(max = 255, message = "卡面贴图对象键不能超过255个字符")
+    private String cardImage;
 
     @Schema(description = "服务折扣（0.00-1.00，1=不打折，NULL=不参与折扣）")
     private BigDecimal serviceDiscount;

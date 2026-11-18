@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wangjin.common.enums.StatusEnum;
 import com.wangjin.common.security.util.SecurityUtils;
 import com.wangjin.salon.service.converter.MemberConverter;
+import com.wangjin.salon.service.converter.MemberLevelConverter;
 import com.wangjin.salon.service.mapper.SalonMemberBalanceMapper;
 import com.wangjin.salon.service.mapper.SalonMemberMapper;
 import com.wangjin.salon.service.mapper.SalonMemberTagMapper;
@@ -46,6 +47,7 @@ import java.util.stream.Collectors;
 public class SalonMemberServiceImpl extends ServiceImpl<SalonMemberMapper, SalonMember> implements SalonMemberService {
 
     private final MemberConverter memberConverter;
+    private final MemberLevelConverter memberLevelConverter;
     private final SalonStoreService storeService;
     private final SalonStorePermissionService storePermissionService;
     private final MemberLevelService memberLevelService;
@@ -80,8 +82,14 @@ public class SalonMemberServiceImpl extends ServiceImpl<SalonMemberMapper, Salon
         Assert.notNull(entity, "Member not found");
         storePermissionService.assertStoreAccessible(entity.getStoreId(), "No permission for this store member");
         MemberDetailVO vo = memberConverter.entity2DetailVo(entity);
-        //会员等级
-        vo.setLevelName(memberLevelService.getForm(entity.getLevelId()).getName());
+        // 详情直接带出实际所属等级，包含停用等级；等级缺失时仍可打开会员档案。
+        if (entity.getLevelId() != null) {
+            SalonMemberLevel level = memberLevelService.getById(entity.getLevelId());
+            if (level != null) {
+                vo.setLevelName(level.getName());
+                vo.setMemberLevel(memberLevelConverter.entity2PageVo(level));
+            }
+        }
         vo.setBalanceDetail(memberBalanceService.getDetail(id));
         vo.setTags(getMemberTags(id));
         vo.setProfile(memberProfileService.get(id));

@@ -147,6 +147,8 @@
 
 ## 最近更新
 
+- 2026-11-18: 会员等级列表、编辑预览与会员详情统一复用 MemberLevelCard（银行卡比例 SVG 渐变细线纹理，按等级匹配配色）。等级新增 cardImage（salon_member_level.card_image，存文件 objectKey；全量表单显式 null 恢复内置卡面），自选贴图复用 fileApi.upload 的 member-card 目录，isPublic=1 作为同租户共享品牌素材（实际仍为私有桶、租户过滤查询与预签名展示）。详情接口增加 memberLevel VO，直接返回当前所属等级（含停用等级），空/已删等级仍可打开档案。存量库先执行 sql/migrate-member-level-card.sql；原接口路径与权限不变。
+
 - 2026-11-12：退款积分与租户积分开关实施完成。新增会员设置、预览、批次回收、待追回、扫码快照、迁移与13项PostgreSQL集成回归；本地数据库已升级。前端构建/lint和后端打包通过。
 - 2026-11-12：全系统 11 类字典核查与修复。收银支付/退款明细改读 `payMethod_text`，wj-framework DictAspect 从原始 VO 递归，补齐充值/会员详情、通用状态及支付配置翻译入口；工作台状态改读 `status_text`；字典类型分组查询改返回 VO。新增 `shared/lib/dict.ts#getDictText` 与 `docs/dict-response-audit.md`。
 - 2026-11-12：**进度与产品文档同步（无业务代码改动）**。`docs/hair-salon-implementation-plan.md` 按当前代码更新 P1/P2/P4/P5/P6，区分代码实现与联调验收；前端优化文档 `docs/frontend-product-ui-review-2026-11-12.md` 固化页面问题、动态登录方向、AI 路线及素材清单。**用户明确卡项核销暂缓，不作为当前收银/退款/日结或 UI 优化的前置条件**；其余卡项需求保留，另行安排。新增 `docs/refund-points-and-feature-toggle.md`：核对现状仅资金全退时返抵扣积分，部分退款不返、消费赠送未回收、退回批次无到期日、纯积分单无法走正金额退款；积分可选化列为 P10 前置需求（尚未实现），关闭不清资产、不阻断旧订单退款。默认值、比例分摊及已用奖励处理均明确为待确认建议。需求文档同步上述范围与验收目标。

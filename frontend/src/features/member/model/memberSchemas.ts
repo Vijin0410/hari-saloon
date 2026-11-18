@@ -25,6 +25,7 @@ const intOptional = z
 export const memberLevelFormSchema = z.object({
   name: z.string().trim().min(1, '等级名称不能为空'),
   levelNo: intRequired,
+  cardImage: z.string().trim().max(255, '卡面贴图对象键不能超过255个字符').nullable().optional(),
   serviceDiscount: rateOptional,
   goodsDiscount: rateOptional,
   pointRate: rateOptional,

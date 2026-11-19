@@ -43,6 +43,7 @@ export const roleFormSchema = z
     id: z.string().optional(),
     name: z.string().trim().min(1, '角色名称不能为空'),
     code: z.string().trim().min(1, '角色编码不能为空'),
+    orderStaffType: z.enum(['NONE', 'STAFF', 'ASSISTANT'], { error: '开单默认身份不正确' }),
     sort: z.number().int().min(0, '排序不能小于 0'),
     status: statusSchema,
     dataScope: dataScopeSchema,

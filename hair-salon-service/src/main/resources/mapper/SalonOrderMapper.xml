@@ -21,6 +21,16 @@
         <include refid="baseSelect"/>
         <where>
             o.deleted = 0
+            <if test="q.creatorId != null">
+                AND o.create_by = #{q.creatorId}
+            </if>
+            <if test="q.serviceStaffId != null">
+                AND EXISTS (
+                    SELECT 1 FROM salon_order_item oi
+                    WHERE oi.order_id = o.id AND oi.tenant_id = o.tenant_id
+                      AND oi.deleted = 0 AND oi.staff_id = #{q.serviceStaffId}
+                )
+            </if>
             <if test="q.keywords != null and q.keywords != ''">
                 AND (
                     o.order_no LIKE CONCAT('%', CAST(#{q.keywords} AS text), '%')

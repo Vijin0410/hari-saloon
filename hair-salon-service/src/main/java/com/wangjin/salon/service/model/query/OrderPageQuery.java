@@ -16,6 +16,14 @@ public class OrderPageQuery extends BasePageQuery {
 
     @Schema(description = "关键词（订单号/会员姓名/手机号）")
     private String keywords;
+    @Schema(description = "仅查看当前登录用户创建的订单")
+    private Boolean onlyMine;
+    @Schema(description = "仅查看消费明细服务人员为当前登录用户的订单")
+    private Boolean onlyMyService;
+    @Schema(hidden = true, description = "开单人ID（由服务端按当前登录用户设置）")
+    private Long creatorId;
+    @Schema(hidden = true, description = "服务人员ID（由服务端按当前登录用户设置）")
+    private Long serviceStaffId;
     @Schema(description = "会员ID")
     private Long memberId;
     @Schema(description = "订单状态（0挂单 1已支付 2部分退款 3已退款 4已取消）")

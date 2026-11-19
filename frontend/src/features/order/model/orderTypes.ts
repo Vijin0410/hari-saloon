@@ -49,6 +49,36 @@ export interface OrderPaymentVO {
   amount: number;
 }
 
+export interface OrderStaffOption {
+  id: EntityId;
+  name: string;
+  defaultType?: 'NONE' | 'STAFF' | 'ASSISTANT' | 'CONFLICT';
+}
+
+export interface OrderStaffCorrectionPayload {
+  reason: string;
+  items: Array<{
+    orderItemId: EntityId;
+    staffId: EntityId;
+    assistantId?: EntityId | null;
+    expectedStaffId?: EntityId | null;
+    expectedAssistantId?: EntityId | null;
+  }>;
+}
+
+export interface OrderStaffChangeVO {
+  id: EntityId;
+  orderItemId: EntityId;
+  itemName: string;
+  beforeStaffName?: string;
+  afterStaffName?: string;
+  beforeAssistantName?: string;
+  afterAssistantName?: string;
+  reason: string;
+  operatorName?: string;
+  createTime?: string;
+}
+
 export interface OrderDetailVO extends OrderPageVO {
   storeId?: EntityId;
   pointDeductPoints?: number;
@@ -61,6 +91,8 @@ export interface OrderDetailVO extends OrderPageVO {
 export interface OrderPageQuery {
   pageNum: number;
   pageSize: number;
+  onlyMine?: boolean;
+  onlyMyService?: boolean;
   keywords?: string;
   memberId?: EntityId;
   status?: number;

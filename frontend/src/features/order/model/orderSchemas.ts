@@ -67,6 +67,26 @@ export function createOrderPaySchema(context: SettlementContext) {
 
 export type OrderPayValues = z.infer<ReturnType<typeof createOrderPaySchema>>;
 
+export const orderStaffAssignmentSchema = z.object({
+  staffId: z.string().min(1, '服务人员不能为空'),
+  assistantId: z.string(),
+}).refine((row) => !row.assistantId || row.assistantId !== row.staffId, {
+  path: ['assistantId'], message: '服务人员和助理不能为同一人',
+});
+
+export const orderStaffBatchSchema = orderStaffAssignmentSchema;
+export type OrderStaffBatchValues = z.infer<typeof orderStaffBatchSchema>;
+
+export const orderStaffCorrectionSchema = z.object({
+  reason: z.string().trim().min(1, '更正原因不能为空').max(255, '更正原因最多255字'),
+  items: z.array(orderStaffAssignmentSchema.safeExtend({
+    orderItemId: z.string().min(1),
+    expectedStaffId: z.string(),
+    expectedAssistantId: z.string(),
+  })).min(1, '订单明细不能为空').max(500, '订单明细须为1至500项'),
+});
+export type OrderStaffCorrectionValues = z.infer<typeof orderStaffCorrectionSchema>;
+
 export const orderRefundSchema = z.object({
   refundAmount: z.string().regex(/^\d{1,9}(\.\d{1,2})?$/, '退款金额格式不正确（最多两位小数）'),
   reason: z.string().trim().min(1, '退款原因不能为空').max(255, '退款原因最多255字'),

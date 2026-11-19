@@ -20,8 +20,8 @@ INSERT INTO sys_role (id, name, code, sort, status, data_scope, tenant_id, creat
 SELECT 2, '店长', 'STORE_MANAGER', 2, 1, 1, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE code = 'STORE_MANAGER' AND tenant_id = 1);
 
-INSERT INTO sys_role (id, name, code, sort, status, data_scope, tenant_id, create_by, create_time, update_by, update_time, deleted)
-SELECT 3, '店员', 'STORE_STAFF', 3, 1, 4, 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
+INSERT INTO sys_role (id, name, code, sort, status, data_scope, order_staff_type, tenant_id, create_by, create_time, update_by, update_time, deleted)
+SELECT 3, '店员', 'STORE_STAFF', 3, 1, 4, 'STAFF', 1, 0, CURRENT_TIMESTAMP, 0, CURRENT_TIMESTAMP, 0
 WHERE NOT EXISTS (SELECT 1 FROM sys_role WHERE code = 'STORE_STAFF' AND tenant_id = 1);
 
 INSERT INTO sys_user (id, username, password, nickname, phone, status, dept_id, gender, last_password_change_time, tenant_id, create_by, create_time, update_by, update_time, deleted)
@@ -567,6 +567,16 @@ FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu m WHERE m.id = v.id);
 
 -- 店长(role 2)：收银全按钮 + 充值记录全按钮 + 充值活动全按钮
+-- 更正人员需独立权限，默认授予管理员与店长。
+INSERT INTO sys_menu (id,parent_id,name,type,tree_path,meta,perm,tenant_id,create_by,create_time,update_by,update_time,deleted)
+SELECT 217,166,'orderStaffEdit',4,'0,20,166','{"title":"更正订单人员"}','biz:order:staff-edit',1,0,CURRENT_TIMESTAMP,0,CURRENT_TIMESTAMP,0
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perm='biz:order:staff-edit' AND deleted=0);
+INSERT INTO sys_role_menu (role_id,menu_id,type)
+SELECT r.id,m.id,1 FROM sys_role r CROSS JOIN sys_menu m
+WHERE r.code IN ('ROOT','TENANT_ADMIN','STORE_MANAGER') AND r.deleted=0
+  AND m.perm='biz:order:staff-edit' AND m.deleted=0
+  AND NOT EXISTS (SELECT 1 FROM sys_role_menu rm WHERE rm.role_id=r.id AND rm.menu_id=m.id AND rm.type=1);
+
 INSERT INTO sys_role_menu (role_id, menu_id, type)
 SELECT 2, m.id, 1 FROM sys_menu m
 WHERE m.id IN (20, 166, 181, 182, 183, 184, 185, 200,

@@ -1,5 +1,5 @@
 import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +10,7 @@ import {
   allocatePayments,
   maxRedeemPoints,
   pointsDeduction,
+  reallocatePayments,
   type PaymentRow,
 } from '@/features/order/model/orderSettlement';
 import type { MemberPageVO } from '@/features/member/model/memberTypes';
@@ -87,6 +88,7 @@ export function OrderPayDialog({
   const usePoints = useWatch({ control, name: 'usePoints' });
   const cashReceived = useWatch({ control, name: 'cashReceived' });
   const payments = useWatch({ control, name: 'payments' });
+  const paymentPreferences = useRef<PaymentRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [scanChannels, setScanChannels] = useState<string[]>([]);
@@ -109,13 +111,15 @@ export function OrderPayDialog({
         pointsEnabled,
       };
       const points = maxRedeemPoints(initialContext);
+      const initialPayments = allocatePayments(
+        round2(payable - pointsDeduction(initialContext, points)),
+        memberBalance,
+      );
+      paymentPreferences.current = initialPayments;
       reset({
         usePoints: String(points),
         cashReceived: '',
-        payments: allocatePayments(
-          round2(payable - pointsDeduction(initialContext, points)),
-          memberBalance,
-        ),
+        payments: initialPayments,
       });
       setSubmitError('');
       setScan(null);
@@ -218,41 +222,44 @@ export function OrderPayDialog({
       : undefined;
   const hasError = Boolean(pointsError || balanceError || scanError || totalError);
 
+  function updatePayments(rows: PaymentRow[]): void {
+    paymentPreferences.current = rows;
+    setValue('payments', rows, { shouldValidate: true });
+  }
+
   function updatePoints(value: string): void {
     setValue('usePoints', value, { shouldValidate: true });
     const due = round2(payable - pointsDeduction(context, Number(value) || 0));
-    const preferred = payments.find((row) => row.payMethod !== 5)?.payMethod ?? 1;
-    setValue('payments', allocatePayments(due, memberBalance, preferred), { shouldValidate: true });
+    setValue('payments', reallocatePayments(due, memberBalance, paymentPreferences.current), {
+      shouldValidate: true,
+    });
   }
 
   function updatePayment(index: number, patch: Partial<PaymentRow>): void {
-    setValue(
-      'payments',
-      payments.map((row, i) => (i === index ? { ...row, ...patch } : row)),
-      { shouldValidate: true },
-    );
+    updatePayments(payments.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   function removePayment(index: number): void {
-    setValue(
-      'payments',
-      payments.filter((_, i) => i !== index),
-      { shouldValidate: true },
+    updatePayments(
+      reallocatePayments(
+        receivable,
+        memberBalance,
+        payments.filter((_, i) => i !== index),
+      ),
     );
   }
 
   function addPayment(): void {
-    // 快捷补一行：默认抵剩余未付金额，方式默认微信
+    // 快捷补一行：填入剩余金额，选取尚未使用的外部支付方式。
     const rest = round2(receivable - payTotal);
     const method = ORDER_PAY_METHODS.find(
       (m) => m.value !== 5 && !payments.some((p) => p.payMethod === m.value),
     );
     if (method)
-      setValue(
-        'payments',
-        [...payments, { payMethod: method.value, amount: rest > 0 ? String(rest) : '' }],
-        { shouldValidate: true },
-      );
+      updatePayments([
+        ...payments,
+        { payMethod: method.value, amount: rest > 0 ? String(rest) : '' },
+      ]);
   }
 
   /** 余额支付快捷行：金额自动取 min(可用余额, 待付余额) */
@@ -261,11 +268,10 @@ export function OrderPayDialog({
     if (rest <= 0) {
       return;
     }
-    setValue(
-      'payments',
-      [...payments, { payMethod: 5, amount: String(round2(Math.min(memberBalance, rest))) }],
-      { shouldValidate: true },
-    );
+    updatePayments([
+      ...payments,
+      { payMethod: 5, amount: String(round2(Math.min(memberBalance, rest))) },
+    ]);
   }
 
   async function handleConfirm(): Promise<void> {
@@ -345,6 +351,9 @@ export function OrderPayDialog({
   }
 
   const cashRowExists = payments.some((p) => p.payMethod === 1);
+  const paymentMethods = ORDER_PAY_METHODS.filter(
+    (method) => method.value !== 5 || Boolean(member && memberBalance > 0),
+  ).sort((a, b) => Number(b.value === 5) - Number(a.value === 5));
 
   return (
     <Modal
@@ -421,9 +430,7 @@ export function OrderPayDialog({
               <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                 {receivable === 0
                   ? '本单无需支付'
-                  : memberBalance >= receivable
-                    ? '余额足够，本单自动使用会员余额支付'
-                    : `优先使用会员余额，差额 ${formatCurrency(Math.max(0, round2(receivable - memberBalance)))} 使用其他方式支付`}
+                  : '会员余额优先推荐，可自由切换现金、微信、支付宝等方式，也可组合支付。'}
               </p>
             </div>
           ) : null}
@@ -438,17 +445,15 @@ export function OrderPayDialog({
                   余额支付（可用 {formatCurrency(memberBalance)}）
                 </Button>
               ) : null}
-              {!member || memberBalance < receivable ? (
-                <Button
-                  disabled={payTotal >= receivable || payments.length >= 4}
-                  icon={<Plus className="size-4" />}
-                  onClick={addPayment}
-                  size="sm"
-                  variant="secondary"
-                >
-                  添加方式
-                </Button>
-              ) : null}
+              <Button
+                disabled={payTotal >= receivable || payments.length >= 4}
+                icon={<Plus className="size-4" />}
+                onClick={addPayment}
+                size="sm"
+                variant="secondary"
+              >
+                添加方式
+              </Button>
             </div>
           </div>
           {payments.map((row, index) => (
@@ -459,13 +464,7 @@ export function OrderPayDialog({
                 onChange={(e) => updatePayment(index, { payMethod: Number(e.target.value) })}
                 value={row.payMethod}
               >
-                {ORDER_PAY_METHODS.filter(
-                  (m) =>
-                    m.value === row.payMethod ||
-                    (m.value === 5
-                      ? Boolean(member && memberBalance > 0)
-                      : !member || memberBalance < receivable),
-                ).map((m) => (
+                {paymentMethods.map((m) => (
                   <option
                     disabled={payments.some((p, i) => i !== index && p.payMethod === m.value)}
                     key={m.value}

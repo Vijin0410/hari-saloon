@@ -10,10 +10,22 @@ import type {
   OrderRefundPayload,
   OrderRefundVO,
   OrderSavePayload,
+  OrderStaffChangeVO,
+  OrderStaffCorrectionPayload,
+  OrderStaffOption,
 } from '@/features/order/model/orderTypes';
 import type { EntityId } from '@/features/system/model/systemTypes';
 
 export const orderApi = {
+  staffOptions(storeId: EntityId): Promise<OrderStaffOption[]> {
+    return get<OrderStaffOption[]>('/v1/orders/staff-options', { params: { storeId } });
+  },
+  correctStaff(id: EntityId, payload: OrderStaffCorrectionPayload): Promise<void> {
+    return post<void, OrderStaffCorrectionPayload>('/v1/orders/' + id + '/staff-correction', payload);
+  },
+  staffChanges(id: EntityId): Promise<OrderStaffChangeVO[]> {
+    return get<OrderStaffChangeVO[]>('/v1/orders/' + id + '/staff-changes');
+  },
   list(params: OrderPageQuery): Promise<PageData<OrderPageVO>> {
     return get<PageData<OrderPageVO>>('/v1/orders/page', { params });
   },

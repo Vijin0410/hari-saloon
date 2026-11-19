@@ -88,6 +88,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRefundService orderRefundService;
     private final List<PayChannel> payChannels;
     private final PayProperties payProperties;
+    private final com.wangjin.salon.service.service.OrderStaffService orderStaffService;
 
     /** 余额桶：1本金 2赠送 */
     private static final int BUCKET_PRINCIPAL = 1;
@@ -113,6 +114,18 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public Page<OrderPageVO> getPage(OrderPageQuery query) {
         storePermissionService.apply(query);
+        query.setCreatorId(null);
+        query.setServiceStaffId(null);
+        if (Boolean.TRUE.equals(query.getOnlyMine()) || Boolean.TRUE.equals(query.getOnlyMyService())) {
+            Long currentUserId = SecurityUtils.getUserId();
+            Assert.notNull(currentUserId, "请先登录");
+            if (Boolean.TRUE.equals(query.getOnlyMine())) {
+                query.setCreatorId(currentUserId);
+            }
+            if (Boolean.TRUE.equals(query.getOnlyMyService())) {
+                query.setServiceStaffId(currentUserId);
+            }
+        }
         return orderMapper.getOrderPage(new Page<>(query.getPageNum(), query.getPageSize()), query);
     }
 
@@ -186,7 +199,8 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public boolean updatePending(Long id, OrderSaveForm form) {
-        SalonOrder exists = orderMapper.selectById(id);
+        SalonOrder exists = orderMapper.selectOne(Wrappers.<SalonOrder>lambdaQuery()
+                .eq(SalonOrder::getId, id).last("FOR UPDATE"));
         Assert.notNull(exists, "订单不存在");
         Assert.isTrue(SalonOrder.STATUS_PENDING == exists.getStatus(), "仅挂单订单可修改");
         storePermissionService.assertStoreAccessible(exists.getStoreId(), "无权限修改该订单");
@@ -213,6 +227,7 @@ public class OrderServiceImpl implements OrderService {
                 .eq(SalonOrder::getId, orderId).last("FOR UPDATE"));
         Assert.notNull(order, "订单不存在");
         storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限结算该订单");
+        orderStaffService.assertReadyForPayment(order);
         // 条件更新占坑：防并发重复结算（rows=0 即已非挂单）
         int rows = orderMapper.update(null, Wrappers.<SalonOrder>lambdaUpdate()
                 .set(SalonOrder::getStatus, SalonOrder.STATUS_PAID)
@@ -234,6 +249,7 @@ public class OrderServiceImpl implements OrderService {
         Assert.notNull(order, "订单不存在");
         Assert.isTrue(SalonOrder.STATUS_PENDING == order.getStatus(), "仅挂单订单可发起扫码支付");
         storePermissionService.assertStoreAccessible(order.getStoreId(), "无权限结算该订单");
+        orderStaffService.assertReadyForPayment(order);
         SalonMember member = order.getMemberId() == null ? null : memberMapper.selectById(order.getMemberId());
         snapshotPoints(order);
         // 全量校验（与确认结算同口径，防出码后确认时校验失败顾客白付）+ 库存预检

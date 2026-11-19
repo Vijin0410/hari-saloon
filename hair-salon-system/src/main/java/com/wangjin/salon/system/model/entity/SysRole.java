@@ -19,6 +19,8 @@ public class SysRole extends BaseTenantEntity<Long> {
     private String name;
     /** 角色编码 */
     private String code;
+    /** 开单默认身份（NONE=默认服务人员 STAFF=服务人员 ASSISTANT=助理） */
+    private String orderStaffType;
     /** 排序（升序） */
     private Integer sort;
     /** 状态：1启用 0禁用 */

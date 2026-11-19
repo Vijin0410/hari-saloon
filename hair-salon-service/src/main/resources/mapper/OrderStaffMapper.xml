@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wangjin.salon.service.mapper.OrderStaffMapper">
+    <!-- PostgreSQL：同租户、已启用、绑定本门店或拥有租户管理员角色的人员。 -->
+    <select id="listOptions" resultType="com.wangjin.salon.service.model.vo.OrderStaffOptionVO">
+        SELECT u.id, COALESCE(NULLIF(u.nickname, ''), u.username) AS name,
+               CASE WHEN COUNT(DISTINCT NULLIF(r.order_staff_type, 'NONE')) > 1 THEN 'CONFLICT'
+                    WHEN COUNT(DISTINCT NULLIF(r.order_staff_type, 'NONE')) = 1
+                        THEN MAX(NULLIF(r.order_staff_type, 'NONE'))
+                    ELSE 'NONE' END AS default_type
+        FROM sys_user u
+        LEFT JOIN sys_user_role ur ON ur.user_id = u.id
+        LEFT JOIN sys_role r ON r.id = ur.role_id AND r.tenant_id = u.tenant_id
+                            AND r.deleted = 0 AND r.status = 1
+        WHERE u.tenant_id = #{tenantId} AND u.deleted = 0 AND u.status = 1
+          AND (
+              EXISTS (SELECT 1 FROM salon_store_user su
+                      WHERE su.user_id = u.id AND su.tenant_id = #{tenantId}
+                        AND su.store_id = #{storeId} AND su.deleted = 0)
+              OR EXISTS (SELECT 1 FROM sys_user_role ar
+                         JOIN sys_role role_scope ON role_scope.id = ar.role_id
+                         WHERE ar.user_id = u.id AND role_scope.tenant_id = #{tenantId}
+                           AND role_scope.deleted = 0 AND role_scope.status = 1
+                           AND role_scope.code IN ('TENANT_ADMIN', 'ROOT'))
+          )
+        GROUP BY u.id, u.nickname, u.username
+        ORDER BY name, u.id
+    </select>
+</mapper>

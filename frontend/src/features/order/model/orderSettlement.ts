@@ -35,7 +35,7 @@ export function pointsDeduction(context: SettlementContext, points: number): num
   return Math.floor((points * 100) / POINTS_PER_YUAN) / 100;
 }
 
-/** 优先用会员余额，余额不足时仅为差额补一个外部支付行；积分全额抵扣无需支付行。 */
+/** 初次结算默认预填会员余额，收银员可自由切换支付方式；积分全额抵扣无需支付行。 */
 export function allocatePayments(
   receivable: number,
   balance: number,
@@ -51,4 +51,32 @@ export function allocatePayments(
       amount: ((due - balancePay) / 100).toFixed(2),
     });
   return rows;
+}
+
+/** 积分变化时沿用已选方式，保留前面的分摊金额，由最后一行补齐差额。 */
+export function reallocatePayments(
+  receivable: number,
+  balance: number,
+  preferences: PaymentRow[],
+): PaymentRow[] {
+  if (preferences.length === 0) return allocatePayments(receivable, balance);
+  let remaining = Math.max(0, toCents(receivable));
+  let availableBalance = Math.max(0, toCents(balance));
+  const rows = preferences.map((row, index) => {
+    const limit = row.payMethod === 5 ? Math.min(remaining, availableBalance) : remaining;
+    const amount =
+      index === preferences.length - 1
+        ? limit
+        : Math.min(limit, Math.max(0, toCents(Number(row.amount) || 0)));
+    remaining -= amount;
+    if (row.payMethod === 5) availableBalance -= amount;
+    return { payMethod: row.payMethod, amount: (amount / 100).toFixed(2) };
+  });
+  if (remaining > 0) {
+    const external = rows.find((row) => row.payMethod !== 5);
+    if (external)
+      external.amount = ((toCents(Number(external.amount)) + remaining) / 100).toFixed(2);
+    else rows.push({ payMethod: 1, amount: (remaining / 100).toFixed(2) });
+  }
+  return rows.filter((row) => Number(row.amount) > 0);
 }

@@ -49,6 +49,9 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
   const [pageNum, setPageNum] = useState(1);
   const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState('');
+  const [recordScope, setRecordScope] = useState<'all' | 'created' | 'served'>('all');
+  const onlyMine = recordScope === 'created';
+  const onlyMyService = recordScope === 'served';
   const debounced = useDebounce(keyword, 300);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [cancelId, setCancelId] = useState<string | null>(null);
@@ -62,13 +65,15 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
         pageSize: PAGE_SIZE,
         keywords: debounced || undefined,
         status: status === '' ? undefined : Number(status),
+        onlyMine,
+        onlyMyService,
       });
       setRows(data.list ?? []);
       setTotal(data.total ?? 0);
     } finally {
       setLoading(false);
     }
-  }, [pageNum, debounced, status]);
+  }, [pageNum, debounced, status, onlyMine, onlyMyService]);
 
   useEffect(() => {
     void load();
@@ -146,6 +151,20 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
               value={keyword}
             />
           </div>
+          <Button
+            aria-pressed={onlyMine}
+            onClick={() => { setPageNum(1); setRecordScope((current) => current === 'created' ? 'all' : 'created'); }}
+            variant={onlyMine ? 'primary' : 'secondary'}
+          >
+            我的开单
+          </Button>
+          <Button
+            aria-pressed={onlyMyService}
+            onClick={() => { setPageNum(1); setRecordScope((current) => current === 'served' ? 'all' : 'served'); }}
+            variant={onlyMyService ? 'primary' : 'secondary'}
+          >
+            我的服务记录
+          </Button>
           <Select className="lg:w-36" onChange={(e) => setStatus(e.target.value)} value={status}>
             <option value="">全部状态</option>
             <option value={0}>挂单</option>
@@ -173,6 +192,7 @@ export function OrderRecords({ refreshKey }: { refreshKey: number }) {
       <OrderDetailDrawer
         canCancel={hasPermission('biz:order:cancel')}
         canRefund={hasPermission('biz:order:refund')}
+        canEditStaff={hasPermission('biz:order:staff-edit')}
         id={detailId}
         onClose={() => setDetailId(null)}
         onCancel={(id) => setCancelId(id)}

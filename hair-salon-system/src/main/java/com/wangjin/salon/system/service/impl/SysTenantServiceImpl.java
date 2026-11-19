@@ -92,7 +92,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
             8L, 9L, 91L, 92L, 93L, 94L,
             19L, 201L, 202L,
             210L, 211L, 212L, 213L, 214L, 215L, 216L,
-            10L, 101L, 102L, 103L, 104L, 105L
+            10L, 101L, 102L, 103L, 104L, 105L, 217L
     );
     private static final List<Long> STORE_STAFF_MENU_IDS = List.of(8L, 10L, 101L, 102L, 103L, 104L);
 
@@ -217,6 +217,7 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
         SysRole role = new SysRole();
         role.setName(name);
         role.setCode(code);
+        role.setOrderStaffType(RoleCodes.STORE_STAFF.getCode().equals(code) ? "STAFF" : "NONE");
         role.setSort(sort);
         role.setStatus(StatusEnum.ENABLE.getValue());
         role.setDataScope(dataScope);

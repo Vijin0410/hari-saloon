@@ -14,6 +14,8 @@ public class RolePageVO {
     private String name;
     @Schema(description = "角色编码")
     private String code;
+    @Schema(description = "开单默认身份（NONE=默认服务人员 STAFF=服务人员 ASSISTANT=助理）")
+    private String orderStaffType;
     @Schema(description = "排序（升序）")
     private Integer sort;
     @Schema(description = "状态（1启用 0禁用）")

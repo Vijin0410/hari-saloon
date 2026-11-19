@@ -2,6 +2,7 @@ package com.wangjin.salon.system.model.form;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
 @Schema(description = "角色表单")
@@ -18,6 +19,11 @@ public class RoleForm {
     @Schema(description = "角色编码")
     @NotBlank(message = "角色编码不能为空")
     private String code;
+
+    @Schema(description = "开单默认身份（NONE=默认服务人员 STAFF=服务人员 ASSISTANT=助理）")
+    @NotBlank(message = "开单默认身份不能为空")
+    @Pattern(regexp = "^(NONE|STAFF|ASSISTANT)$", message = "开单默认身份不正确")
+    private String orderStaffType = "NONE";
 
     @Schema(description = "排序（升序）")
     private Integer sort;

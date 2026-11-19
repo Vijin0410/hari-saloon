@@ -62,6 +62,7 @@ function defaultRoleValues(): RoleFormValues {
   return {
     name: '',
     code: '',
+    orderStaffType: 'NONE',
     sort: 0,
     status: 1,
     dataScope: 1,
@@ -74,6 +75,7 @@ function toRoleFormValues(payload: RoleFormPayload): RoleFormValues {
     id: payload.id,
     name: payload.name ?? '',
     code: payload.code ?? '',
+    orderStaffType: payload.orderStaffType ?? 'NONE',
     sort: normalizeNumber(payload.sort, 0),
     status: normalizeNumber(payload.status, 1) as StatusValue,
     dataScope: normalizeNumber(payload.dataScope, 1) as RoleFormValues['dataScope'],
@@ -86,6 +88,7 @@ function toRolePayload(values: RoleFormValues): RoleFormPayload {
     id: values.id,
     name: values.name.trim(),
     code: values.code.trim(),
+    orderStaffType: values.orderStaffType,
     sort: Number(values.sort),
     status: values.status,
     dataScope: values.dataScope,
@@ -238,6 +241,18 @@ function RoleFormDialog({
             </Field>
           </div>
 
+          <Field
+            error={errors.orderStaffType?.message}
+            label="开单默认身份"
+            required
+            hint="当前登录用户默认作为服务人员，明确设为助理时带入助理栏。"
+          >
+            <Select invalid={Boolean(errors.orderStaffType)} {...register('orderStaffType')}>
+              <option value="NONE">默认服务人员</option>
+              <option value="STAFF">服务人员</option>
+              <option value="ASSISTANT">助理</option>
+            </Select>
+          </Field>
           <Field error={errors.dataScope?.message} label="数据范围" required>
             <Select
               invalid={Boolean(errors.dataScope)}
@@ -623,6 +638,7 @@ export function RoleManagement() {
       render: (r) => <span className="font-medium text-salon-ink dark:text-white">{r.name}</span>,
     },
     { title: '编码', render: (r) => r.code },
+    { title: '开单默认身份', render: (r) => r.orderStaffType === 'STAFF' ? '服务人员' : r.orderStaffType === 'ASSISTANT' ? '助理' : '默认服务人员' },
     { title: '排序', render: (r) => r.sort ?? 0 },
     {
       title: '数据范围',

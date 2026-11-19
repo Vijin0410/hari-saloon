@@ -71,6 +71,7 @@ export interface RolePageVO {
   id: EntityId;
   name: string;
   code: string;
+  orderStaffType?: 'NONE' | 'STAFF' | 'ASSISTANT';
   sort?: number;
   status?: StatusValue;
   status_text?: string;
@@ -81,6 +82,7 @@ export interface RoleFormPayload {
   id?: EntityId;
   name: string;
   code: string;
+  orderStaffType?: 'NONE' | 'STAFF' | 'ASSISTANT';
   sort?: number;
   status?: StatusValue;
   dataScope?: DataScopeValue;

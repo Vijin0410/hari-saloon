@@ -73,6 +73,9 @@ public class RefundPointsIntegrationTest {
         }
         @Bean PlatformTransactionManager transactionManager(DataSource ds) { return new DataSourceTransactionManager(ds); }
         @Bean SalonStorePermissionService storePermission() { return mock(SalonStorePermissionService.class); }
+        @Bean com.wangjin.salon.service.service.OrderStaffService orderStaffService() {
+            return mock(com.wangjin.salon.service.service.OrderStaffService.class);
+        }
         @Bean MemberLevelService levelService() { return mock(MemberLevelService.class); }
         @Bean TenantPayConfigService payConfigService() {
             TenantPayConfigService service = mock(TenantPayConfigService.class);

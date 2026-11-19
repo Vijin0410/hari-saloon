@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS sys_role (
     name          varchar(64)  NOT NULL,
     code          varchar(64)  NOT NULL,
     sort          int4         DEFAULT 0,
+    order_staff_type varchar(16) NOT NULL DEFAULT 'NONE' CHECK (order_staff_type IN ('NONE', 'STAFF', 'ASSISTANT')),
     status        int4         DEFAULT 1,
     data_scope    int4         DEFAULT 1,
     dept_ids      varchar(512),
@@ -124,6 +125,7 @@ COMMENT ON TABLE sys_role IS '角色';
 COMMENT ON COLUMN sys_role.id IS '角色ID';
 COMMENT ON COLUMN sys_role.name IS '角色名称';
 COMMENT ON COLUMN sys_role.code IS '角色编码（租户内唯一）';
+COMMENT ON COLUMN sys_role.order_staff_type IS '开单默认身份（NONE=默认服务人员 STAFF=服务人员 ASSISTANT=助理）';
 COMMENT ON COLUMN sys_role.sort IS '排序（升序）';
 COMMENT ON COLUMN sys_role.status IS '状态（1=启用 0=禁用）';
 COMMENT ON COLUMN sys_role.data_scope IS '数据权限范围（见 DataScopeEnum：1全部 2本部门及子 3本部门 4仅本人 5自定义）';
@@ -1015,6 +1017,52 @@ COMMENT ON COLUMN salon_order_item.create_time IS '创建时间';
 COMMENT ON COLUMN salon_order_item.update_by IS '更新人ID';
 COMMENT ON COLUMN salon_order_item.update_time IS '更新时间';
 COMMENT ON COLUMN salon_order_item.deleted IS '逻辑删除（0=未删除 1=已删除）';
+
+CREATE TABLE IF NOT EXISTS salon_order_staff_change (
+    id int8 NOT NULL PRIMARY KEY,
+    tenant_id int8 NOT NULL,
+    order_id int8 NOT NULL,
+    order_item_id int8 NOT NULL,
+    item_name varchar(255) NOT NULL,
+    before_staff_id int8,
+    after_staff_id int8 NOT NULL,
+    before_assistant_id int8,
+    after_assistant_id int8,
+    before_staff_name varchar(128),
+    after_staff_name varchar(128),
+    before_assistant_name varchar(128),
+    after_assistant_name varchar(128),
+    reason varchar(255) NOT NULL,
+    operator_name varchar(128),
+    create_by int8,
+    create_time timestamp,
+    update_by int8,
+    update_time timestamp,
+    deleted int4 DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_salon_order_staff_change_order
+    ON salon_order_staff_change (tenant_id, order_id, create_time DESC);
+COMMENT ON TABLE salon_order_staff_change IS '订单服务人员更正记录';
+COMMENT ON COLUMN salon_order_staff_change.id IS '更正记录ID';
+COMMENT ON COLUMN salon_order_staff_change.tenant_id IS '租户ID';
+COMMENT ON COLUMN salon_order_staff_change.order_id IS '订单ID';
+COMMENT ON COLUMN salon_order_staff_change.order_item_id IS '订单明细ID';
+COMMENT ON COLUMN salon_order_staff_change.item_name IS '明细名称快照';
+COMMENT ON COLUMN salon_order_staff_change.before_staff_id IS '原主服务人员ID';
+COMMENT ON COLUMN salon_order_staff_change.after_staff_id IS '新主服务人员ID';
+COMMENT ON COLUMN salon_order_staff_change.before_assistant_id IS '原助理ID';
+COMMENT ON COLUMN salon_order_staff_change.after_assistant_id IS '新助理ID';
+COMMENT ON COLUMN salon_order_staff_change.before_staff_name IS '原主服务人员姓名快照';
+COMMENT ON COLUMN salon_order_staff_change.after_staff_name IS '新主服务人员姓名快照';
+COMMENT ON COLUMN salon_order_staff_change.before_assistant_name IS '原助理姓名快照';
+COMMENT ON COLUMN salon_order_staff_change.after_assistant_name IS '新助理姓名快照';
+COMMENT ON COLUMN salon_order_staff_change.reason IS '更正原因';
+COMMENT ON COLUMN salon_order_staff_change.operator_name IS '操作人姓名快照';
+COMMENT ON COLUMN salon_order_staff_change.create_by IS '操作人ID';
+COMMENT ON COLUMN salon_order_staff_change.create_time IS '更正时间';
+COMMENT ON COLUMN salon_order_staff_change.update_by IS '更新人ID';
+COMMENT ON COLUMN salon_order_staff_change.update_time IS '更新时间';
+COMMENT ON COLUMN salon_order_staff_change.deleted IS '逻辑删除（0=未删除 1=已删除）';
 
 -- 订单支付明细（组合支付，每方式一行）
 CREATE TABLE IF NOT EXISTS salon_order_payment (

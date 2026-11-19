@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Minus, Plus, Scissors, Search, ShoppingBag, Trash2, UserRound, X } from 'lucide-react';
 import { orderApi } from '@/shared/api/modules/orderApi';
 import { memberApi, memberLevelApi } from '@/shared/api/modules/memberApi';
-import { storeApi, userApi } from '@/shared/api/modules/systemApi';
+import { storeApi } from '@/shared/api/modules/systemApi';
 import { serviceItemApi, serviceCategoryApi } from '@/shared/api/modules/serviceApi';
 import { goodsApi, goodsCategoryApi } from '@/shared/api/modules/goodsApi';
 import type {
@@ -23,6 +23,10 @@ import { ConfirmDialog } from '@/shared/ui/ConfirmDialog';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { Input } from '@/shared/ui/Input';
 import { Select } from '@/shared/ui/Select';
+import { Field } from '@/shared/ui/Field';
+import { OrderStaffBatchDialog } from './OrderStaffBatchDialog';
+import { assignStaff, defaultStaffAssignment, staffAssignmentError } from '@/features/order/model/orderStaff';
+import type { OrderStaffOption } from '@/features/order/model/orderTypes';
 import { formatCurrency } from '@/shared/lib/format';
 import { useAuthStore } from '@/store/useAuthStore';
 import { OrderPayDialog } from './OrderPayDialog';
@@ -45,7 +49,7 @@ interface CartItem {
   assistantId: string;
 }
 
-type StaffOption = { value: string; label: string };
+type StaffOption = { value: string; label: string; defaultType?: OrderStaffOption['defaultType'] };
 
 function toCartItem(
   itemType: number,
@@ -76,6 +80,7 @@ function toCartItem(
 export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => void }) {
   const pointsEnabled = useMemberSettingsStore((s) => s.pointsEnabled);
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const currentUserId = useAuthStore((s) => s.user?.id);
   const [storeId, setStoreId] = useState('');
   const [stores, setStores] = useState<Array<{ id: string; name: string }>>([]);
   const [member, setMember] = useState<MemberPageVO | null>(null);
@@ -84,6 +89,8 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   const [searchingMember, setSearchingMember] = useState(false);
   const [levels, setLevels] = useState<MemberLevelOption[]>([]);
   const [staffOptions, setStaffOptions] = useState<StaffOption[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffError, setStaffError] = useState('');
   const [services, setServices] = useState<ServiceItemOption[]>([]);
   const [goodsList, setGoodsList] = useState<GoodsOption[]>([]);
   const [serviceCategories, setServiceCategories] = useState<Array<{ id: string; name: string }>>(
@@ -96,6 +103,8 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   const [cart, setCart] = useState<CartItem[]>([]);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [payOpen, setPayOpen] = useState(false);
+  const [staffBatchOpen, setStaffBatchOpen] = useState(false);
+  const [staffValidationShown, setStaffValidationShown] = useState(false);
   const [pending, setPending] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<OrderPageVO[]>([]);
   const [cancelOrder, setCancelOrder] = useState<OrderPageVO | null>(null);
@@ -114,12 +123,6 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       .options()
       .then(setLevels)
       .catch(() => setLevels([]));
-    userApi
-      .options()
-      .then((opts) =>
-        setStaffOptions(opts.map((o) => ({ value: String(o.value), label: o.label }))),
-      )
-      .catch(() => setStaffOptions([]));
     serviceItemApi
       .options()
       .then(setServices)
@@ -138,7 +141,25 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       .catch(() => setGoodsCategories([]));
   }, []);
 
-  // 门店默认取第一家
+  // 当前门店的有效人员及开单身份。
+  useEffect(() => {
+    setStaffValidationShown(false);
+    setStaffOptions([]);
+    if (!storeId) return;
+    let active = true;
+    setStaffLoading(true);
+    setStaffError('');
+    orderApi.staffOptions(storeId)
+      .then((options) => {
+        if (active) setStaffOptions(options.map((option) => ({
+          value: String(option.id), label: option.name, defaultType: option.defaultType,
+        })));
+      })
+      .catch((cause: unknown) => { if (active) setStaffError(cause instanceof Error ? cause.message : '人员加载失败，请重新选择门店'); })
+      .finally(() => { if (active) setStaffLoading(false); });
+    return () => { active = false; };
+  }, [storeId]);
+
   useEffect(() => {
     if (!storeId && stores.length > 0) {
       setStoreId(stores[0].id);
@@ -225,13 +246,17 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   }, [loadPending]);
 
   function addItem(itemType: number, opt: ServiceItemOption | GoodsOption): void {
+    if (staffLoading || staffError) return;
     setCart((prev) => {
       const key = `${itemType}-${opt.id}`;
       const exists = prev.find((i) => i.key === key);
       if (exists) {
         return prev.map((i) => (i.key === key ? { ...i, quantity: i.quantity + 1 } : i));
       }
-      return [...prev, toCartItem(itemType, opt, member != null)];
+      return [...prev, {
+        ...toCartItem(itemType, opt, member != null),
+        ...defaultStaffAssignment(currentUserId, staffOptions.map((option) => ({ id: option.value, name: option.label, defaultType: option.defaultType }))),
+      }];
     });
   }
 
@@ -240,6 +265,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   }
 
   function removeItem(key: string): void {
+    if (cart.length === 1) setStaffValidationShown(false);
     setCart((prev) => prev.filter((i) => i.key !== key));
   }
 
@@ -295,6 +321,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
         await orderApi.save(buildPayload());
       }
       setCart([]);
+      setStaffValidationShown(false);
       setMember(null);
       setEditingOrderId(null);
       onOrderChanged();
@@ -305,6 +332,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   }
 
   async function handlePay(payload: OrderPayPayload): Promise<void> {
+    assertStaffReady();
     if (!storeId || cart.length === 0) {
       return;
     }
@@ -317,6 +345,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       await orderApi.pay(id, payload);
     }
     setCart([]);
+    setStaffValidationShown(false);
     setMember(null);
     setEditingOrderId(null);
     onOrderChanged();
@@ -325,6 +354,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
 
   /** 扫码收款前置：落单（改挂单/新开单）+ 预下单出码，结算由回调驱动 */
   async function handlePrepay(payload: OrderPayPayload): Promise<OrderPrepayVO> {
+    assertStaffReady();
     if (!storeId || cart.length === 0) {
       throw new Error('未选择商品');
     }
@@ -340,6 +370,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
   /** 扫码支付确认后清理（轮询回调） */
   async function handleScanPaid(): Promise<void> {
     setCart([]);
+    setStaffValidationShown(false);
     setMember(null);
     setEditingOrderId(null);
     onOrderChanged();
@@ -364,6 +395,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       const detail = await orderApi.detail(id);
       const nextMember = detail.memberId ? await memberApi.detail(detail.memberId) : null;
       setEditingOrderId(String(detail.id));
+      setStaffValidationShown(false);
       setStoreId(String(detail.storeId ?? ''));
       setMember(nextMember);
       setCart(
@@ -396,6 +428,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
       await orderApi.cancel(cancelOrder.id);
       if (editingOrderId === String(cancelOrder.id)) {
         setCart([]);
+        setStaffValidationShown(false);
         setMember(null);
         setEditingOrderId(null);
       }
@@ -412,6 +445,28 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
 
   const canOperate = hasPermission('biz:order:add') || hasPermission('biz:order:pay');
   const categoryOptions = pickTab === 'service' ? serviceCategories : goodsCategories;
+  const orderStaffOptions: OrderStaffOption[] = staffOptions.map((option) => ({
+    id: option.value, name: option.label, defaultType: option.defaultType,
+  }));
+  const assignmentErrors = cart.map((item) => staffAssignmentError(item, orderStaffOptions));
+  const staffReady = !staffLoading && !staffError && assignmentErrors.every((error) => !error);
+  function assertStaffReady(): void {
+    if (!staffReady) {
+      setStaffValidationShown(true);
+      throw new Error(staffError || '请补齐服务人员并检查助理分配，可使用“统一服务人员”');
+    }
+  }
+  function openCheckout(): void {
+    setStaffValidationShown(true);
+    if (staffReady) setPayOpen(true);
+  }
+  const staffNotice = staffError || (staffValidationShown && !staffReady && !staffLoading
+    ? `有${assignmentErrors.filter(Boolean).length}条明细需要补齐服务人员或调整助理，可逐项修改或使用“统一服务人员”`
+    : '');
+  const batchStaffButton = (
+    <Button variant="secondary" disabled={!canOperate || !storeId || cart.length === 0 || staffLoading || Boolean(staffError)}
+      onClick={() => setStaffBatchOpen(true)}>统一服务人员</Button>
+  );
 
   return (
     <div className="grid items-start gap-4 pb-24 md:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[250px_minmax(0,1fr)_300px] xl:pb-0">
@@ -648,23 +703,22 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                         />
                       </div>
                     </label>
-                    <label className="text-xs text-zinc-500">
-                      服务人员
+                    <Field label="服务人员">
                       <Select
                         className="mt-1"
+                        invalid={staffValidationShown && Boolean(staffAssignmentError(item, orderStaffOptions))}
                         onChange={(e) => updateItem(item.key, { staffId: e.target.value })}
                         value={item.staffId}
                       >
-                        <option value="">暂无</option>
+                        <option value="">请选择服务人员</option>
                         {staffOptions.map((s) => (
                           <option key={s.value} value={s.value}>
                             {s.label}
                           </option>
                         ))}
                       </Select>
-                    </label>
-                    <label className="text-xs text-zinc-500">
-                      助理
+                    </Field>
+                    <Field label="助理（选填）">
                       <Select
                         className="mt-1"
                         onChange={(e) => updateItem(item.key, { assistantId: e.target.value })}
@@ -677,7 +731,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                           </option>
                         ))}
                       </Select>
-                    </label>
+                    </Field>
                   </div>
                 </div>
               ))}
@@ -705,7 +759,9 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
               </div>
             </div>
           </div>
-          <div className="mt-3 flex justify-end gap-2">
+          {staffNotice ? <p role="alert" className="mt-3 text-xs text-rose-600">{staffNotice}</p> : null}
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
+            {batchStaffButton}
             <Button
               disabled={!canOperate || !storeId || cart.length === 0}
               loading={pending}
@@ -715,8 +771,8 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
               挂单
             </Button>
             <Button
-              disabled={!hasPermission('biz:order:pay') || !storeId || cart.length === 0}
-              onClick={() => setPayOpen(true)}
+              disabled={!hasPermission('biz:order:pay') || !storeId || cart.length === 0 || staffLoading}
+              onClick={openCheckout}
             >
               结算
             </Button>
@@ -774,6 +830,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                 <button
                   className="group flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-salon-line px-3 py-3 text-left text-sm transition hover:border-salon-accent hover:bg-salon-accent/5 dark:border-zinc-800"
                   key={String(s.id)}
+                  disabled={!storeId || staffLoading || Boolean(staffError)}
                   onClick={() => addItem(1, s)}
                   type="button"
                 >
@@ -799,6 +856,7 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
                 <button
                   className="group flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border border-salon-line px-3 py-3 text-left text-sm transition hover:border-salon-accent hover:bg-salon-accent/5 dark:border-zinc-800"
                   key={String(g.id)}
+                  disabled={!storeId || staffLoading || Boolean(staffError)}
                   onClick={() => addItem(2, g)}
                   type="button"
                 >
@@ -826,7 +884,9 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
             {formatCurrency(totals.payable)}
           </p>
         </div>
-        <div className="flex gap-2">
+        {staffNotice ? <p role="alert" className="order-last w-full text-xs text-rose-600">{staffNotice}</p> : null}
+        <div className="flex flex-wrap gap-2">
+          {batchStaffButton}
           <Button
             disabled={!canOperate || !storeId || cart.length === 0}
             loading={pending}
@@ -836,8 +896,8 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
             挂单
           </Button>
           <Button
-            disabled={!hasPermission('biz:order:pay') || !storeId || cart.length === 0}
-            onClick={() => setPayOpen(true)}
+            disabled={!hasPermission('biz:order:pay') || !storeId || cart.length === 0 || staffLoading}
+            onClick={openCheckout}
           >
             去结算
           </Button>
@@ -852,6 +912,15 @@ export function CashierWorkbench({ onOrderChanged }: { onOrderChanged: () => voi
         open={payOpen}
         payable={totals.payable}
       />
+      {staffBatchOpen ? (
+        <OrderStaffBatchDialog options={orderStaffOptions}
+          initialValues={defaultStaffAssignment(currentUserId, orderStaffOptions)}
+          onClose={() => setStaffBatchOpen(false)}
+          onConfirm={(values) => {
+            setCart((rows) => assignStaff(rows, values.staffId, values.assistantId));
+            setStaffBatchOpen(false);
+          }} />
+      ) : null}
       <ConfirmDialog
         danger
         open={cancelOrder !== null}

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { orderApi } from '@/shared/api/modules/orderApi';
-import type { OrderDetailVO } from '@/features/order/model/orderTypes';
+import type { OrderDetailVO, OrderStaffChangeVO } from '@/features/order/model/orderTypes';
 import {
   REFUND_CHANNEL_STATUS_LABEL,
   REFUND_STATUS_LABEL,
@@ -14,6 +14,7 @@ import { StatCard } from '@/shared/ui/StatCard';
 import { formatCurrency } from '@/shared/lib/format';
 import { getDictText } from '@/shared/lib/dict';
 import { OrderRefundDialog } from './OrderRefundDialog';
+import { OrderStaffCorrectionDialog } from './OrderStaffCorrectionDialog';
 
 function statusBadge(status: number, text?: string): ReactNode {
   const label = getDictText(text);
@@ -46,6 +47,7 @@ export function OrderDetailDrawer({
   onRefund,
   canCancel,
   canRefund,
+  canEditStaff,
 }: {
   id: string | null;
   onClose: () => void;
@@ -53,12 +55,20 @@ export function OrderDetailDrawer({
   onRefund?: () => void;
   canCancel?: boolean;
   canRefund?: boolean;
+  canEditStaff?: boolean;
 }) {
   const [detail, setDetail] = useState<OrderDetailVO | null>(null);
   const [loading, setLoading] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
+  const [staffCorrectionOpen, setStaffCorrectionOpen] = useState(false);
+  const [staffChanges, setStaffChanges] = useState<OrderStaffChangeVO[]>([]);
+  const [staffChangesError, setStaffChangesError] = useState('');
 
   const load = (orderId: string): void => {
+    setStaffChangesError('');
+    orderApi.staffChanges(orderId).then(setStaffChanges).catch(() => {
+      setStaffChangesError('人员更正记录加载失败，请重新打开订单');
+    });
     orderApi
       .detail(orderId)
       .then(setDetail)
@@ -66,12 +76,21 @@ export function OrderDetailDrawer({
   };
 
   useEffect(() => {
+    setStaffChanges([]);
+    setStaffChangesError('');
+    setStaffCorrectionOpen(false);
+    setRefundOpen(false);
     if (!id) {
       setDetail(null);
       return;
     }
     let active = true;
     setLoading(true);
+    orderApi.staffChanges(id).then((data) => {
+      if (active) setStaffChanges(data);
+    }).catch(() => {
+      if (active) setStaffChangesError('人员更正记录加载失败，请重新打开订单');
+    });
     orderApi
       .detail(id)
       .then((d) => {
@@ -103,6 +122,9 @@ export function OrderDetailDrawer({
     <Drawer
       footer={
         <>
+          {canEditStaff && detail && [1, 2, 3].includes(detail.status) ? (
+            <Button onClick={() => setStaffCorrectionOpen(true)} variant="secondary">更正人员</Button>
+          ) : null}
           {detail && (detail.status === 1 || detail.status === 2) && canRefund && (refundable > 0 || (detail.pointDeductAmount > 0 && detail.receivedAmount === 0)) ? (
             <Button onClick={() => setRefundOpen(true)} variant="secondary">
               退款
@@ -199,6 +221,30 @@ export function OrderDetailDrawer({
               ))}
               {detail.items?.length ? null : <div className="text-sm text-zinc-400">暂无明细</div>}
             </div>
+          </Card>
+          <Card title={`人员更正记录（${staffChanges.length} 条）`}>
+            {staffChangesError ? <p role="alert" className="text-sm text-rose-600">{staffChangesError}</p> : (
+              <div className="space-y-3">
+                {staffChanges.map((change) => (
+                  <div key={String(change.id)} className="space-y-2 rounded-md border border-salon-line p-3 text-sm dark:border-zinc-800">
+                    <p className="font-medium">{change.itemName}</p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                        <p className="text-xs text-zinc-500">服务人员</p>
+                        <p className="mt-1">{change.beforeStaffName || '暂无'} → {change.afterStaffName || '暂无'}</p>
+                      </div>
+                      <div className="rounded-md bg-stone-50 p-2 dark:bg-zinc-900">
+                        <p className="text-xs text-zinc-500">助理</p>
+                        <p className="mt-1">{change.beforeAssistantName || '暂无'} → {change.afterAssistantName || '暂无'}</p>
+                      </div>
+                    </div>
+                    <p className="break-words text-zinc-600 dark:text-zinc-400">{change.reason}</p>
+                    <p className="text-xs text-zinc-500">{change.operatorName || '暂无'} · {change.createTime || '暂无'}</p>
+                  </div>
+                ))}
+                {staffChanges.length ? null : <p className="text-sm text-zinc-400">暂无记录</p>}
+              </div>
+            )}
           </Card>
           <Card title="支付方式">
             <div className="space-y-1 text-sm">
@@ -302,6 +348,12 @@ export function OrderDetailDrawer({
         }}
         open={refundOpen}
         order={detail}
+      />
+      <OrderStaffCorrectionDialog
+        open={staffCorrectionOpen}
+        detail={detail}
+        onClose={() => setStaffCorrectionOpen(false)}
+        onSaved={() => { if (id) load(id); }}
       />
     </Drawer>
   );

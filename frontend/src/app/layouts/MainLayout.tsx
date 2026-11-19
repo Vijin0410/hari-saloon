@@ -36,6 +36,8 @@ import { cn } from '@/shared/lib/cn';
 import { useAppStore } from '@/store/useAppStore';
 import { useMemberSettingsStore } from '@/store/useMemberSettingsStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useTenantStore } from '@/store/useTenantStore';
+import { TenantSwitcher } from '@/features/system/ui/TenantSwitcher';
 import type { MetaInfo, RouteVO } from '@/features/system/model/systemTypes';
 
 /**
@@ -381,15 +383,17 @@ function SidebarNav({ loadingRoutes, routeError, routes }: SidebarNavProps) {
 export function MainLayout() {
   const settingsError = useMemberSettingsStore((s) => s.error);
   const currentUser = useAuthStore((s) => s.user);
+  const selectedTenantId = useTenantStore((s) => s.tenantId);
+  const isRoot = currentUser?.roles.includes('ROOT') ?? false;
   useEffect(() => {
     useMemberSettingsStore.setState({ pointsEnabled: false, error: '' });
-    if (!currentUser) return;
+    if (!currentUser || (isRoot && !selectedTenantId)) return;
     const refresh = () => { void useMemberSettingsStore.getState().refresh(); };
     refresh();
     window.addEventListener('focus', refresh);
     const timer = window.setInterval(refresh, 30000);
     return () => { window.removeEventListener('focus', refresh); window.clearInterval(timer); };
-  }, [currentUser]);
+  }, [currentUser, isRoot, selectedTenantId]);
   const navigate = useNavigate();
   const theme = useAppStore((state) => state.theme);
   const toggleTheme = useAppStore((state) => state.toggleTheme);
@@ -400,6 +404,9 @@ export function MainLayout() {
   const [routeError, setRouteError] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const location = useLocation();
+  const isPlatformPage = location.pathname.startsWith('/system/tenants')
+    || location.pathname.startsWith('/system/menus');
+  const needsTenant = isRoot && !selectedTenantId && !isPlatformPage;
   const roleKey = user?.roles.join('|') ?? '';
   const permissionKey = user?.perms.join('|') ?? '';
 
@@ -474,7 +481,7 @@ export function MainLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 border-b border-salon-line bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/90">
-          <div className="flex h-16 items-center justify-between gap-3 px-4 lg:px-6">
+          <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
             <div className="flex items-center gap-3">
               <Button
                 aria-label="打开导航菜单"
@@ -491,7 +498,8 @@ export function MainLayout() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              {isRoot ? <TenantSwitcher /> : null}
               {user?.avatar ? (
                 <img
                   alt={user.nickname || user.username || '头像'}
@@ -526,8 +534,15 @@ export function MainLayout() {
 
         <main className="flex-1 p-4 lg:p-6">
           {settingsError ? <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">{settingsError}<Button size="sm" variant="secondary" onClick={() => void useMemberSettingsStore.getState().refresh()}>重试</Button></div> : null}
-          <Suspense fallback={<PageLoading />}>
-            <Outlet />
+          <Suspense key={selectedTenantId || 'platform'} fallback={<PageLoading />}>
+            {needsTenant ? (
+              <div className="mx-auto mt-12 max-w-lg rounded-lg border border-salon-line bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
+                <Building2 className="mx-auto mb-4 size-10 text-salon-accent" />
+                <p className="text-lg font-semibold">请选择要管理的租户</p>
+                <p className="mt-2 text-sm text-zinc-500">通过顶部租户下拉进入工作空间，会员、门店和订单等数据将统一切换。</p>
+                <Button className="mt-5" variant="secondary" onClick={() => navigate('/system/tenants')}>管理租户</Button>
+              </div>
+            ) : <Outlet />}
           </Suspense>
         </main>
       </div>

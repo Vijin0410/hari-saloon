@@ -8,6 +8,9 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.wangjin.common.constant.SystemConstants;
+import com.wangjin.common.exception.BizException;
+import com.wangjin.common.security.util.SecurityUtils;
+import com.wangjin.common.security.context.UserContext;
 import com.wangjin.common.enums.DataScopeEnum;
 import com.wangjin.common.enums.StatusEnum;
 import com.wangjin.common.web.model.Option;
@@ -40,6 +43,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * 租户：CRUD + 开通时初始化预置角色 / 管理员（可选联合创建初始门店）。
@@ -261,7 +266,10 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
     @Override
     public List<Option<Long>> listOptions() {
         return this.list(new LambdaQueryWrapper<SysTenant>()
+                        .eq(!SecurityUtils.isRoot(), SysTenant::getId, UserContext.getTenantId())
                         .eq(SysTenant::getStatus, StatusEnum.ENABLE.getValue())
+                        .and(w -> w.isNull(SysTenant::getExpireTime)
+                                .or().gt(SysTenant::getExpireTime, LocalDateTime.now(ZoneId.of("Asia/Shanghai"))))
                         .orderByAsc(SysTenant::getId))
                 .stream()
                 .map(t -> new Option<>(t.getId(), t.getName()))
@@ -287,5 +295,17 @@ public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenant
                 .eq(SysTenant::getCode, code)
                 .eq(SysTenant::getStatus, StatusEnum.ENABLE.getValue())
                 .last("LIMIT 1"));
+    }
+
+    @Override
+    public void requireAvailableTenant(Long tenantId) {
+        SysTenant tenant = this.getById(tenantId);
+        if (tenant == null || !StatusEnum.ENABLE.getValue().equals(tenant.getStatus())) {
+            throw new BizException("租户不存在或已禁用");
+        }
+        if (tenant.getExpireTime() != null
+                && !tenant.getExpireTime().isAfter(LocalDateTime.now(ZoneId.of("Asia/Shanghai")))) {
+            throw new BizException("租户已到期");
+        }
     }
 }

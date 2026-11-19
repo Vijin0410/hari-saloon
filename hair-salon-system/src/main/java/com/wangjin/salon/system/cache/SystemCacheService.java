@@ -5,7 +5,7 @@ package com.wangjin.salon.system.cache;
  */
 public interface SystemCacheService {
 
-    /** 刷新字典缓存（字典全局共享，key 不含 tenantId）。 */
+    /** 刷新通用字典和各租户覆盖缓存，覆盖键包含 tenantId。 */
     void refreshDictCache();
 
     void refreshUserCache();

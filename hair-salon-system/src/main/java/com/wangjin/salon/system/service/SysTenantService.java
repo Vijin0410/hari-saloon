@@ -12,6 +12,9 @@ import java.util.List;
 
 public interface SysTenantService extends IService<SysTenant> {
 
+    /** 校验切换目标存在、启用且未到期；由请求拦截器调用。 */
+    void requireAvailableTenant(Long tenantId);
+
     Page<TenantPageVO> getTenantPage(TenantPageQuery query);
 
     TenantForm getTenantForm(Long id);

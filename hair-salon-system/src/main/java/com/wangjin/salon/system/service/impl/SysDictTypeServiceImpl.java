@@ -45,10 +45,8 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
 
     @Override
     public Page<DictTypePageVO> getDictTypePage(DictTypePageQuery queryParams) {
-        // 字典类型通用（默认租户1）+ 租户覆盖；ROOT 可按 tenantId 筛选，其余锁定本租户防混排/越权
-        if (!SecurityUtils.isRoot()) {
-            queryParams.setTenantId(SecurityUtils.getTenantId());
-        }
+        // 管理列表固定在操作租户，避免跨租户混排。
+        queryParams.setTenantId(SecurityUtils.getTenantId());
         Page<SysDictType> page = this.page(
                 new Page<>(queryParams.getPageNum(), queryParams.getPageSize()),
                 new LambdaQueryWrapper<SysDictType>()
@@ -63,7 +61,8 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
 
     @Override
     public DictTypeForm getDictTypeForm(Long id) {
-        SysDictType entity = this.getById(id);
+        SysDictType entity = this.getOne(new LambdaQueryWrapper<SysDictType>()
+                .eq(SysDictType::getId, id).eq(SysDictType::getTenantId, SecurityUtils.getTenantId()));
         Assert.notNull(entity, "字典类型不存在");
         return dictTypeConverter.entity2Form(entity);
     }
@@ -83,11 +82,13 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
         Assert.isTrue(SecurityUtils.isRoot(), "字典为全局共享数据，仅系统管理员可维护");
         SysDictType old = this.getById(id);
         Assert.notNull(old, "字典类型不存在");
+        Assert.isTrue(SecurityUtils.getTenantId().equals(old.getTenantId()), "字典类型不属于当前租户");
         SysDictType entity = dictTypeConverter.form2Entity(form);
         entity.setId(id);
         boolean ok = this.updateById(entity);
         if (ok && !StrUtil.equals(old.getCode(), form.getCode())) {
             dictService.update(new LambdaUpdateWrapper<SysDict>()
+                    .eq(SysDict::getTenantId, old.getTenantId())
                     .eq(SysDict::getTypeCode, old.getCode())
                     .set(SysDict::getTypeCode, form.getCode()));
         }
@@ -103,12 +104,17 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
         Assert.isTrue(SecurityUtils.isRoot(), "字典为全局共享数据，仅系统管理员可维护");
         Assert.isTrue(StrUtil.isNotBlank(ids), "删除数据为空");
         List<Long> idList = Arrays.stream(ids.split(",")).map(Long::parseLong).toList();
+        Assert.isTrue(this.count(new LambdaQueryWrapper<SysDictType>()
+                .in(SysDictType::getId, idList).eq(SysDictType::getTenantId, SecurityUtils.getTenantId()))
+                == idList.stream().distinct().count(), "字典类型不存在或不属于当前租户");
         List<String> codes = this.list(new LambdaQueryWrapper<SysDictType>()
                         .in(SysDictType::getId, idList)
                         .select(SysDictType::getCode))
                 .stream().map(SysDictType::getCode).toList();
         if (CollUtil.isNotEmpty(codes)) {
-            dictService.remove(new LambdaQueryWrapper<SysDict>().in(SysDict::getTypeCode, codes));
+            dictService.remove(new LambdaQueryWrapper<SysDict>()
+                    .eq(SysDict::getTenantId, SecurityUtils.getTenantId())
+                    .in(SysDict::getTypeCode, codes));
         }
         boolean ok = this.removeByIds(idList);
         if (ok) {
@@ -130,11 +136,11 @@ public class SysDictTypeServiceImpl extends ServiceImpl<SysDictTypeMapper, SysDi
 
     @Override
     public List<DictTypePageVO> listByGroupCode(String groupCode) {
-        // 非 ROOT 锁定本租户，避免通用 + 租户副本混出重复类型；ROOT 看全部
+        // 按操作租户读取，ROOT 切换后也遵循相同范围。
         List<SysDictType> list = this.list(new LambdaQueryWrapper<SysDictType>()
                 .eq(SysDictType::getGroupCode, groupCode)
                 .eq(SysDictType::getStatus, 1)
-                .eq(!SecurityUtils.isRoot(), SysDictType::getTenantId, SecurityUtils.getTenantId()));
+                .eq(SysDictType::getTenantId, SecurityUtils.getTenantId()));
         return dictTypeConverter.entity2List(list);
     }
 }

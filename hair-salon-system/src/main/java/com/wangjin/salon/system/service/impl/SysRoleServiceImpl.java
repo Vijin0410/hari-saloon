@@ -127,6 +127,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         List<Long> roleIds = Arrays.stream(ids.split(",")).map(Long::parseLong).toList();
         for (Long roleId : roleIds) {
             SysRole role = this.getById(roleId);
+            Assert.notNull(role, "角色不存在或不属于当前租户");
             if (role != null && SystemConstants.ROOT_ROLE_CODE.equals(role.getCode())) {
                 throw new IllegalArgumentException("超级管理员角色不可删除");
             }
@@ -146,11 +147,13 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
 
     @Override
     public List<Long> getRoleMenuIds(Long roleId, Integer type) {
+        Assert.notNull(this.getById(roleId), "角色不存在或不属于当前租户");
         return roleMenuService.listMenuIdsByRoleId(roleId, type);
     }
 
     @Override
     public boolean updateRoleMenus(Long roleId, Integer type, List<Long> menuIds) {
+        Assert.notNull(this.getById(roleId), "角色不存在或不属于当前租户");
         return roleMenuService.updateRoleMenus(roleId, type, menuIds);
     }
 

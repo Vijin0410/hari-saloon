@@ -57,7 +57,7 @@ export const authApi = {
     // avatar 存 objectKey，私有桶需换预签名 URL 展示
     if (user.avatar) {
       try {
-        user.avatar = await fileApi.urlByKey(user.avatar);
+        user.avatar = await fileApi.urlByKey(user.avatar, user.tenantId);
       } catch {
         user.avatar = undefined;
       }

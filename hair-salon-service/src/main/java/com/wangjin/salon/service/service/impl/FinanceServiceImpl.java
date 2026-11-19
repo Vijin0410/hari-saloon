@@ -48,7 +48,7 @@ public class FinanceServiceImpl implements FinanceService {
         if (SecurityUtils.getUserId() == null || SecurityUtils.getTenantId() == null) {
             throw new BizException("请先登录");
         }
-        Long effectiveTenantId = SecurityUtils.isRoot() ? tenantId : SecurityUtils.getTenantId();
+        Long effectiveTenantId = SecurityUtils.getTenantId();
         boolean all = SecurityUtils.isRoot() || SecurityUtils.getRoles().contains("TENANT_ADMIN");
         return financeMapper.visibleStoreOptions(effectiveTenantId, SecurityUtils.getUserId(), all);
     }
@@ -154,9 +154,7 @@ public class FinanceServiceImpl implements FinanceService {
         if (SecurityUtils.getUserId() == null || SecurityUtils.getTenantId() == null) {
             throw new BizException("请先登录");
         }
-        if (!SecurityUtils.isRoot()) {
-            query.setTenantId(SecurityUtils.getTenantId());
-        }
+        query.setTenantId(SecurityUtils.getTenantId());
 
         LocalDate today = LocalDate.now(BUSINESS_ZONE);
         if (query.getStartDate() == null) {

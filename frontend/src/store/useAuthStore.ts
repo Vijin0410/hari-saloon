@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { clearAccessToken, setAccessToken } from '@/shared/lib/authToken';
 import type { CurrentUser } from '@/features/auth/model/authTypes';
+import { useTenantStore } from '@/store/useTenantStore';
 
 interface AuthState {
   token: string | null;
@@ -23,6 +24,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       user: null,
       setSession: (token, user) => {
+        useTenantStore.getState().selectTenant('');
         setAccessToken(token);
         set({ token, user });
       },
@@ -30,6 +32,7 @@ export const useAuthStore = create<AuthState>()(
         set({ user });
       },
       clearSession: () => {
+        useTenantStore.getState().selectTenant('');
         clearAccessToken();
         set({ token: null, user: null });
       },

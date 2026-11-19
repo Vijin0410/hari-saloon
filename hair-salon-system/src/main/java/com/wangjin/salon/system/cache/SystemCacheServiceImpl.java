@@ -9,9 +9,8 @@ import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.model.entity.SysDept;
 import com.wangjin.salon.system.model.entity.SysDict;
 import com.wangjin.salon.system.model.entity.SysUser;
-import com.wangjin.salon.system.service.SysDeptService;
+import com.wangjin.salon.system.mapper.SystemCacheMapper;
 import com.wangjin.salon.system.service.SysDictService;
-import com.wangjin.salon.system.service.SysUserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -27,17 +26,14 @@ public class SystemCacheServiceImpl implements SystemCacheService {
 
     private final RedisService redisService;
     private final SysDictService dictService;
-    private final SysUserService userService;
-    private final SysDeptService deptService;
+    private final SystemCacheMapper cacheMapper;
 
     public SystemCacheServiceImpl(RedisService redisService,
                                   @Lazy SysDictService dictService,
-                                  @Lazy SysUserService userService,
-                                  @Lazy SysDeptService deptService) {
+                                  SystemCacheMapper cacheMapper) {
         this.redisService = redisService;
         this.dictService = dictService;
-        this.userService = userService;
-        this.deptService = deptService;
+        this.cacheMapper = cacheMapper;
     }
 
     @Override
@@ -69,7 +65,7 @@ public class SystemCacheServiceImpl implements SystemCacheService {
     @Override
     public void refreshUserCache() {
         redisService.deleteByPrefix(CacheConstants.SYS_USER_KEY);
-        List<SysUser> users = userService.list();
+        List<SysUser> users = cacheMapper.listUsersForCache();
         for (SysUser user : users) {
             Map<String, Object> map = new HashMap<>();
             map.put("id", user.getId());
@@ -85,7 +81,7 @@ public class SystemCacheServiceImpl implements SystemCacheService {
     @Override
     public void refreshDeptCache() {
         redisService.deleteByPrefix(CacheConstants.SYS_DEPT_KEY);
-        List<SysDept> depts = deptService.list();
+        List<SysDept> depts = cacheMapper.listDeptsForCache();
         for (SysDept dept : depts) {
             redisService.setCacheMap(CacheConstants.SYS_DEPT_KEY + dept.getId(), BeanUtil.beanToMap(dept));
         }
@@ -98,4 +94,5 @@ public class SystemCacheServiceImpl implements SystemCacheService {
         refreshUserCache();
         refreshDeptCache();
     }
+
 }

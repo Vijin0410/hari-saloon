@@ -385,8 +385,11 @@ export const fileApi = {
     return post<FileVO, FormData>('/v1/files/upload', form);
   },
   /** 按 objectKey 取可访问 URL（私有桶统一预签名，后端按归属校验）。 */
-  urlByKey(objectKey: string): Promise<string> {
-    return get<string>('/v1/files/url', { params: { objectKey } });
+  urlByKey(objectKey: string, tenantId?: EntityId): Promise<string> {
+    return get<string>('/v1/files/url', {
+      params: { objectKey },
+      headers: tenantId ? { 'X-Tenant-Id': String(tenantId) } : undefined,
+    });
   },
 };
 

@@ -249,6 +249,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     public boolean deleteUsers(String ids) {
         Assert.isTrue(StrUtil.isNotBlank(ids), "删除数据为空");
         List<Long> idList = Arrays.stream(ids.split(",")).map(Long::parseLong).toList();
+        Assert.isTrue(this.count(new LambdaQueryWrapper<SysUser>().in(SysUser::getId, idList))
+                == idList.stream().distinct().count(), "用户不存在或不属于当前租户");
         Long current = SecurityUtils.getUserId();
         if (current != null && idList.contains(current)) {
             throw new BizException(ResultCode.PARAM_ERROR, "不能删除当前登录用户");

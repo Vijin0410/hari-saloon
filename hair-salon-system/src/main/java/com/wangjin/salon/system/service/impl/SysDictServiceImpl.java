@@ -10,6 +10,7 @@ import com.wangjin.common.constant.CacheConstants;
 import com.wangjin.common.constant.SystemConstants;
 import com.wangjin.common.redis.service.RedisService;
 import com.wangjin.common.security.util.SecurityUtils;
+import com.wangjin.common.security.context.TenantContext;
 import com.wangjin.common.web.model.Option;
 import com.wangjin.salon.system.cache.SystemCacheService;
 import com.wangjin.salon.system.converter.DictConverter;
@@ -52,10 +53,8 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict> impl
 
     @Override
     public Page<DictPageVO> getDictPage(DictPageQuery queryParams) {
-        // 字典通用（默认租户1）+ 租户覆盖；ROOT 可按 tenantId 筛选，其余锁定本租户防混排/越权
-        if (!SecurityUtils.isRoot()) {
-            queryParams.setTenantId(SecurityUtils.getTenantId());
-        }
+        // 管理列表固定在操作租户；下拉仍合并通用字典与租户覆盖。
+        queryParams.setTenantId(SecurityUtils.getTenantId());
         Page<SysDict> page = this.page(
                 new Page<>(queryParams.getPageNum(), queryParams.getPageSize()),
                 new LambdaQueryWrapper<SysDict>()
@@ -69,7 +68,8 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict> impl
 
     @Override
     public DictForm getDictForm(Long id) {
-        SysDict entity = this.getById(id);
+        SysDict entity = this.getOne(new LambdaQueryWrapper<SysDict>()
+                .eq(SysDict::getId, id).eq(SysDict::getTenantId, SecurityUtils.getTenantId()));
         Assert.notNull(entity, "字典数据项不存在");
         return dictConverter.entity2Form(entity);
     }
@@ -87,6 +87,7 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict> impl
     @Override
     public boolean updateDict(Long id, DictForm form) {
         Assert.isTrue(SecurityUtils.isRoot(), "字典为全局共享数据，仅系统管理员可维护");
+        getDictForm(id);
         SysDict entity = dictConverter.form2Entity(form);
         entity.setId(id);
         boolean ok = this.updateById(entity);
@@ -101,6 +102,9 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict> impl
         Assert.isTrue(SecurityUtils.isRoot(), "字典为全局共享数据，仅系统管理员可维护");
         Assert.isTrue(StrUtil.isNotBlank(ids), "删除数据为空");
         List<Long> idList = Arrays.stream(ids.split(",")).map(Long::parseLong).toList();
+        Assert.isTrue(this.count(new LambdaQueryWrapper<SysDict>()
+                .in(SysDict::getId, idList).eq(SysDict::getTenantId, SecurityUtils.getTenantId()))
+                == idList.stream().distinct().count(), "字典数据项不存在或不属于当前租户");
         boolean ok = this.removeByIds(idList);
         if (ok) {
             systemCacheService.refreshDictCache();
@@ -114,7 +118,7 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict> impl
         // 与 wj-framework DictAspect 翻译逻辑对齐：通用（默认租户1）+ 当前租户覆盖，同 value 租户覆盖通用；ROOT 只看通用
         Map<String, Option<String>> merged = new LinkedHashMap<>();
         mergeOptions(merged, redisService.getCacheList(CacheConstants.SYS_DICT_KEY + typeCode));
-        if (!SecurityUtils.isRoot()) {
+        if (!SecurityUtils.isRoot() || TenantContext.getTenantId() != null) {
             mergeOptions(merged, redisService.getCacheList(
                     CacheConstants.SYS_DICT_KEY + typeCode + ":" + SecurityUtils.getTenantId()));
         }
@@ -123,7 +127,7 @@ public class SysDictServiceImpl extends ServiceImpl<SysDictMapper, SysDict> impl
         }
         // 缓存未命中回退 DB：默认租户为通用基底，非 ROOT 叠加本租户覆盖（后写覆盖先写）
         fillOptionsFromDb(merged, typeCode, SystemConstants.DEFAULT_TENANT_ID);
-        if (!SecurityUtils.isRoot()) {
+        if (!SecurityUtils.isRoot() || TenantContext.getTenantId() != null) {
             fillOptionsFromDb(merged, typeCode, SecurityUtils.getTenantId());
         }
         return new ArrayList<>(merged.values());
